@@ -1,0 +1,39 @@
+# Project memory for coding agents
+
+Перед изменениями прочитай `docs/product.md`, `docs/architecture.md`, `docs/stack.md` и релевантные ADR.
+
+## Неизменяемые продуктовые правила
+
+- Сервис помогает выбрать направление, но не продаёт и не бронирует поездки.
+- Основной режим — search-based. Fixture dataset допустим только для demo, fallback и тестов.
+- Цены, погода, перелёты и правила въезда приходят из evidence; LLM не является источником фактов.
+- У каждого существенного факта есть URL, время получения, тип источника, excerpt и confidence.
+- Уточняем максимум три вопроса за раз. P0 останавливают pipeline; P1/P2 по возможности получают явно показанный default.
+- Hard filters и scoring детерминированы и тестируются. LLM не назначает итоговый score.
+- Частичный отказ провайдера даёт partial result с warnings, а не необработанную ошибку.
+- MVP не является multi-agent системой и не использует RAG как энциклопедию направлений.
+
+## Архитектурные ограничения
+
+- LangGraph используется как явная state machine, не как автономный агент.
+- Узлы зависят от application ports, а не от SDK конкретного LLM или search-провайдера.
+- AI client создаётся один раз в lifespan приложения и передаётся через runtime context/dependencies. Не создавать клиент внутри graph nodes.
+- Graph state содержит сериализуемые данные и ссылки/идентификаторы, но не сетевые клиенты, DB connections или секреты.
+- Side effects должны быть идемпотентными и вынесены в отдельные узлы, особенно рядом с LangGraph interrupts.
+- Для local/dev допустим SQLite checkpointer; production target — PostgreSQL checkpointer.
+- Observability вызывается через тонкий порт с no-op реализацией. Langfuse подключается адаптером без переписывания бизнес-узлов.
+
+## Что пока не решено
+
+- LLM provider/model.
+- Search provider и специализированные flight/hotel sources.
+- Production hosting и managed PostgreSQL.
+
+Не превращай открытые решения в скрытые предположения. Сначала обнови ADR, затем код.
+
+## Definition of done для будущих изменений
+
+- Обновлены затронутые документы и ADR.
+- Доменная логика не зависит от внешнего SDK.
+- Есть unit tests для детерминированной логики и mocked integration tests для внешних вызовов.
+- В логах и traces нет API keys, полных секретов и лишних персональных данных.
