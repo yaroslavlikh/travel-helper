@@ -85,6 +85,33 @@ class SourceEvidence(DomainModel):
     confidence: float = Field(ge=0, le=1)
 
 
+class DestinationImage(DomainModel):
+    """Credited real-place image; generated imagery is not used as destination evidence."""
+
+    url: str
+    source_url: str
+    alt: str
+    credit: str
+
+
+class DestinationPlace(DomainModel):
+    """Concrete neighborhood or sight that helps a user understand the destination."""
+
+    name: str
+    category: Literal["area", "beach", "sight", "nature"]
+    description: str
+    url: str
+
+
+class ExternalTravelLink(DomainModel):
+    """Navigation link, never evidence of current availability or price."""
+
+    title: str
+    provider: str
+    category: Literal["stay", "activity", "package_tour"]
+    url: str
+
+
 class DestinationCandidate(DomainModel):
     """Normalized travel option; estimate fields are ranges, never fabricated point prices."""
 
@@ -109,6 +136,10 @@ class DestinationCandidate(DomainModel):
     destination_tags: list[str] = Field(default_factory=list)
     matched_preferences: list[str] = Field(default_factory=list)
     violated_preferences: list[str] = Field(default_factory=list)
+    image: DestinationImage | None = None
+    highlights: list[DestinationPlace] = Field(default_factory=list)
+    stay_areas: list[str] = Field(default_factory=list)
+    external_links: list[ExternalTravelLink] = Field(default_factory=list)
     sources: list[SourceEvidence] = Field(default_factory=list)
     data_confidence: float | None = Field(default=None, ge=0, le=1)
     retrieved_at: datetime | None = None

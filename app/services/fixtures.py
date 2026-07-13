@@ -9,16 +9,21 @@ from typing import Any
 
 from app.domain.models import DestinationCandidate, SourceEvidence
 
-DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "destinations.fixture.json"
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+DATA_PATH = DATA_DIR / "destinations.fixture.json"
+CONTENT_PATH = DATA_DIR / "destination-content.fixture.json"
 
 
 def load_demo_candidates() -> list[DestinationCandidate]:
     """Load synthetic fixture data; callers must expose demo mode to users."""
 
     payload: dict[str, Any] = json.loads(DATA_PATH.read_text(encoding="utf-8"))
+    content_payload: dict[str, Any] = json.loads(CONTENT_PATH.read_text(encoding="utf-8"))
+    content_by_destination: dict[str, Any] = content_payload["destinations"]
     retrieved_at = datetime.now(UTC)
     candidates: list[DestinationCandidate] = []
     for item in payload["destinations"]:
+        content = content_by_destination[item["id"]]
         total_min = item["total_min"]
         total_max = item["total_max"]
         source = SourceEvidence(
@@ -51,6 +56,10 @@ def load_demo_candidates() -> list[DestinationCandidate]:
                 entry_requirements=item["entry"],
                 visa_complexity=item["visa"],
                 destination_tags=item["tags"],
+                image=content["image"],
+                highlights=content["highlights"],
+                stay_areas=content["stay_areas"],
+                external_links=content["external_links"],
                 sources=[source],
                 data_confidence=source.confidence,
                 retrieved_at=retrieved_at,

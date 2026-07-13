@@ -1,0 +1,149 @@
+{
+  "dataset_type": "demo_navigation_content",
+  "notice": "Images and navigation links are illustrative. Availability, tours and accommodation prices are not verified.",
+  "destinations": {
+    "sochi": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Sochi_Marina.jpg/1280px-Sochi_Marina.jpg","source_url":"https://commons.wikimedia.org/wiki/File:Sochi_Marina.jpg","alt":"Морской вокзал и марина Сочи","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Морской вокзал","category":"sight","description":"Центральная набережная, прогулки и городская инфраструктура.","url":"https://www.google.com/maps/search/?api=1&query=Морской+вокзал+Сочи"},
+        {"name":"Имеретинская бухта","category":"area","description":"Длинная набережная и более спокойный формат у моря.","url":"https://www.google.com/maps/search/?api=1&query=Имеретинская+бухта"}
+      ],
+      "stay_areas": ["Центральный Сочи", "Имеретинская бухта"],
+      "external_links": [
+        {"title":"Проживание в Сочи","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/sochi/"},
+        {"title":"Экскурсии в Сочи","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Sochi/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Сочи"}
+      ]
+    },
+    "kaliningrad": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/0/05/Kaliningrad_Montage_%282016%29.png","source_url":"https://commons.wikimedia.org/wiki/File:Kaliningrad_Montage_(2016).png","alt":"Коллаж с видами Калининграда","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Куршская коса","category":"nature","description":"Национальный парк, дюны и побережье Балтийского моря.","url":"https://www.google.com/maps/search/?api=1&query=Куршская+коса"},
+        {"name":"Зеленоградск","category":"area","description":"Курортный город у моря для размещения вне Калининграда.","url":"https://www.google.com/maps/search/?api=1&query=Зеленоградск"}
+      ],
+      "stay_areas": ["Центр Калининграда", "Зеленоградск у моря"],
+      "external_links": [
+        {"title":"Проживание в регионе","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/kaliningrad/"},
+        {"title":"Экскурсии по области","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Kaliningrad/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=туры+в+Калининградскую+область"}
+      ]
+    },
+    "antalya": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Falezlerden_Antalya_Konyaalt%C4%B1_Plaj%C4%B1na_do%C4%9Fru_bir_g%C3%B6r%C3%BCn%C3%BCm.jpg/1280px-Falezlerden_Antalya_Konyaalt%C4%B1_Plaj%C4%B1na_do%C4%9Fru_bir_g%C3%B6r%C3%BCn%C3%BCm.jpg","source_url":"https://commons.wikimedia.org/wiki/File:Falezlerden_Antalya_Konyaalt%C4%B1_Plaj%C4%B1na_do%C4%9Fru_bir_g%C3%B6r%C3%BCn%C3%BCm.jpg","alt":"Побережье и пляж Коньяалты в Анталье","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Калеичи","category":"area","description":"Старый город, гавань и небольшие городские отели.","url":"https://www.google.com/maps/search/?api=1&query=Kaleiçi+Antalya"},
+        {"name":"Пляж Коньяалты","category":"beach","description":"Городской пляж с видом на горы и развитой набережной.","url":"https://www.google.com/maps/search/?api=1&query=Konyaaltı+Beach"}
+      ],
+      "stay_areas": ["Калеичи", "Коньяалты или Лара"],
+      "external_links": [
+        {"title":"Проживание в Анталье","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/antalya/"},
+        {"title":"Экскурсии и активности","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Antalya/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Анталью"}
+      ]
+    },
+    "bodrum": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Marina%2C_Bodrum_-_panoramio_%282%29.jpg/1280px-Marina%2C_Bodrum_-_panoramio_%282%29.jpg","source_url":"https://commons.wikimedia.org/wiki/File:Marina,_Bodrum_-_panoramio_(2).jpg","alt":"Марина и белые дома Бодрума","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Замок Святого Петра","category":"sight","description":"Главная историческая точка у гавани Бодрума.","url":"https://www.google.com/maps/search/?api=1&query=Bodrum+Castle"},
+        {"name":"Битез","category":"beach","description":"Более спокойная бухта для пляжного размещения.","url":"https://www.google.com/maps/search/?api=1&query=Bitez+Beach"}
+      ],
+      "stay_areas": ["Центр и марина", "Битез или Гюмбет"],
+      "external_links": [
+        {"title":"Проживание в Бодруме","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/bodrum/"},
+        {"title":"Экскурсии и прогулки","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Bodrum/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Бодрум"}
+      ]
+    },
+    "hurghada": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Hurghada_Aerial_View_R02.jpg/1280px-Hurghada_Aerial_View_R02.jpg","source_url":"https://commons.wikimedia.org/wiki/File:Hurghada_Aerial_View_R02.jpg","alt":"Побережье Хургады с высоты","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Хургада Марина","category":"area","description":"Рестораны, прогулки и удобная городская база.","url":"https://www.google.com/maps/search/?api=1&query=Hurghada+Marina"},
+        {"name":"Сахл-Хашиш","category":"beach","description":"Курортная зона южнее города с отельными пляжами.","url":"https://www.google.com/maps/search/?api=1&query=Sahl+Hasheesh"}
+      ],
+      "stay_areas": ["Марина и Эль-Мамша", "Сахл-Хашиш"],
+      "external_links": [
+        {"title":"Проживание в Хургаде","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/hurghada/"},
+        {"title":"Морские активности","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Hurghada/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Хургаду"}
+      ]
+    },
+    "sharm": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Sharm_El_Sheikh._Naama_Bay..jpg/1280px-Sharm_El_Sheikh._Naama_Bay..jpg","source_url":"https://commons.wikimedia.org/wiki/File:Sharm_El_Sheikh._Naama_Bay..jpg","alt":"Бухта Наама-Бей в Шарм-эш-Шейхе","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Наама-Бей","category":"area","description":"Оживлённая бухта с набережной и ресторанами.","url":"https://www.google.com/maps/search/?api=1&query=Naama+Bay"},
+        {"name":"Рас-Мохаммед","category":"nature","description":"Национальный парк и популярная зона для снорклинга.","url":"https://www.google.com/maps/search/?api=1&query=Ras+Mohammed+National+Park"}
+      ],
+      "stay_areas": ["Наама-Бей", "Шаркс-Бей или Хадаба"],
+      "external_links": [
+        {"title":"Проживание в Шарм-эш-Шейхе","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/sharm-el-sheikh/"},
+        {"title":"Экскурсии и дайвинг","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Sharm-el-Sheikh/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Шарм-эш-Шейх"}
+      ]
+    },
+    "batumi": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Batumi_sunset_2.jpg/1280px-Batumi_sunset_2.jpg","source_url":"https://commons.wikimedia.org/wiki/File:Batumi_sunset_2.jpg","alt":"Закат над набережной Батуми","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Старый Батуми","category":"area","description":"Компактные кварталы, кафе и пешая доступность к бульвару.","url":"https://www.google.com/maps/search/?api=1&query=Old+Batumi"},
+        {"name":"Ботанический сад","category":"nature","description":"Большой сад на зелёном побережье к северу от города.","url":"https://www.google.com/maps/search/?api=1&query=Batumi+Botanical+Garden"}
+      ],
+      "stay_areas": ["Старый город", "Новый бульвар или Гонио"],
+      "external_links": [
+        {"title":"Проживание в Батуми","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/batumi/"},
+        {"title":"Экскурсии из Батуми","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Batumi/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Батуми"}
+      ]
+    },
+    "dubai": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/8/86/DubaiCollage.jpg","source_url":"https://commons.wikimedia.org/wiki/File:DubaiCollage.jpg","alt":"Коллаж с районами и достопримечательностями Дубая","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Dubai Marina","category":"area","description":"Высотная набережная рядом с пляжем JBR.","url":"https://www.google.com/maps/search/?api=1&query=Dubai+Marina"},
+        {"name":"Старый Дубай","category":"sight","description":"Аль-Фахиди, рынки и переправа через Dubai Creek.","url":"https://www.google.com/maps/search/?api=1&query=Al+Fahidi+Dubai"}
+      ],
+      "stay_areas": ["Dubai Marina и JBR", "Downtown или Deira"],
+      "external_links": [
+        {"title":"Проживание в Дубае","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/dubai/"},
+        {"title":"Билеты и активности","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Dubai/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Дубай"}
+      ]
+    },
+    "budva": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/View_over_the_Old_Town_of_Budva_from_the_Citadel.jpg/1280px-View_over_the_Old_Town_of_Budva_from_the_Citadel.jpg","source_url":"https://commons.wikimedia.org/wiki/File:View_over_the_Old_Town_of_Budva_from_the_Citadel.jpg","alt":"Старый город Будвы и Адриатическое море","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Старый город Будвы","category":"sight","description":"Крепостные стены, узкие улицы и небольшие пляжи рядом.","url":"https://www.google.com/maps/search/?api=1&query=Budva+Old+Town"},
+        {"name":"Бечичи","category":"beach","description":"Длинный пляж и курортная зона восточнее Будвы.","url":"https://www.google.com/maps/search/?api=1&query=Bečići+Beach"}
+      ],
+      "stay_areas": ["Старый город и Словенска плажа", "Бечичи"],
+      "external_links": [
+        {"title":"Проживание в Будве","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/budva/"},
+        {"title":"Экскурсии по побережью","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Budva/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Будву"}
+      ]
+    },
+    "phuket": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/9/9c/Flickr_-_Shinrya_-_Paradise_in_Phuket.jpg","source_url":"https://commons.wikimedia.org/wiki/File:Flickr_-_Shinrya_-_Paradise_in_Phuket.jpg","alt":"Тропическое побережье Пхукета","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Ката и Карон","category":"beach","description":"Два популярных пляжных района с разным ритмом.","url":"https://www.google.com/maps/search/?api=1&query=Kata+Karon+Phuket"},
+        {"name":"Старый Пхукет","category":"sight","description":"Цветная сино-португальская архитектура и кафе.","url":"https://www.google.com/maps/search/?api=1&query=Old+Phuket+Town"}
+      ],
+      "stay_areas": ["Ката или Карон", "Камала или Банг-Тао"],
+      "external_links": [
+        {"title":"Проживание на Пхукете","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/phuket/"},
+        {"title":"Острова и активности","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Phuket/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+на+Пхукет"}
+      ]
+    },
+    "nhatrang": {
+      "image": {"url":"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Nha_Trang%2C_Kh%C3%A1nh_H%C3%B2a.png/1280px-Nha_Trang%2C_Kh%C3%A1nh_H%C3%B2a.png","source_url":"https://commons.wikimedia.org/wiki/File:Nha_Trang,_Kh%C3%A1nh_H%C3%B2a.png","alt":"Побережье и город Нячанг","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Набережная Чанфу","category":"area","description":"Центральный пляж, городские отели и рестораны.","url":"https://www.google.com/maps/search/?api=1&query=Tran+Phu+Beach+Nha+Trang"},
+        {"name":"Башни По Нагар","category":"sight","description":"Исторический комплекс чамской архитектуры.","url":"https://www.google.com/maps/search/?api=1&query=Po+Nagar+Cham+Towers"}
+      ],
+      "stay_areas": ["Набережная Чанфу", "Хон Чонг"],
+      "external_links": [
+        {"title":"Проживание в Нячанге","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/nha-trang/"},
+        {"title":"Экскурсии и острова","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Nha-Trang/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Нячанг"}
+      ]
+    }
+  }
+}

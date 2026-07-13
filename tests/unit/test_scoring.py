@@ -36,3 +36,22 @@ def test_scoring_is_deterministic_and_retains_sources() -> None:
     ranked = rank_demo_candidates(request)
     assert ranked == sorted(ranked, key=lambda item: item.total_score, reverse=True)
     assert all(item.candidate.sources for item in ranked)
+
+
+def test_demo_candidates_include_credited_places_and_navigation_links() -> None:
+    candidates = load_demo_candidates()
+
+    assert candidates
+    for candidate in candidates:
+        assert candidate.image is not None
+        assert "commons.wikimedia.org" in candidate.image.source_url
+        assert len(candidate.highlights) >= 2
+        assert all(
+            place.url.startswith("https://www.google.com/maps/") for place in candidate.highlights
+        )
+        assert candidate.stay_areas
+        assert {link.category for link in candidate.external_links} == {
+            "activity",
+            "package_tour",
+            "stay",
+        }
