@@ -4,7 +4,16 @@
 
 ## Slice 0 — project skeleton
 
-Результат: FastAPI app запускается, settings валидируются, resources создаются в lifespan, `GET /health` различает live/ready/demo. Есть lint/type/test commands и CI. Внешних вызовов нет.
+Результат: FastAPI app запускается, settings валидируются, resources создаются в lifespan, `GET /health` различает live/ready/demo. Внешних вызовов нет.
+
+Developer experience входит в slice, а не откладывается на потом:
+
+- `uv` lock и воспроизводимый bootstrap;
+- self-documenting `Makefile` с targets из `CONTRIBUTING.md`;
+- Ruff formatting/lint, выбранный type checker и pytest;
+- один немутирующий `make check` как локальный и CI quality gate;
+- pre-commit только как удобный быстрый feedback, не как единственное место проверок;
+- CI запускает те же make targets, что и разработчик локально.
 
 ## Slice 1 — clarification loop
 
