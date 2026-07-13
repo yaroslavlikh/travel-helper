@@ -1,6 +1,6 @@
 # Technology stack
 
-Статус: proposed baseline. Конкретные версии фиксируются lock-файлом только при начале реализации.
+Статус: accepted baseline. Конкретные версии фиксируются `uv.lock`.
 
 ## Рекомендованный baseline
 
@@ -14,8 +14,8 @@
 | HTTP client | httpx | Async client, timeouts, transport mocking |
 | Persistence | SQLite local/dev; PostgreSQL production | Простота локально, durable concurrent checkpointer публично |
 | Frontend | HTML/CSS/vanilla JS | Достаточно для одной страницы без отдельной frontend platform |
-| Tests | pytest, pytest-asyncio, respx | Unit и network-independent integration tests |
-| Quality | Ruff; Pyright или mypy | Форматирование/lint и проверка типов без тяжёлого toolchain |
+| Tests | pytest, pytest-asyncio | Unit и network-independent in-process integration tests |
+| Quality | Ruff + mypy | Форматирование/lint и строгая проверка типов без тяжёлого toolchain |
 | Observability | structured logs + observability port; Langfuse adapter | Бизнес-код трассируется, но не зависит от наличия Langfuse |
 | Packaging | Docker | Одинаковый runtime локально и на хостинге |
 
@@ -62,9 +62,9 @@ LangChain `init_chat_model` может быть внутренним механ�
 
 SQLite не рекомендуется для публичного многопроцессного deployment: ограничения конкурентной записи и локального диска усложнят эксплуатацию сильнее, чем маленький managed PostgreSQL.
 
-## Langfuse-ready, но не Langfuse-dependent
+## Langfuse-connected, но не Langfuse-dependent
 
-Первая реализация получает интерфейс observability с no-op backend и structured logs. Позже Langfuse adapter подключает root trace и spans/generations к тем же stage boundaries. Langfuse поддерживает LangChain/LangGraph и основывается на OpenTelemetry, поэтому эта граница не требует менять graph topology. См. [Langfuse integrations](https://langfuse.com/integrations) и [observability concepts](https://langfuse.com/docs/observability/overview).
+Интерфейс observability имеет no-op backend и Langfuse adapter, который подключается environment configuration и отправляет root trace/spans/generations на тех же stage boundaries. При отсутствии credentials бизнес-пайплайн продолжает работать без изменения graph topology. См. [Langfuse integrations](https://langfuse.com/integrations) и [observability concepts](https://langfuse.com/docs/observability/overview).
 
 ## Что намеренно не добавляем
 
@@ -84,4 +84,3 @@ SQLite не рекомендуется для публичного многоп�
 | Flight/hotel providers | После проверки general search | Доступность API и качество диапазонов |
 | Hosting | Перед public beta | Managed Postgres, TLS, region, logs, predictable cost |
 | Retention period | До сбора public events | Privacy, debugging need, стоимость |
-| Type checker | В начале реализации | Командный опыт; Pyright предпочтителен для быстрого feedback |

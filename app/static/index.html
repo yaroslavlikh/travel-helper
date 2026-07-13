@@ -3,57 +3,102 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1677ff" />
-    <title>Пора в путь — Travel Choice Assistant</title>
+    <meta name="theme-color" content="#0b84ff" />
+    <title>Пора в путь — AI-помощник для путешествий</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <div class="sky-orb orb-one"></div><div class="sky-orb orb-two"></div>
-    <header class="topbar container">
-      <a class="brand" href="/" aria-label="Пора в путь">
-        <span class="brand-mark">✈</span><span>Пора в путь</span>
-      </a>
-      <span class="demo-badge">DEMO · данные-подсказки</span>
-    </header>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="История чатов">
+        <a class="brand" href="/" aria-label="Пора в путь">
+          <span class="brand-mark" aria-hidden="true">✈</span>
+          <span><strong>Пора в путь</strong><small>AI travel copilot</small></span>
+        </a>
 
-    <main class="container">
-      <section class="hero" aria-labelledby="hero-title">
-        <p class="eyebrow">Умный выбор направления</p>
-        <h1 id="hero-title">Путешествие начинается<br /><em>с хорошего вопроса.</em></h1>
-        <p class="hero-copy">Опишите поездку своими словами — покажем небольшой shortlist с бюджетом, погодой, рисками и понятными причинами.</p>
+        <button id="new-chat" class="new-chat-button" type="button">
+          <span aria-hidden="true">＋</span> Новый чат
+        </button>
 
-        <form id="query-form" class="search-panel">
-          <label class="sr-only" for="query">Расскажите о поездке</label>
-          <textarea id="query" name="query" rows="3" required placeholder="Например: из Москвы на море в августе, 7–10 дней, бюджет 150 тысяч на одного, без сильной жары"></textarea>
-          <div class="search-panel-bottom">
-            <span class="hint"><span class="spark">✦</span> Можно писать как другу</span>
-            <button id="submit-button" class="primary-button" type="submit"><span>Подобрать</span><span class="button-plane">→</span></button>
-          </div>
-        </form>
+        <div class="history-heading">Недавние поездки</div>
+        <nav id="chat-list" class="chat-list"></nav>
 
-        <div class="chips" aria-label="Примеры запросов">
-          <button type="button" class="chip" data-query="Из Москвы на море в августе на 7–10 дней, бюджет 150 тысяч на одного, не люблю сильную жару, за границу">Море без жары</button>
-          <button type="button" class="chip" data-query="Из Санкт-Петербурга на море в сентябре, нас двое, за границу, без визы, максимум четыре часа перелета, бюджет 180 тысяч">Без визы на двоих</button>
-          <button type="button" class="chip" data-query="Из Москвы по России на море в августе, на неделю, бюджет 100 тысяч на одного">Отдых по России</button>
+        <div class="sidebar-note">
+          <span class="status-dot"></span>
+          <div><strong>Демо-режим</strong><small>Цены и наличие не проверяются</small></div>
         </div>
-      </section>
+      </aside>
 
-      <section id="progress" class="progress-card hidden" aria-live="polite">
-        <div class="loader"></div><div><strong id="progress-title">Понимаем ваш запрос</strong><p id="progress-copy">Собираем важные ограничения для поездки.</p></div>
-      </section>
+      <main class="conversation-panel">
+        <header class="conversation-header">
+          <div>
+            <span class="mobile-logo">✈</span>
+            <h1 id="chat-title">Новая поездка</h1>
+            <p id="chat-status">Расскажите, куда хочется</p>
+          </div>
+          <button id="mobile-new-chat" class="icon-button" type="button" aria-label="Новый чат">＋</button>
+        </header>
 
-      <section id="clarification" class="clarification hidden" aria-live="polite"></section>
+        <div class="mobile-switch" role="tablist" aria-label="Разделы">
+          <button class="mobile-tab active" type="button" data-view="chat" role="tab">Чат</button>
+          <button class="mobile-tab" type="button" data-view="feed" role="tab">
+            Варианты <span id="mobile-count">0</span>
+          </button>
+        </div>
 
-      <section id="results" class="results hidden" aria-live="polite">
-        <div class="result-heading"><div><p class="eyebrow">Ваш shortlist</p><h2>Варианты, с которых стоит начать</h2></div><button id="restart" type="button" class="text-button">Новый поиск</button></div>
-        <div id="assumptions" class="assumptions"></div>
+        <section id="chat-view" class="chat-view">
+          <div id="message-list" class="message-list" aria-live="polite"></div>
+          <div id="typing" class="typing hidden" aria-live="polite">
+            <span class="avatar assistant-avatar">✦</span>
+            <span class="typing-bubble"><i></i><i></i><i></i></span>
+          </div>
+
+          <div class="starter-zone" id="starter-zone">
+            <p>Можно начать с примера</p>
+            <div class="starter-chips">
+              <button type="button" data-starter="Из Москвы на море в августе на 7–10 дней, бюджет 150 тысяч на одного, без сильной жары, за границу">Море без жары</button>
+              <button type="button" data-starter="Из Санкт-Петербурга на море в сентябре, нас двое, без визы, максимум четыре часа перелёта, бюджет 180 тысяч">Без визы на двоих</button>
+              <button type="button" data-starter="Из Москвы по России на море в августе, на неделю, бюджет 100 тысяч на одного">По России</button>
+            </div>
+          </div>
+
+          <form id="composer" class="composer">
+            <label class="sr-only" for="message-input">Сообщение помощнику</label>
+            <textarea id="message-input" rows="1" maxlength="4000" placeholder="Опишите поездку или уточните условия…" required></textarea>
+            <button id="send-button" type="submit" aria-label="Отправить">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 9-18 9 3.7-9L3 3Zm3.2 8h8.3L7.4 7.5 6.2 11Zm1.2 5.5 7.1-3.5H6.2l1.2 3.5Z"/></svg>
+            </button>
+          </form>
+          <p class="composer-note">Ответы сохраняются в этом чате · Enter — отправить, Shift+Enter — новая строка</p>
+        </section>
+      </main>
+
+      <section id="feed-panel" class="feed-panel" aria-label="Лента вариантов">
+        <header class="feed-header">
+          <div>
+            <span class="feed-kicker">Живая подборка</span>
+            <h2>Куда можно поехать</h2>
+          </div>
+          <span id="result-count" class="result-count">0 вариантов</span>
+        </header>
+        <div id="criteria" class="criteria"></div>
+        <div id="feed-empty" class="feed-empty">
+          <div class="empty-illustration"><span>✦</span><i>✈</i></div>
+          <h3>Здесь появятся места</h3>
+          <p>Обсудите поездку в чате — я покажу конкретные города, районы и идеи для отдыха.</p>
+        </div>
+        <div id="feed-update" class="feed-update hidden"></div>
         <div id="recommendation-list" class="recommendation-list"></div>
-        <div id="warnings" class="warnings"></div>
-        <div class="feedback-panel"><div><strong>Полезная подборка?</strong><p>Это поможет улучшать следующие рекомендации.</p></div><div class="feedback-actions"><button class="feedback-button" data-value="up" type="button">👍 Да</button><button class="feedback-button" data-value="down" type="button">👎 Не очень</button></div></div>
+        <div id="feed-notices" class="feed-notices"></div>
       </section>
-    </main>
-    <footer class="container footer">Пора в путь · не бронируем поездки · <a href="/docs" target="_blank" rel="noreferrer">API</a></footer>
-    <template id="question-template"><form class="question-card"><p class="eyebrow">Нужно уточнение</p><h2>Пара коротких вопросов — и продолжим</h2><div class="question-list"></div><button class="primary-button" type="submit">Продолжить <span class="button-plane">→</span></button></form></template>
+    </div>
+
+    <template id="question-template">
+      <form class="question-block">
+        <div class="question-items"></div>
+        <button class="question-submit" type="submit">Сохранить ответы <span>→</span></button>
+      </form>
+    </template>
+
     <script src="/static/app.js" defer></script>
   </body>
 </html>

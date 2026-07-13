@@ -37,13 +37,15 @@ make check
 - Завершён Slice 0: FastAPI app, typed settings, startup lifecycle, provider-neutral `ModelGateway`, LangGraph workflow shell, `/health`, Dockerfile, Makefile и CI.
 - Завершён Slice 1: typed `TravelRequest`, детерминированный demo-extractor, P0/P1/P2 rules и checkpointed `/recommend` clarification/resume.
 - Завершён Slice 2: 11 явно помеченных demo fixtures, auditable hard filters, JSON-конфигурация весов и детерминированный scoring с sources/risks.
-- Завершён Slice 4: responsive веб-интерфейс в бело-синей палитре, примеры запросов, уточняющие вопросы, карточки рекомендаций и anonymous feedback.
+- Завершён Slice 4: chat-first responsive UI, несколько локально сохранённых чатов, многораундовые уточнения и живая лента конкретных направлений.
+- Вопросы и ответы остаются в transcript; критерии thread сохраняются в SQLite LangGraph checkpointer, а браузерное представление — в `localStorage`.
+- Demo-карточки содержат реальные credited-фотографии, районы, достопримечательности и внешние переходы к поиску проживания, активностей и туров. Эти ссылки не подтверждают цену или наличие.
 - Для AI extraction выбран Gemini 3.1 Flash-Lite через provider-neutral gateway; без ключа или при сбое development demo использует явно отмеченный deterministic fallback.
 - Langfuse подключается через optional environment configuration; без credentials используется no-op exporter.
 - Режим без API-ключей — явный `demo`; `/health` возвращает `degraded`, а не имитирует live-провайдеры.
 - Feedback хранится только в памяти процесса и предназначен для локальной отладки; перед публичным запуском нужен persistent storage.
-- Следующий Slice: live search/weather adapters и partial failure handling.
-- Открыто: конкретный LLM и его провайдер, поисковый API, production hosting.
+- Следующий Slice: live search/weather/travel adapters и partial failure handling.
+- Открыто: LLM для public beta, поисковые и travel API, production hosting.
 
 ## Текущая структура
 

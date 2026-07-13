@@ -56,10 +56,28 @@ def _turn_message(
         suffix = "вопрос" if question_count == 1 else "вопроса"
         return f"Я сохранил условия поездки. Осталось уточнить {question_count} {suffix}."
     if turn_kind == "refinement":
-        return f"Учёл уточнение и обновил ленту: сейчас в ней {recommendation_count} вариантов."
+        return (
+            "Учёл уточнение и обновил ленту: сейчас в ней "
+            f"{_recommendation_count_label(recommendation_count)}."
+        )
     if turn_kind == "clarification":
-        return f"Спасибо, сохранил ответ и собрал {recommendation_count} вариантов."
-    return f"Я разобрал запрос и собрал {recommendation_count} вариантов для сравнения."
+        return (
+            f"Спасибо, сохранил ответ и собрал {_recommendation_count_label(recommendation_count)}."
+        )
+    return (
+        f"Я разобрал запрос и собрал {_recommendation_count_label(recommendation_count)} "
+        "для сравнения."
+    )
+
+
+def _recommendation_count_label(count: int) -> str:
+    last = count % 10
+    last_two = count % 100
+    if last == 1 and last_two != 11:
+        return f"{count} вариант"
+    if last in {2, 3, 4} and last_two not in {12, 13, 14}:
+        return f"{count} варианта"
+    return f"{count} вариантов"
 
 
 @router.post("/feedback", status_code=status.HTTP_204_NO_CONTENT)

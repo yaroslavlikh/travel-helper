@@ -1,6 +1,6 @@
 # Implementation plan
 
-Статус: завершены Slice 0–2 и Slice 4; Slice 3 и Slice 5 остаются предложенными. Начинать только после согласования открытых решений, необходимых для соответствующего slice.
+Статус: завершены Slice 0–2 и Slice 4; Slice 3 остаётся следующим продуктовым этапом, а Slice 5 частично реализован observability-адаптером.
 
 ## Slice 0 — project skeleton
 
@@ -23,7 +23,7 @@ Developer experience входит в slice, а не откладывается �
 
 Критические тесты: structured validation, P0/P1/P2, максимум три вопроса, отсутствие повторных вопросов, merge answers, resume same thread, idempotent replay.
 
-Статус: completed. `POST /recommend` использует in-memory checkpoint для anonymous session, возвращает discriminated `needs_clarification` или `partial`. Gemini 3.1 Flash-Lite добавляется как первый structured extractor, а детерминированный extractor сохраняется как явно отмеченный demo fallback.
+Статус: completed. `POST /recommend` использует SQLite checkpoint локально и in-memory checkpoint в тестах, возвращает discriminated `needs_clarification`, `completed` или `partial`. Gemini 3.1 Flash-Lite используется как structured extractor, а детерминированный extractor сохраняется как явно отмеченный demo fallback. Несколько раундов вопросов merge-ятся без потери предыдущих ответов.
 
 ## Slice 2 — deterministic recommendations in demo mode
 
@@ -43,10 +43,10 @@ Developer experience входит в slice, а не откладывается �
 
 Результат: одна responsive страница с examples, staged loading, clarification, assumptions, 3–5 cards, expandable evidence и feedback. API и UI явно показывают demo/partial/freshness.
 
-Статус: in progress. Статический frontend отдаётся FastAPI по `/`. Chat-first revision добавляет
+Статус: completed. Статический frontend отдаётся FastAPI по `/`. Chat-first UI поддерживает
 несколько локально сохранённых threads, автоматически открытый первый chat, сохранённые вопросы,
 refinement существующего TravelRequest и отдельную живую ленту с фотографиями, конкретными местами
-и внешними navigation links. `POST /feedback` принят для локальной продуктовой проверки, но
+и внешними navigation links. Desktop и mobile сценарии проверены в реальном браузере. `POST /feedback` принят для локальной продуктовой проверки, но
 сохраняет события только в памяти процесса и не является production-хранилищем.
 
 ## Slice 5 — observability and public hardening

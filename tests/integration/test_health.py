@@ -112,4 +112,6 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
 
     assert page.status_code == 200
     assert "Пора в путь" in page.text
+    assert "AI travel copilot" in page.text
+    assert "Живая подборка" in page.text
     assert feedback.status_code == 204
