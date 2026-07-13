@@ -27,3 +27,14 @@ def test_answers_merge_without_rewriting_known_request_fields() -> None:
     assert request.origin_city == "Москва"
     assert request.destination_scope == "international"
     assert request.visa_willingness == "no_visa"
+
+
+def test_extracts_russian_number_words_for_travelers_and_flight_limit() -> None:
+    request = extract_travel_request(
+        "Из Санкт-Петербурга на море в сентябре на неделю, нас двое, "
+        "за границу, максимум четыре часа перелета, бюджет 180 тысяч"
+    )
+
+    assert request.adults == 2
+    assert request.duration_nights_min == 7
+    assert request.max_flight_duration_hours == 4

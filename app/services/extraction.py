@@ -30,6 +30,15 @@ ORIGIN_BY_FRAGMENT = {
     "екатеринбург": ("Екатеринбург", "Россия"),
 }
 
+NUMBER_WORDS = {
+    "один": 1,
+    "двое": 2,
+    "два": 2,
+    "три": 3,
+    "трое": 3,
+    "четыре": 4,
+}
+
 
 def _parse_budget_rub(text: str) -> int | None:
     match = re.search(r"(\d+(?:[\s\u00a0]\d{3})?)\s*(?:тыс(?:яч[аи])?\.?|к\b)", text)
@@ -47,6 +56,8 @@ def _parse_duration_nights(text: str) -> tuple[int | None, int | None]:
     if single:
         value = int(single.group(1))
         return value, value
+    if "недел" in text:
+        return 7, 7
     return None, None
 
 
@@ -80,7 +91,7 @@ def extract_travel_request(raw_query: str, answers: dict[str, Any] | None = None
 
     if "на одного" in text or "один взросл" in text:
         values["adults"] = 1
-    elif re.search(r"двое\s+(?:взросл|человек)", text):
+    elif re.search(r"(?:нас\s+)?двое(?:\s+(?:взросл|человек))?", text):
         values["adults"] = 2
     elif re.search(r"трое\s+(?:взросл|человек)", text):
         values["adults"] = 3
@@ -105,9 +116,15 @@ def extract_travel_request(raw_query: str, answers: dict[str, Any] | None = None
     temperature_match = re.search(r"не выше\s*(\d{2}(?:[.,]\d+)?)\s*(?:°|град)", text)
     if temperature_match:
         values["preferred_max_temperature_c"] = float(temperature_match.group(1).replace(",", "."))
-    flight_match = re.search(r"(?:не больше|максимум|до)\s*(\d+(?:[.,]\d+)?)\s*час", text)
+    flight_match = re.search(
+        r"(?:не больше|максимум|до)\s*(\d+(?:[.,]\d+)?|один|два|три|четыре)\s*час",
+        text,
+    )
     if flight_match:
-        values["max_flight_duration_hours"] = float(flight_match.group(1).replace(",", "."))
+        flight_value = flight_match.group(1)
+        values["max_flight_duration_hours"] = float(
+            NUMBER_WORDS.get(flight_value, flight_value.replace(",", "."))
+        )
     if "без пересад" in text:
         values["preferences"] = ["без пересадок"]
     if "без виз" in text:
