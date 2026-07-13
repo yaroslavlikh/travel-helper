@@ -1,0 +1,110 @@
+"""FastAPI application entrypoint and lifecycle resource composition."""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import Literal, cast
+
+import httpx
+from fastapi import FastAPI, Request
+from langgraph.checkpoint.memory import InMemorySaver
+from pydantic import BaseModel
+
+from app.core.config import Settings, get_settings
+from app.core.logging import configure_logging
+from app.observability.port import NoopObservability, ObservabilityPort
+from app.services.model_gateway import ModelGateway, create_model_gateway
+from app.services.workflow import build_planner_graph
+
+
+@dataclass(slots=True)
+class AppResources:
+    """Long-lived clients constructed exactly once for a FastAPI application instance."""
+
+    settings: Settings
+    http_client: httpx.AsyncClient
+    model_gateway: ModelGateway
+    observability: ObservabilityPort
+    planner_graph: object
+
+
+class ProviderHealth(BaseModel):
+    """Public-safe provider status; never includes credentials or internal endpoints."""
+
+    name: str
+    status: Literal["configured", "disabled", "deferred"]
+
+
+class HealthResponse(BaseModel):
+    """Readiness response for humans, deployment checks, and the future UI."""
+
+    status: Literal["ok", "degraded"]
+    environment: Literal["development", "test", "production"]
+    mode: Literal["demo", "configured"]
+    version: str
+    providers: list[ProviderHealth]
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """Create an application instance, allowing isolated settings in tests."""
+
+    resolved_settings = settings or get_settings()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        configure_logging(resolved_settings.log_level)
+        http_client = httpx.AsyncClient(timeout=httpx.Timeout(15.0))
+        observability: ObservabilityPort = NoopObservability()
+        model_gateway = create_model_gateway(resolved_settings)
+        app.state.resources = AppResources(
+            settings=resolved_settings,
+            http_client=http_client,
+            model_gateway=model_gateway,
+            observability=observability,
+            planner_graph=build_planner_graph(
+                checkpointer=InMemorySaver(), observability=observability
+            ),
+        )
+        try:
+            yield
+        finally:
+            await http_client.aclose()
+
+    app = FastAPI(
+        title=resolved_settings.app_name,
+        version=resolved_settings.app_version,
+        lifespan=lifespan,
+    )
+
+    @app.get("/health", response_model=HealthResponse, tags=["system"])
+    async def health(request: Request) -> HealthResponse:
+        resources = cast(AppResources, request.app.state.resources)
+        model_status: Literal["configured", "disabled", "deferred"] = (
+            "configured" if resources.settings.model_is_configured else "disabled"
+        )
+        observability_status: Literal["configured", "disabled", "deferred"] = (
+            "configured" if resources.settings.langfuse_is_configured else "deferred"
+        )
+        mode: Literal["demo", "configured"] = (
+            "demo" if resources.settings.demo_mode else "configured"
+        )
+        overall: Literal["ok", "degraded"] = "ok" if mode == "configured" else "degraded"
+        return HealthResponse(
+            status=overall,
+            environment=resources.settings.app_env,
+            mode=mode,
+            version=resources.settings.app_version,
+            providers=[
+                ProviderHealth(name="llm", status=model_status),
+                ProviderHealth(
+                    name=resources.observability.backend_name, status=observability_status
+                ),
+            ],
+        )
+
+    return app
+
+
+app = create_app()

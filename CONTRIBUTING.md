@@ -4,7 +4,7 @@
 
 ## Единый интерфейс команд
 
-После начала реализации корневой `Makefile` должен быть self-documenting: `make help` показывает доступные цели и короткие описания. Make targets являются тонкими aliases над `uv`/tool commands и одинаково работают локально и в CI.
+Корневой `Makefile` self-documenting: `make help` показывает доступные цели и короткие описания. Make targets являются тонкими aliases над `uv`/tool commands и одинаково работают локально и в CI.
 
 Обязательный контракт:
 

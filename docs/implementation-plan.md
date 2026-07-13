@@ -1,6 +1,6 @@
 # Implementation plan
 
-Статус: proposed. Начинать только после согласования открытых решений, необходимых для соответствующего slice.
+Статус: Slice 0 completed; следующие slices proposed. Начинать только после согласования открытых решений, необходимых для соответствующего slice.
 
 ## Slice 0 — project skeleton
 
@@ -14,6 +14,8 @@ Developer experience входит в slice, а не откладывается �
 - один немутирующий `make check` как локальный и CI quality gate;
 - pre-commit только как удобный быстрый feedback, не как единственное место проверок;
 - CI запускает те же make targets, что и разработчик локально.
+
+Статус: completed. Реализованы typed settings, FastAPI lifespan, `/health`, no-op observability, disabled provider-neutral model gateway, compiled LangGraph shell, Dockerfile, `uv.lock`, Makefile, CI и offline tests.
 
 ## Slice 1 — clarification loop
 

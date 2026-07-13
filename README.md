@@ -1,6 +1,6 @@
 # Travel Choice Assistant
 
-Репозиторий находится на стадии проектирования: исполняемого кода пока нет. Сначала здесь фиксируются продуктовые границы, архитектура и решения, которые должны пережить смену LLM-провайдера и поисковых интеграций.
+Evidence-first сервис для выбора направления путешествия по свободному запросу. Он не продаёт и не бронирует поездки: задача продукта — сократить выбор до прозрачного shortlist с допущениями, рисками и источниками.
 
 ## С чего начать
 
@@ -14,9 +14,36 @@
 
 Для AI-инструментов и новых участников краткая память проекта находится в [AGENTS.md](AGENTS.md).
 
+## Быстрый старт
+
+Нужны Python 3.12+ и `uv`. Если `uv` установлен как Python module, команды Makefile тоже его найдут.
+
+```bash
+cp .env.example .env
+make bootstrap
+make dev
+```
+
+После запуска readiness доступен по адресу `http://127.0.0.1:8000/health`.
+
+Все локальные quality gates запускаются одной командой:
+
+```bash
+make check
+```
+
 ## Текущий статус
 
-- Статус: `docs-first / pre-implementation`.
-- Код: намеренно не начат.
-- Зафиксировано: FastAPI, Pydantic v2, LangGraph как детерминированная state machine, provider-neutral AI gateway, Langfuse-ready observability.
+- Завершён Slice 0: FastAPI app, typed settings, startup lifecycle, provider-neutral `ModelGateway`, LangGraph workflow shell, `/health`, Dockerfile, Makefile и CI.
+- Режим без API-ключей — явный `demo`; `/health` возвращает `degraded`, а не имитирует live-провайдеры.
+- Следующий Slice: `TravelRequest`, ambiguity rules и checkpointed clarification/resume.
 - Открыто: конкретный LLM и его провайдер, поисковый API, production hosting.
+
+## Текущая структура
+
+```text
+app/             FastAPI app, settings, workflow и application ports
+tests/           unit и in-process integration tests
+scripts/         offline project checks
+docs/            продуктовые контракты и архитектурные решения
+```
