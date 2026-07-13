@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Literal, cast
 
 import httpx
 from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel
 
@@ -17,6 +20,7 @@ from app.core.logging import configure_logging
 from app.core.resources import AppResources
 from app.observability.langfuse import create_observability
 from app.observability.port import ObservabilityPort
+from app.services.feedback import FeedbackStore
 from app.services.model_gateway import create_model_gateway
 from app.services.workflow import build_planner_graph
 
@@ -57,6 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             planner_graph=build_planner_graph(
                 checkpointer=InMemorySaver(), observability=observability
             ),
+            feedback_store=FeedbackStore(),
         )
         try:
             yield
@@ -69,7 +74,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=resolved_settings.app_version,
         lifespan=lifespan,
     )
+    static_directory = Path(__file__).resolve().parent / "static"
+    app.mount("/static", StaticFiles(directory=static_directory), name="static")
     app.include_router(recommendation_router)
+
+    @app.get("/", include_in_schema=False)
+    async def index() -> FileResponse:
+        return FileResponse(static_directory / "index.html")
 
     @app.get("/health", response_model=HealthResponse, tags=["system"])
     async def health(request: Request) -> HealthResponse:

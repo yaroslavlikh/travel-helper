@@ -8,7 +8,7 @@ def test_p0_questions_are_limited_and_prioritized() -> None:
 
     assert len(questions) == 3
     assert all(item.priority == "P0" for item in questions)
-    assert [item.field for item in questions] == ["origin_city", "travel_period", "adults"]
+    assert [item.field for item in questions] == ["origin_city", "month", "adults"]
 
 
 def test_known_fields_are_not_asked_again_and_defaults_are_disclosed() -> None:

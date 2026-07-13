@@ -5,12 +5,13 @@ from __future__ import annotations
 from typing import Any, cast
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from app.api.schemas import (
     CompletedRecommendationResponse,
+    FeedbackInput,
     NeedsClarificationResponse,
     PartialRecommendationResponse,
     RecommendationResponse,
@@ -29,6 +30,23 @@ def _state_to_request(state: PlannerState) -> TravelRequest:
 
 def _state_to_questions(state: PlannerState) -> list[Ambiguity]:
     return [Ambiguity.model_validate(question) for question in state.get("questions", [])]
+
+
+@router.post("/feedback", status_code=status.HTTP_204_NO_CONTENT)
+async def submit_feedback(payload: FeedbackInput, request: Request) -> Response:
+    """Record minimal anonymous product feedback without user accounts."""
+
+    resources = request.app.state.resources
+    if not isinstance(resources, AppResources):
+        raise RuntimeError("Application resources are unavailable")
+    resources.feedback_store.record(
+        session_id=payload.session_id,
+        request_id=payload.request_id,
+        destination_id=payload.destination_id,
+        value=payload.value,
+        comment=payload.comment,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/recommend", response_model=RecommendationResponse)

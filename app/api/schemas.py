@@ -19,6 +19,14 @@ class RecommendInput(ApiModel):
     answers: dict[str, Any] | None = None
 
 
+class FeedbackInput(ApiModel):
+    session_id: str = Field(min_length=8, max_length=128)
+    request_id: str = Field(min_length=8, max_length=128)
+    destination_id: str | None = Field(default=None, max_length=128)
+    value: Literal["up", "down"]
+    comment: str | None = Field(default=None, max_length=1_000)
+
+
 class NeedsClarificationResponse(ApiModel):
     status: Literal["needs_clarification"]
     request_id: str

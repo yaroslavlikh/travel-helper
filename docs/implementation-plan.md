@@ -1,6 +1,6 @@
 # Implementation plan
 
-Статус: Slice 0 completed; следующие slices proposed. Начинать только после согласования открытых решений, необходимых для соответствующего slice.
+Статус: завершены Slice 0–2 и Slice 4; Slice 3 и Slice 5 остаются предложенными. Начинать только после согласования открытых решений, необходимых для соответствующего slice.
 
 ## Slice 0 — project skeleton
 
@@ -42,6 +42,8 @@ Developer experience входит в slice, а не откладывается �
 ## Slice 4 — user-facing web UI
 
 Результат: одна responsive страница с examples, staged loading, clarification, assumptions, 3–5 cards, expandable evidence и feedback. API и UI явно показывают demo/partial/freshness.
+
+Статус: completed. Статический frontend отдаётся FastAPI по `/`, поддерживает запрос, resume после уточнения и карточки ranked recommendations. `POST /feedback` принят для локальной продуктовой проверки, но сохраняет события только в памяти процесса и не является production-хранилищем.
 
 ## Slice 5 — observability and public hardening
 

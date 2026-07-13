@@ -53,3 +53,27 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
     assert resumed.json()["status"] == "completed"
     assert resumed.json()["parsed_request"]["destination_scope"] == "international"
     assert len(resumed.json()["recommendations"]) >= 3
+
+
+@pytest.mark.asyncio
+async def test_root_page_and_feedback_endpoint_work() -> None:
+    app = create_app(Settings(app_env="test", demo_mode=True, langfuse_enabled=False))
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            page = await client.get("/")
+            feedback = await client.post(
+                "/feedback",
+                json={
+                    "session_id": "session-123",
+                    "request_id": "request-123",
+                    "destination_id": "batumi",
+                    "value": "up",
+                    "comment": "Полезно",
+                },
+            )
+
+    assert page.status_code == 200
+    assert "Пора в путь" in page.text
+    assert feedback.status_code == 204

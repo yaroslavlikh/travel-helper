@@ -22,7 +22,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
     if request.month is None and request.date_from is None:
         items.append(
             Ambiguity(
-                field="travel_period",
+                field="month",
                 priority="P0",
                 reason="Период влияет на цены, погоду и доступность рейсов.",
                 question="В каком месяце или в какие даты хотите поехать?",

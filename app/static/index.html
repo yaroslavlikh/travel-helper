@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1677ff" />
+    <title>Пора в путь — Travel Choice Assistant</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="sky-orb orb-one"></div><div class="sky-orb orb-two"></div>
+    <header class="topbar container">
+      <a class="brand" href="/" aria-label="Пора в путь">
+        <span class="brand-mark">✈</span><span>Пора в путь</span>
+      </a>
+      <span class="demo-badge">DEMO · данные-подсказки</span>
+    </header>
+
+    <main class="container">
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow">Умный выбор направления</p>
+        <h1 id="hero-title">Путешествие начинается<br /><em>с хорошего вопроса.</em></h1>
+        <p class="hero-copy">Опишите поездку своими словами — покажем небольшой shortlist с бюджетом, погодой, рисками и понятными причинами.</p>
+
+        <form id="query-form" class="search-panel">
+          <label class="sr-only" for="query">Расскажите о поездке</label>
+          <textarea id="query" name="query" rows="3" required placeholder="Например: из Москвы на море в августе, 7–10 дней, бюджет 150 тысяч на одного, без сильной жары"></textarea>
+          <div class="search-panel-bottom">
+            <span class="hint"><span class="spark">✦</span> Можно писать как другу</span>
+            <button id="submit-button" class="primary-button" type="submit"><span>Подобрать</span><span class="button-plane">→</span></button>
+          </div>
+        </form>
+
+        <div class="chips" aria-label="Примеры запросов">
+          <button type="button" class="chip" data-query="Из Москвы на море в августе на 7–10 дней, бюджет 150 тысяч на одного, не люблю сильную жару, за границу">Море без жары</button>
+          <button type="button" class="chip" data-query="Из Санкт-Петербурга на море в сентябре, нас двое, за границу, без визы, максимум четыре часа перелета, бюджет 180 тысяч">Без визы на двоих</button>
+          <button type="button" class="chip" data-query="Из Москвы по России на море в августе, на неделю, бюджет 100 тысяч на одного">Отдых по России</button>
+        </div>
+      </section>
+
+      <section id="progress" class="progress-card hidden" aria-live="polite">
+        <div class="loader"></div><div><strong id="progress-title">Понимаем ваш запрос</strong><p id="progress-copy">Собираем важные ограничения для поездки.</p></div>
+      </section>
+
+      <section id="clarification" class="clarification hidden" aria-live="polite"></section>
+
+      <section id="results" class="results hidden" aria-live="polite">
+        <div class="result-heading"><div><p class="eyebrow">Ваш shortlist</p><h2>Варианты, с которых стоит начать</h2></div><button id="restart" type="button" class="text-button">Новый поиск</button></div>
+        <div id="assumptions" class="assumptions"></div>
+        <div id="recommendation-list" class="recommendation-list"></div>
+        <div id="warnings" class="warnings"></div>
+        <div class="feedback-panel"><div><strong>Полезная подборка?</strong><p>Это поможет улучшать следующие рекомендации.</p></div><div class="feedback-actions"><button class="feedback-button" data-value="up" type="button">👍 Да</button><button class="feedback-button" data-value="down" type="button">👎 Не очень</button></div></div>
+      </section>
+    </main>
+    <footer class="container footer">Пора в путь · не бронируем поездки · <a href="/docs" target="_blank" rel="noreferrer">API</a></footer>
+    <template id="question-template"><form class="question-card"><p class="eyebrow">Нужно уточнение</p><h2>Пара коротких вопросов — и продолжим</h2><div class="question-list"></div><button class="primary-button" type="submit">Продолжить <span class="button-plane">→</span></button></form></template>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

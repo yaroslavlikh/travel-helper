@@ -24,7 +24,7 @@ make bootstrap
 make dev
 ```
 
-После запуска readiness доступен по адресу `http://127.0.0.1:8000/health`.
+После запуска интерфейс доступен по адресу `http://127.0.0.1:8000/`, а readiness — по адресу `http://127.0.0.1:8000/health`.
 
 Все локальные quality gates запускаются одной командой:
 
@@ -37,9 +37,11 @@ make check
 - Завершён Slice 0: FastAPI app, typed settings, startup lifecycle, provider-neutral `ModelGateway`, LangGraph workflow shell, `/health`, Dockerfile, Makefile и CI.
 - Завершён Slice 1: typed `TravelRequest`, детерминированный demo-extractor, P0/P1/P2 rules и checkpointed `/recommend` clarification/resume.
 - Завершён Slice 2: 11 явно помеченных demo fixtures, auditable hard filters, JSON-конфигурация весов и детерминированный scoring с sources/risks.
+- Завершён Slice 4: responsive веб-интерфейс в бело-синей палитре, примеры запросов, уточняющие вопросы, карточки рекомендаций и anonymous feedback.
 - Langfuse подключается через optional environment configuration; без credentials используется no-op exporter.
 - Режим без API-ключей — явный `demo`; `/health` возвращает `degraded`, а не имитирует live-провайдеры.
-- Следующий Slice: responsive UI, feedback, live search/weather adapters и partial failure handling.
+- Feedback хранится только в памяти процесса и предназначен для локальной отладки; перед публичным запуском нужен persistent storage.
+- Следующий Slice: live search/weather adapters и partial failure handling.
 - Открыто: конкретный LLM и его провайдер, поисковый API, production hosting.
 
 ## Текущая структура
