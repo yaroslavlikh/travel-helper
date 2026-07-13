@@ -31,6 +31,8 @@ Developer experience входит в slice, а не откладывается �
 
 Критические тесты: filter reasons, weight sum, score determinism, missing-component policy, sort order, evidence retention.
 
+Статус: completed. В `DEMO_MODE=true` API возвращает 3–5 отсортированных fixture-рекомендаций с synthetic sources, явным warning и риском; при выключенном demo mode live pipeline пока возвращает `partial`.
+
 ## Slice 3 — live search and climate evidence
 
 До начала выбирается general search provider и фиксируется ADR. Добавляются live candidate generation, real weather/climate source, timeouts, retries, concurrency budget, conflict resolution и partial status. Fixtures остаются только в demo/tests.

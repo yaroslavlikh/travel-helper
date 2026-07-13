@@ -28,6 +28,7 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+include = ["app/data/*.json"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

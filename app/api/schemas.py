@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.domain.models import Ambiguity, TravelRequest
+from app.domain.models import Ambiguity, ScoredDestination, TravelRequest
 
 
 class ApiModel(BaseModel):
@@ -38,7 +38,17 @@ class PartialRecommendationResponse(ApiModel):
     warnings: list[str]
 
 
+class CompletedRecommendationResponse(ApiModel):
+    status: Literal["completed"]
+    request_id: str
+    session_id: str
+    parsed_request: TravelRequest
+    assumptions: list[str]
+    recommendations: list[ScoredDestination]
+    warnings: list[str]
+
+
 RecommendationResponse = Annotated[
-    NeedsClarificationResponse | PartialRecommendationResponse,
+    NeedsClarificationResponse | PartialRecommendationResponse | CompletedRecommendationResponse,
     Field(discriminator="status"),
 ]

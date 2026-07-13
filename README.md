@@ -36,8 +36,9 @@ make check
 
 - Завершён Slice 0: FastAPI app, typed settings, startup lifecycle, provider-neutral `ModelGateway`, LangGraph workflow shell, `/health`, Dockerfile, Makefile и CI.
 - Завершён Slice 1: typed `TravelRequest`, детерминированный demo-extractor, P0/P1/P2 rules и checkpointed `/recommend` clarification/resume.
+- Завершён Slice 2: 11 явно помеченных demo fixtures, auditable hard filters, JSON-конфигурация весов и детерминированный scoring с sources/risks.
 - Режим без API-ключей — явный `demo`; `/health` возвращает `degraded`, а не имитирует live-провайдеры.
-- Следующий Slice: demo candidates, hard filters, deterministic scoring и карточки рекомендаций.
+- Следующий Slice: responsive UI, feedback, live search/weather adapters и partial failure handling.
 - Открыто: конкретный LLM и его провайдер, поисковый API, production hosting.
 
 ## Текущая структура

@@ -10,6 +10,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from app.api.schemas import (
+    CompletedRecommendationResponse,
     NeedsClarificationResponse,
     PartialRecommendationResponse,
     RecommendationResponse,
@@ -17,6 +18,7 @@ from app.api.schemas import (
 )
 from app.core.resources import AppResources
 from app.domain.models import Ambiguity, PlannerState, TravelRequest
+from app.services.scoring import rank_demo_candidates
 
 router = APIRouter(tags=["recommendations"])
 
@@ -70,11 +72,23 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
         )
 
     typed_state = cast(PlannerState, state)
+    parsed_request = _state_to_request(typed_state)
+    if resources.settings.demo_mode:
+        recommendations = rank_demo_candidates(parsed_request)
+        return CompletedRecommendationResponse(
+            status="completed",
+            request_id=typed_state["request_id"],
+            session_id=session_id,
+            parsed_request=parsed_request,
+            assumptions=typed_state.get("assumptions", []),
+            recommendations=recommendations,
+            warnings=["Результаты используют локальный demo fixture, а не live search sources."],
+        )
     return PartialRecommendationResponse(
         status="partial",
         request_id=typed_state["request_id"],
         session_id=session_id,
-        parsed_request=_state_to_request(typed_state),
+        parsed_request=parsed_request,
         assumptions=typed_state.get("assumptions", []),
         warnings=[
             *typed_state.get("warnings", []),

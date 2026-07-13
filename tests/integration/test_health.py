@@ -50,5 +50,6 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
     assert initial_body["status"] == "needs_clarification"
     assert [question["field"] for question in initial_body["questions"]] == ["destination_scope"]
     assert resumed.status_code == 200
-    assert resumed.json()["status"] == "partial"
+    assert resumed.json()["status"] == "completed"
     assert resumed.json()["parsed_request"]["destination_scope"] == "international"
+    assert len(resumed.json()["recommendations"]) >= 3
