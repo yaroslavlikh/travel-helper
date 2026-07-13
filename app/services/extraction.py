@@ -249,6 +249,16 @@ def merge_travel_request_revision(
     return TravelRequest.model_validate(values)
 
 
+def merge_travel_request_answers(
+    base_request: TravelRequest, answers: dict[str, Any] | None
+) -> TravelRequest:
+    """Apply one clarification patch without dropping fields learned in earlier rounds."""
+
+    values = base_request.model_dump(mode="python")
+    _apply_answers(values, answers or {})
+    return TravelRequest.model_validate(values)
+
+
 def revise_travel_request_deterministically(
     base_request: TravelRequest, raw_query: str
 ) -> TravelRequest:

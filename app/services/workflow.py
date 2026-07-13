@@ -15,6 +15,7 @@ from app.services.ambiguity import clarification_questions, detect_ambiguities, 
 from app.services.extraction import (
     extract_travel_request,
     extract_travel_request_with_model,
+    merge_travel_request_answers,
     revise_travel_request_deterministically,
 )
 from app.services.model_gateway import ModelGateway, ModelGatewayError
@@ -33,11 +34,8 @@ async def extract_request(
 ) -> PlannerState:
     """Build a validated request through AI, with an explicit demo-only fallback."""
 
-    base_request = (
-        TravelRequest.model_validate(state["previous_request"])
-        if state.get("previous_request")
-        else None
-    )
+    base_payload = state.get("previous_request") or state.get("parsed_request")
+    base_request = TravelRequest.model_validate(base_payload) if base_payload else None
     try:
         parsed = await extract_travel_request_with_model(
             state["raw_query"],
@@ -49,11 +47,11 @@ async def extract_request(
     except ModelGatewayError as error:
         if not demo_mode:
             raise
-        parsed = (
-            revise_travel_request_deterministically(base_request, state["raw_query"])
-            if base_request is not None
-            else extract_travel_request(state["raw_query"], state.get("answers"))
-        )
+        if base_request is not None:
+            revised = revise_travel_request_deterministically(base_request, state["raw_query"])
+            parsed = merge_travel_request_answers(revised, state.get("answers"))
+        else:
+            parsed = extract_travel_request(state["raw_query"], state.get("answers"))
         fallback_warning = (
             "AI-разбор временно недоступен: использован ограниченный demo parser "
             f"({type(error).__name__}: {error})."
