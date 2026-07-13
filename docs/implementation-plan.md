@@ -43,7 +43,11 @@ Developer experience входит в slice, а не откладывается �
 
 Результат: одна responsive страница с examples, staged loading, clarification, assumptions, 3–5 cards, expandable evidence и feedback. API и UI явно показывают demo/partial/freshness.
 
-Статус: completed. Статический frontend отдаётся FastAPI по `/`, поддерживает запрос, resume после уточнения и карточки ranked recommendations. `POST /feedback` принят для локальной продуктовой проверки, но сохраняет события только в памяти процесса и не является production-хранилищем.
+Статус: in progress. Статический frontend отдаётся FastAPI по `/`. Chat-first revision добавляет
+несколько локально сохранённых threads, автоматически открытый первый chat, сохранённые вопросы,
+refinement существующего TravelRequest и отдельную живую ленту с фотографиями, конкретными местами
+и внешними navigation links. `POST /feedback` принят для локальной продуктовой проверки, но
+сохраняет события только в памяти процесса и не является production-хранилищем.
 
 ## Slice 5 — observability and public hardening
 

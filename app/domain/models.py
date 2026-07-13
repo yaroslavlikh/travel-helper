@@ -54,6 +54,13 @@ class TravelRequest(TravelRequestPatch):
     raw_query: str = Field(min_length=1)
 
 
+class TravelRequestRevision(DomainModel):
+    """Explicit changes for one follow-up turn; null values never erase known state."""
+
+    changes: TravelRequestPatch = Field(default_factory=TravelRequestPatch)
+    clear_fields: list[str] = Field(default_factory=list)
+
+
 class Ambiguity(DomainModel):
     """A missing or uncertain constraint with an explicit product policy."""
 
@@ -129,7 +136,10 @@ class PlannerState(TypedDict, total=False):
     session_id: str
     raw_query: str
     answers: dict[str, Any]
+    previous_request: dict[str, Any]
     parsed_request: dict[str, Any]
+    query_history: list[str]
+    question_history: list[dict[str, Any]]
     ambiguities: list[dict[str, Any]]
     questions: list[dict[str, Any]]
     assumptions: list[str]

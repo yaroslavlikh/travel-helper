@@ -25,7 +25,7 @@
 
 ## Что пока не решено
 
-- LLM provider/model.
+- LLM provider/model для public beta; development MVP использует Gemini 3.1 Flash-Lite.
 - Search provider и специализированные flight/hotel sources.
 - Production hosting и managed PostgreSQL.
 

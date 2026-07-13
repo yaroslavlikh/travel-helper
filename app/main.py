@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 from typing import Literal, cast
 
@@ -11,7 +11,9 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from pydantic import BaseModel
 
 from app.api.routes import router as recommendation_router
@@ -50,28 +52,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         configure_logging(resolved_settings.log_level)
-        http_client = httpx.AsyncClient(timeout=httpx.Timeout(15.0))
-        observability: ObservabilityPort = create_observability(resolved_settings)
-        model_gateway = create_model_gateway(resolved_settings)
-        app.state.resources = AppResources(
-            settings=resolved_settings,
-            http_client=http_client,
-            model_gateway=model_gateway,
-            observability=observability,
-            planner_graph=build_planner_graph(
-                checkpointer=InMemorySaver(),
-                observability=observability,
+        async with AsyncExitStack() as stack:
+            http_client = httpx.AsyncClient(timeout=httpx.Timeout(15.0))
+            observability: ObservabilityPort = create_observability(resolved_settings)
+            model_gateway = create_model_gateway(resolved_settings)
+            checkpointer: BaseCheckpointSaver[str]
+            if resolved_settings.app_env == "test":
+                checkpointer = InMemorySaver()
+            else:
+                checkpoint_path = Path(resolved_settings.checkpoint_db_path)
+                checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+                sqlite_checkpointer = await stack.enter_async_context(
+                    AsyncSqliteSaver.from_conn_string(str(checkpoint_path))
+                )
+                await sqlite_checkpointer.setup()
+                checkpointer = sqlite_checkpointer
+            app.state.resources = AppResources(
+                settings=resolved_settings,
+                http_client=http_client,
                 model_gateway=model_gateway,
-                demo_mode=resolved_settings.demo_mode,
-            ),
-            feedback_store=FeedbackStore(),
-        )
-        try:
-            yield
-        finally:
-            await model_gateway.aclose()
-            observability.shutdown()
-            await http_client.aclose()
+                observability=observability,
+                planner_graph=build_planner_graph(
+                    checkpointer=checkpointer,
+                    observability=observability,
+                    model_gateway=model_gateway,
+                    demo_mode=resolved_settings.demo_mode,
+                ),
+                feedback_store=FeedbackStore(),
+            )
+            try:
+                yield
+            finally:
+                await model_gateway.aclose()
+                observability.shutdown()
+                await http_client.aclose()
 
     app = FastAPI(
         title=resolved_settings.app_name,

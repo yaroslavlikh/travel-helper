@@ -2,8 +2,12 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.domain.models import TravelRequestPatch
-from app.services.extraction import extract_travel_request, extract_travel_request_with_model
+from app.domain.models import TravelRequest, TravelRequestPatch, TravelRequestRevision
+from app.services.extraction import (
+    extract_travel_request,
+    extract_travel_request_with_model,
+    merge_travel_request_revision,
+)
 
 
 class FakeModelGateway:
@@ -75,3 +79,26 @@ async def test_model_extraction_preserves_query_and_applies_validated_answers() 
     assert request.origin_city == "Москва"
     assert request.adults == 2
     assert request.budget_total_rub == 200_000
+
+
+def test_revision_changes_only_explicit_fields_and_can_clear_constraints() -> None:
+    base = TravelRequest(
+        raw_query="Из Москвы на море",
+        origin_city="Москва",
+        adults=2,
+        budget_total_rub=200_000,
+        sea_required=True,
+        preferences=["тихий пляж"],
+    )
+    revision = TravelRequestRevision(
+        changes=TravelRequestPatch(budget_total_rub=160_000),
+        clear_fields=["sea_required", "preferences"],
+    )
+
+    updated = merge_travel_request_revision(base, revision)
+
+    assert updated.origin_city == "Москва"
+    assert updated.adults == 2
+    assert updated.budget_total_rub == 160_000
+    assert updated.sea_required is False
+    assert updated.preferences == []

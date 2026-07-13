@@ -35,6 +35,9 @@ class NeedsClarificationResponse(ApiModel):
     questions: list[Ambiguity]
     assumptions: list[str]
     warnings: list[str] = Field(default_factory=list)
+    turn_kind: Literal["initial", "clarification", "refinement"]
+    assistant_message: str
+    changed_fields: list[str] = Field(default_factory=list)
 
 
 class PartialRecommendationResponse(ApiModel):
@@ -45,6 +48,9 @@ class PartialRecommendationResponse(ApiModel):
     assumptions: list[str]
     recommendations: list[dict[str, Any]] = Field(default_factory=list)
     warnings: list[str]
+    turn_kind: Literal["initial", "clarification", "refinement"]
+    assistant_message: str
+    changed_fields: list[str] = Field(default_factory=list)
 
 
 class CompletedRecommendationResponse(ApiModel):
@@ -55,6 +61,9 @@ class CompletedRecommendationResponse(ApiModel):
     assumptions: list[str]
     recommendations: list[ScoredDestination]
     warnings: list[str]
+    turn_kind: Literal["initial", "clarification", "refinement"]
+    assistant_message: str
+    changed_fields: list[str] = Field(default_factory=list)
 
 
 RecommendationResponse = Annotated[

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     log_level: str = "INFO"
     demo_mode: bool = True
+    checkpoint_db_path: str = ".data/travel-helper.sqlite3"
 
     llm_provider: str | None = None
     llm_model: str | None = None

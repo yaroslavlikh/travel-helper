@@ -12,7 +12,11 @@ from langgraph.types import interrupt
 from app.domain.models import Ambiguity, PlannerState, TravelRequest
 from app.observability.port import ObservabilityPort
 from app.services.ambiguity import clarification_questions, detect_ambiguities, explicit_assumptions
-from app.services.extraction import extract_travel_request, extract_travel_request_with_model
+from app.services.extraction import (
+    extract_travel_request,
+    extract_travel_request_with_model,
+    revise_travel_request_deterministically,
+)
 from app.services.model_gateway import ModelGateway, ModelGatewayError
 
 type PlannerGraph = CompiledStateGraph[PlannerState, None, PlannerState, PlannerState]
@@ -29,15 +33,27 @@ async def extract_request(
 ) -> PlannerState:
     """Build a validated request through AI, with an explicit demo-only fallback."""
 
+    base_request = (
+        TravelRequest.model_validate(state["previous_request"])
+        if state.get("previous_request")
+        else None
+    )
     try:
         parsed = await extract_travel_request_with_model(
-            state["raw_query"], state.get("answers"), model_gateway
+            state["raw_query"],
+            state.get("answers"),
+            model_gateway,
+            base_request=base_request,
         )
         return {"parsed_request": parsed.model_dump(mode="json")}
     except ModelGatewayError as error:
         if not demo_mode:
             raise
-        parsed = extract_travel_request(state["raw_query"], state.get("answers"))
+        parsed = (
+            revise_travel_request_deterministically(base_request, state["raw_query"])
+            if base_request is not None
+            else extract_travel_request(state["raw_query"], state.get("answers"))
+        )
         fallback_warning = (
             "AI-разбор временно недоступен: использован ограниченный demo parser "
             f"({type(error).__name__}: {error})."
@@ -58,10 +74,21 @@ def detect_request_ambiguities(state: PlannerState) -> PlannerState:
     ambiguities = detect_ambiguities(request)
     questions = clarification_questions(ambiguities)
     assumptions = explicit_assumptions(ambiguities) if not questions else []
+    question_history = list(state.get("question_history", []))
+    if questions and not any(
+        item.get("request_id") == state.get("request_id") for item in question_history
+    ):
+        question_history.append(
+            {
+                "request_id": state.get("request_id"),
+                "questions": [item.model_dump(mode="json") for item in questions],
+            }
+        )
     return {
         "ambiguities": [item.model_dump(mode="json") for item in ambiguities],
         "questions": [item.model_dump(mode="json") for item in questions],
         "assumptions": assumptions,
+        "question_history": question_history[-50:],
     }
 
 

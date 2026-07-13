@@ -1,6 +1,6 @@
 # ADR-0003: SQLite locally, PostgreSQL in production
 
-- Status: proposed
+- Status: accepted for local development
 - Date: 2026-07-13
 
 ## Context
@@ -10,6 +10,9 @@ LangGraph clarification требует durable thread checkpoints. Локаль�
 ## Decision
 
 Использовать in-memory checkpointer в unit tests, Async SQLite checkpointer для local development и Async PostgreSQL checkpointer для public deployment. Anonymous session ID является LangGraph thread ID или однозначно на него отображается.
+
+SQLite package должен быть не ниже исправленной security release `3.0.1`. Приложение не принимает
+от пользователя произвольные metadata filter keys.
 
 ## Consequences
 
