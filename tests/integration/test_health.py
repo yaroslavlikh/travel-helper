@@ -1,8 +1,52 @@
+from contextlib import contextmanager
+from typing import Any
+
 import httpx
 import pytest
 
 from app.core.config import Settings
 from app.main import create_app
+
+
+class RecordedObservation:
+    def __init__(self, record: dict[str, Any]) -> None:
+        self.record = record
+
+    def update(self, **kwargs: Any) -> None:
+        self.record.setdefault("updates", []).append(kwargs)
+
+
+class RecordingObservability:
+    def __init__(self) -> None:
+        self.records: list[dict[str, Any]] = []
+
+    @property
+    def backend_name(self) -> str:
+        return "recorder"
+
+    @contextmanager
+    def trace(self, name: str, **kwargs: Any):  # type: ignore[no-untyped-def]
+        record = {"type": "trace", "name": name, **kwargs}
+        self.records.append(record)
+        yield RecordedObservation(record)
+
+    @contextmanager
+    def span(self, name: str, **metadata: Any):  # type: ignore[no-untyped-def]
+        record = {"type": "span", "name": name, "metadata": metadata}
+        self.records.append(record)
+        yield RecordedObservation(record)
+
+    @contextmanager
+    def generation(self, name: str, **kwargs: Any):  # type: ignore[no-untyped-def]
+        record = {"type": "generation", "name": name, **kwargs}
+        self.records.append(record)
+        yield RecordedObservation(record)
+
+    def flush(self) -> None:
+        return None
+
+    def shutdown(self) -> None:
+        return None
 
 
 @pytest.mark.asyncio
@@ -57,6 +101,38 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
     assert resumed.json()["turn_kind"] == "clarification"
     assert resumed.json()["parsed_request"]["destination_scope"] == "international"
     assert len(resumed.json()["recommendations"]) >= 3
+
+
+@pytest.mark.asyncio
+async def test_clarification_is_recorded_as_session_trace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorder = RecordingObservability()
+    monkeypatch.setattr("app.main.create_observability", lambda _: recorder)
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/recommend", json={"query": "Хочу на море"})
+
+    body = response.json()
+    root = next(record for record in recorder.records if record["type"] == "trace")
+    clarification = next(
+        record for record in recorder.records if record["name"] == "clarification_requested"
+    )
+
+    assert body["status"] == "needs_clarification"
+    assert root["session_id"] == body["session_id"]
+    assert root["name"] == "recommendation_pipeline"
+    assert root["updates"][-1]["output"]["status"] == "needs_clarification"
+    assert root["updates"][-1]["output"]["question_count"] == 3
+    assert clarification["updates"][-1]["output"] == {
+        "status": "waiting_for_user",
+        "question_fields": ["origin_city", "month", "adults"],
+    }
 
 
 @pytest.mark.asyncio

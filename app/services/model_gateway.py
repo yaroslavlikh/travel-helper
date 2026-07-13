@@ -11,6 +11,7 @@ from google.genai import errors, types
 from pydantic import BaseModel, ValidationError
 
 from app.core.config import Settings
+from app.observability.port import NoopObservability, ObservabilityPort
 
 StructuredResult = TypeVar("StructuredResult", bound=BaseModel)
 
@@ -99,11 +100,15 @@ class GeminiModelGateway:
         model: str,
         timeout_seconds: float,
         max_output_tokens: int,
+        observability: ObservabilityPort | None = None,
+        capture_content: bool = False,
     ) -> None:
         self._client = client
         self._model = model
         self._timeout_seconds = timeout_seconds
         self._max_output_tokens = max_output_tokens
+        self._observability = observability or NoopObservability()
+        self._capture_content = capture_content
 
     @property
     def provider_name(self) -> str:
@@ -121,7 +126,50 @@ class GeminiModelGateway:
         schema: type[StructuredResult],
         metadata: dict[str, Any],
     ) -> StructuredResult:
-        del operation, metadata
+        generation_input: dict[str, Any] = {
+            "operation": operation,
+            "schema": schema.__name__,
+            "prompt_length": len(prompt),
+        }
+        if self._capture_content:
+            generation_input["prompt"] = prompt
+        generation_metadata = {
+            **metadata,
+            "operation": operation,
+            "schema": schema.__name__,
+        }
+        with self._observability.generation(
+            operation,
+            model=self._model,
+            input=generation_input,
+            metadata=generation_metadata,
+        ) as observation:
+            try:
+                result, response = await self._request_structured(prompt=prompt, schema=schema)
+            except ModelGatewayError as error:
+                observation.update(
+                    level="ERROR",
+                    status_message=type(error).__name__,
+                    metadata={"outcome": "error", "error_type": type(error).__name__},
+                )
+                raise
+            observation.update(
+                output=(
+                    result.model_dump(mode="json")
+                    if self._capture_content
+                    else {"schema": schema.__name__, "validated": True}
+                ),
+                metadata={"outcome": "success"},
+                usage_details=_gemini_usage_details(response),
+            )
+            return result
+
+    async def _request_structured(
+        self,
+        *,
+        prompt: str,
+        schema: type[StructuredResult],
+    ) -> tuple[StructuredResult, Any]:
         try:
             response = await asyncio.wait_for(
                 self._client.aio.models.generate_content(
@@ -145,13 +193,13 @@ class GeminiModelGateway:
 
         try:
             if isinstance(response.parsed, schema):
-                return response.parsed
+                return response.parsed, response
             if isinstance(response.parsed, BaseModel):
-                return schema.model_validate(response.parsed.model_dump())
+                return schema.model_validate(response.parsed.model_dump()), response
             if response.parsed is not None:
-                return schema.model_validate(response.parsed)
+                return schema.model_validate(response.parsed), response
             if response.text:
-                return schema.model_validate_json(response.text)
+                return schema.model_validate_json(response.text), response
         except (ValidationError, ValueError) as exc:
             raise ModelInvalidOutputError("Gemini returned invalid structured output") from exc
         raise ModelInvalidOutputError("Gemini returned no structured output")
@@ -173,6 +221,18 @@ def _map_gemini_error(error: errors.APIError) -> ModelGatewayError:
             f"Gemini rejected provider configuration with status {error.code}"
         )
     return ModelUnavailableError(f"Gemini request failed with status {error.code}")
+
+
+def _gemini_usage_details(response: Any) -> dict[str, int]:
+    usage = getattr(response, "usage_metadata", None)
+    if usage is None:
+        return {}
+    values = {
+        "input": getattr(usage, "prompt_token_count", None),
+        "output": getattr(usage, "candidates_token_count", None),
+        "total": getattr(usage, "total_token_count", None),
+    }
+    return {key: value for key, value in values.items() if isinstance(value, int)}
 
 
 def _gemini_json_schema(schema: type[BaseModel]) -> dict[str, Any]:
@@ -204,7 +264,11 @@ def _thinking_config(model: str) -> types.ThinkingConfig:
     return types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL)
 
 
-def create_model_gateway(settings: Settings) -> ModelGateway:
+def create_model_gateway(
+    settings: Settings,
+    *,
+    observability: ObservabilityPort | None = None,
+) -> ModelGateway:
     """Build one process-scoped model gateway during FastAPI lifespan startup."""
 
     if not settings.model_is_configured:
@@ -224,5 +288,7 @@ def create_model_gateway(settings: Settings) -> ModelGateway:
             model=settings.llm_model,
             timeout_seconds=settings.llm_timeout_seconds,
             max_output_tokens=settings.llm_max_output_tokens,
+            observability=observability,
+            capture_content=settings.langfuse_capture_content,
         ),
     )

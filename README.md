@@ -41,7 +41,7 @@ make check
 - Вопросы и ответы остаются в transcript; критерии thread сохраняются в SQLite LangGraph checkpointer, а браузерное представление — в `localStorage`.
 - Demo-карточки содержат реальные credited-фотографии, районы, достопримечательности и внешние переходы к поиску проживания, активностей и туров. Эти ссылки не подтверждают цену или наличие.
 - Для AI extraction выбран Gemini 3.1 Flash-Lite через provider-neutral gateway; без ключа или при сбое development demo использует явно отмеченный deterministic fallback.
-- Langfuse подключается через optional environment configuration; без credentials используется no-op exporter.
+- Langfuse группирует все turns одного чата в session: каждый запрос/ответ — отдельный trace, Gemini — generation, graph stages и вопросы — дочерние spans. Без валидных credentials используется no-op exporter.
 - Режим без API-ключей — явный `demo`; `/health` возвращает `degraded`, а не имитирует live-провайдеры.
 - Feedback хранится только в памяти процесса и предназначен для локальной отладки; перед публичным запуском нужен persistent storage.
 - Следующий Slice: live search/weather/travel adapters и partial failure handling.

@@ -1,4 +1,4 @@
-# Observability and future Langfuse integration
+# Observability and Langfuse integration
 
 Статус: Langfuse adapter реализован для local/debug; no-op fallback остаётся default без credentials.
 
@@ -10,10 +10,11 @@
 
 Один root trace на `POST /recommend` или resume. Child observations соответствуют стабильным stage names:
 
-- intent_detection;
+- `workflow.initialize_request`;
 - request_extraction;
 - ambiguity_detection;
-- clarification_generation;
+- clarification_requested;
+- Gemini generation (`parse_user_query`, `revise_user_query` или clarification extraction);
 - search_query_generation;
 - каждый provider call;
 - normalization/conflict_resolution;
@@ -39,10 +40,10 @@
 
 - no-op — всегда доступна;
 - structured logging — baseline;
-- Langfuse — добавляется позже и не меняет graph nodes;
+- Langfuse — SDK v4 adapter, не протекающий в domain code;
 - test recorder — проверяет names, nesting и metadata без сети.
 
-Langfuse adapter должен связывать prompt versions с generations и использовать один session ID для clarification/resume. Provider errors записываются как observations и одновременно превращаются в product event `provider_failed`.
+Langfuse adapter связывает каждый Gemini call с generation и использует один first-class session ID для initial request, clarification и refinement. Provider errors записываются как observations и одновременно превращаются в product event `provider_failed`.
 
 ## Product events
 
@@ -52,12 +53,14 @@ Product analytics и Langfuse trace не заменяют друг друга: �
 
 ## Текущая интеграция
 
-При наличии `LANGFUSE_ENABLED=true`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` и `LANGFUSE_BASE_URL` приложение создаёт один Langfuse client на FastAPI lifespan. Его безопасная аутентификация проверяется отдельно через `auth_check`, а при shutdown вызывается `shutdown()` для отправки буферизованных событий.
+При наличии `LANGFUSE_ENABLED=true`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` и `LANGFUSE_BASE_URL` приложение создаёт один Langfuse client на FastAPI lifespan. На startup выполняется `auth_check`; неверные credentials безопасно переводят adapter в no-op. При shutdown вызывается `shutdown()`.
 
-Root observation называется `recommendation_pipeline`; дочерние spans покрывают bootstrap, extraction, ambiguity detection, clarification interrupt, hand-off и deterministic scoring. Метаданные содержат session/request IDs и название стадии, но не API keys и не raw query.
+Root observation называется `recommendation_pipeline` и охватывает полный turn до API response, включая scoring. `propagate_attributes(session_id=...)` группирует traces одного chat в Langfuse session. Root output всегда содержит outcome, question/recommendation counts и changed fields; `clarification_requested` содержит question fields. Gemini generation хранит model, operation, validated schema и token usage, когда provider возвращает usage metadata.
+
+`LANGFUSE_CAPTURE_CONTENT=false` по умолчанию скрывает raw query, answers, prompt и structured output. Для локальной отладки флаг можно явно включить; API keys и authorization headers не записываются в любом режиме. В development выполняется `flush()` после каждого root trace, поэтому ветка `needs_clarification` видна сразу.
 
 ## Локальный режим и деградация
 
-Если Langfuse не настроен или недоступен, запрос продолжает работать, а exporter failure попадает только в structured log/metric. Observability не находится на critical path ответа.
+Если Langfuse не настроен или credentials не проходят `auth_check`, запрос продолжает работать с no-op adapter. В production экспорт буферизован; синхронный development flush предназначен именно для отладки.
 
-Официальные ссылки: [Langfuse integrations](https://langfuse.com/integrations), [observability overview](https://langfuse.com/docs/observability/overview), [prompt-to-trace links](https://langfuse.com/docs/prompt-management/features/link-to-traces).
+Официальные ссылки: [Langfuse sessions](https://langfuse.com/docs/observability/features/sessions), [data model](https://langfuse.com/docs/observability/data-model), [Python SDK v4 migration](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v3-to-v4), [prompt-to-trace links](https://langfuse.com/docs/prompt-management/features/link-to-traces).

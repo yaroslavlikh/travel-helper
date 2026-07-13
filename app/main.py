@@ -55,7 +55,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         async with AsyncExitStack() as stack:
             http_client = httpx.AsyncClient(timeout=httpx.Timeout(15.0))
             observability: ObservabilityPort = create_observability(resolved_settings)
-            model_gateway = create_model_gateway(resolved_settings)
+            model_gateway = create_model_gateway(
+                resolved_settings,
+                observability=observability,
+            )
             checkpointer: BaseCheckpointSaver[str]
             if resolved_settings.app_env == "test":
                 checkpointer = InMemorySaver()
@@ -107,7 +110,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "configured" if resources.settings.model_is_configured else "disabled"
         )
         observability_status: Literal["configured", "disabled", "deferred"] = (
-            "configured" if resources.settings.langfuse_is_configured else "deferred"
+            "configured" if resources.observability.backend_name == "langfuse" else "deferred"
         )
         mode: Literal["demo", "configured"] = (
             "demo" if resources.settings.demo_mode else "configured"

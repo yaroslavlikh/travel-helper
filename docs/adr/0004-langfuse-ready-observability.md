@@ -1,6 +1,6 @@
 # ADR-0004: Langfuse-ready observability port
 
-- Status: proposed
+- Status: accepted and implemented for local/debug
 - Date: 2026-07-13
 
 ## Context
@@ -9,11 +9,13 @@ Langfuse желателен для prompt management, traces и eval analysis, �
 
 ## Decision
 
-Заложить observability port со stable stage names, no-op/logging реализациями и test recorder. Langfuse добавить отдельным adapter позже. Все операции несут request/session IDs, prompt name/version, provider/model, latency, counts, outcome и typed error metadata.
+Использовать observability port со stable stage names, no-op реализацией и test recorder. Langfuse SDK v4 подключается отдельным adapter. Каждый HTTP turn создаёт root observation `recommendation_pipeline`; `session_id` чата передаётся через `propagate_attributes`, поэтому initial request, clarification и refinement становятся отдельными traces одной Langfuse session. Gemini-вызовы записываются typed `generation`, остальные этапы — spans.
+
+В development root trace flush-ится после каждого turn, чтобы вопросы и ошибки сразу появлялись в UI Langfuse. Production сохраняет buffered export. Полный query/prompt записывается только при `LANGFUSE_CAPTURE_CONTENT=true`; credentials и provider payloads не трассируются.
 
 ## Consequences
 
-Instrumentation появляется сразу, а vendor integration можно отложить. Порт требует дисциплины, чтобы не превратиться в самодельную telemetry platform. Exporter всегда работает вне critical path и не получает secrets.
+Порт сохраняет vendor isolation и не получает secrets. Development flush немного увеличивает latency, но делает отладку детерминированной; production export остаётся вне critical path. До public beta нужны retention, sampling и redaction policy.
 
 ## Rejected alternatives
 

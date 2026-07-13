@@ -1,6 +1,6 @@
 # Implementation plan
 
-Статус: завершены Slice 0–2 и Slice 4; Slice 3 остаётся следующим продуктовым этапом, а Slice 5 частично реализован observability-адаптером.
+Статус: завершены Slice 0–2 и Slice 4; Slice 3 остаётся следующим продуктовым этапом, а Slice 5 частично реализован session-aware Langfuse observability-адаптером.
 
 ## Slice 0 — project skeleton
 
@@ -51,7 +51,7 @@ refinement существующего TravelRequest и отдельную жив
 
 ## Slice 5 — observability and public hardening
 
-Langfuse adapter, prompt registry fallback, trace metadata, redaction, retention, rate limit, SSRF protections, deployment container, managed Postgres, smoke/eval suite.
+Реализованы Langfuse traces/sessions/generations, startup auth check, content-capture flag и no-op fallback. Остаются prompt registry fallback, production retention/sampling, rate limit, SSRF protections, managed Postgres и smoke/eval suite.
 
 ## Решения перед стартом кода
 

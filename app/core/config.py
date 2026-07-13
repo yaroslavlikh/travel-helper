@@ -42,6 +42,7 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("LANGFUSE_BASE_URL", "LANGFUSE_HOST"),
     )
+    langfuse_capture_content: bool = False
 
     @property
     def model_is_configured(self) -> bool:

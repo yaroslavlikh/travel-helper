@@ -129,8 +129,12 @@ def build_planner_graph(
     """Compile a single-agent, resume-safe planner workflow."""
 
     def traced_initialize(state: PlannerState) -> PlannerState:
-        with observability.span("workflow.initialize_request", request_id=state.get("request_id")):
-            return initialize_request(state)
+        with observability.span(
+            "workflow.initialize_request", request_id=state.get("request_id")
+        ) as observation:
+            result = initialize_request(state)
+            observation.update(output={"status": result.get("status")})
+            return result
 
     async def traced_extraction(state: PlannerState) -> PlannerState:
         with observability.span(
@@ -138,22 +142,63 @@ def build_planner_graph(
             request_id=state.get("request_id"),
             provider=model_gateway.provider_name,
             model=model_gateway.model_name,
-        ):
-            return await extract_request(state, model_gateway=model_gateway, demo_mode=demo_mode)
+        ) as observation:
+            result = await extract_request(
+                state,
+                model_gateway=model_gateway,
+                demo_mode=demo_mode,
+            )
+            parsed_request = result.get("parsed_request", {})
+            observation.update(
+                output={
+                    "known_fields": sorted(
+                        key
+                        for key, value in parsed_request.items()
+                        if key != "raw_query" and value not in (None, False, [])
+                    )
+                },
+                metadata={"outcome": "success"},
+            )
+            return result
 
     def traced_ambiguity_detection(state: PlannerState) -> PlannerState:
-        with observability.span("ambiguity_detection", request_id=state.get("request_id")):
-            return detect_request_ambiguities(state)
+        with observability.span(
+            "ambiguity_detection", request_id=state.get("request_id")
+        ) as observation:
+            result = detect_request_ambiguities(state)
+            observation.update(
+                output={
+                    "question_fields": [
+                        question["field"] for question in result.get("questions", [])
+                    ],
+                    "question_count": len(result.get("questions", [])),
+                }
+            )
+            return result
 
     def traced_clarification(state: PlannerState) -> PlannerState:
-        with observability.span("clarification_interrupt", request_id=state.get("request_id")):
-            return ask_for_clarification(state)
+        questions = state.get("questions", [])
+        with observability.span(
+            "clarification_requested",
+            request_id=state.get("request_id"),
+            pipeline_stage="clarification",
+            question_count=len(questions),
+        ) as observation:
+            observation.update(
+                output={
+                    "status": "waiting_for_user",
+                    "question_fields": [question["field"] for question in questions],
+                }
+            )
+        return ask_for_clarification(state)
 
     def ready_node(state: PlannerState) -> PlannerState:
         with observability.span(
             "ready_for_candidate_generation", request_id=state.get("request_id")
-        ):
-            return mark_ready_for_search(state)
+        ) as observation:
+            result = mark_ready_for_search(state)
+            observation.update(output={"status": result.get("status")})
+            return result
 
     builder = StateGraph(PlannerState)
     builder.add_node("initialize_request", traced_initialize)
