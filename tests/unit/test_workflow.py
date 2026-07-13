@@ -1,13 +1,21 @@
+import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 
 from app.observability.port import NoopObservability
+from app.services.model_gateway import DisabledModelGateway
 from app.services.workflow import build_planner_graph
 
 
-def test_graph_reaches_search_handoff_for_complete_request() -> None:
-    graph = build_planner_graph(checkpointer=InMemorySaver(), observability=NoopObservability())
+@pytest.mark.asyncio
+async def test_graph_reaches_search_handoff_for_complete_request() -> None:
+    graph = build_planner_graph(
+        checkpointer=InMemorySaver(),
+        observability=NoopObservability(),
+        model_gateway=DisabledModelGateway("test fallback"),
+        demo_mode=True,
+    )
 
-    result = graph.invoke(
+    result = await graph.ainvoke(
         {
             "request_id": "request-1",
             "session_id": "session-1",
@@ -21,3 +29,4 @@ def test_graph_reaches_search_handoff_for_complete_request() -> None:
     assert result["status"] == "ready_for_search"
     assert result["parsed_request"]["origin_city"] == "Москва"
     assert result["assumptions"]
+    assert "demo parser (ModelConfigurationError: test fallback)" in result["warnings"][0]

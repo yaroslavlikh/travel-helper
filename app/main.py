@@ -59,13 +59,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             model_gateway=model_gateway,
             observability=observability,
             planner_graph=build_planner_graph(
-                checkpointer=InMemorySaver(), observability=observability
+                checkpointer=InMemorySaver(),
+                observability=observability,
+                model_gateway=model_gateway,
+                demo_mode=resolved_settings.demo_mode,
             ),
             feedback_store=FeedbackStore(),
         )
         try:
             yield
         finally:
+            await model_gateway.aclose()
             observability.shutdown()
             await http_client.aclose()
 

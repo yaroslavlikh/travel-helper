@@ -66,10 +66,10 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
         has_clarification_answers=payload.answers is not None,
     ):
         if payload.answers is not None:
-            snapshot = resources.planner_graph.get_state(config)
+            snapshot = await resources.planner_graph.aget_state(config)
             if not snapshot.values:
                 raise HTTPException(status_code=404, detail="Unknown planning session")
-            result = resources.planner_graph.invoke(Command(resume=payload.answers), config)
+            result = await resources.planner_graph.ainvoke(Command(resume=payload.answers), config)
         else:
             initial_state: PlannerState = {
                 "request_id": str(uuid4()),
@@ -77,14 +77,14 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
                 "raw_query": payload.query.strip(),
                 "status": "received",
             }
-            result = resources.planner_graph.invoke(
+            result = await resources.planner_graph.ainvoke(
                 initial_state,
                 config,
             )
 
     state = cast(dict[str, Any], result)
     if "__interrupt__" in state:
-        snapshot = resources.planner_graph.get_state(config)
+        snapshot = await resources.planner_graph.aget_state(config)
         typed_state = cast(PlannerState, snapshot.values)
         return NeedsClarificationResponse(
             status="needs_clarification",
@@ -93,6 +93,7 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
             parsed_request=_state_to_request(typed_state),
             questions=_state_to_questions(typed_state),
             assumptions=typed_state.get("assumptions", []),
+            warnings=typed_state.get("warnings", []),
         )
 
     typed_state = cast(PlannerState, state)
@@ -111,7 +112,10 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
             parsed_request=parsed_request,
             assumptions=typed_state.get("assumptions", []),
             recommendations=recommendations,
-            warnings=["Результаты используют локальный demo fixture, а не live search sources."],
+            warnings=[
+                *typed_state.get("warnings", []),
+                "Результаты используют локальный demo fixture, а не live search sources.",
+            ],
         )
     return PartialRecommendationResponse(
         status="partial",

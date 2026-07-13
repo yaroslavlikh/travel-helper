@@ -38,6 +38,7 @@ make check
 - Завершён Slice 1: typed `TravelRequest`, детерминированный demo-extractor, P0/P1/P2 rules и checkpointed `/recommend` clarification/resume.
 - Завершён Slice 2: 11 явно помеченных demo fixtures, auditable hard filters, JSON-конфигурация весов и детерминированный scoring с sources/risks.
 - Завершён Slice 4: responsive веб-интерфейс в бело-синей палитре, примеры запросов, уточняющие вопросы, карточки рекомендаций и anonymous feedback.
+- Для AI extraction выбран Gemini 3.1 Flash-Lite через provider-neutral gateway; без ключа или при сбое development demo использует явно отмеченный deterministic fallback.
 - Langfuse подключается через optional environment configuration; без credentials используется no-op exporter.
 - Режим без API-ключей — явный `demo`; `/health` возвращает `degraded`, а не имитирует live-провайдеры.
 - Feedback хранится только в памяти процесса и предназначен для локальной отладки; перед публичным запуском нужен persistent storage.

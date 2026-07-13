@@ -1,4 +1,28 @@
-from app.services.extraction import extract_travel_request
+from typing import Any
+
+from pydantic import BaseModel
+
+from app.domain.models import TravelRequestPatch
+from app.services.extraction import extract_travel_request, extract_travel_request_with_model
+
+
+class FakeModelGateway:
+    provider_name = "fake"
+    model_name = "fake-model"
+
+    async def generate_structured(
+        self,
+        *,
+        operation: str,
+        prompt: str,
+        schema: type[BaseModel],
+        metadata: dict[str, Any],
+    ) -> BaseModel:
+        del operation, prompt, schema, metadata
+        return TravelRequestPatch(origin_city="Москва", month=8, adults=2)
+
+    async def aclose(self) -> None:
+        return None
 
 
 def test_extracts_user_supplied_travel_constraints() -> None:
@@ -38,3 +62,16 @@ def test_extracts_russian_number_words_for_travelers_and_flight_limit() -> None:
     assert request.adults == 2
     assert request.duration_nights_min == 7
     assert request.max_flight_duration_hours == 4
+
+
+async def test_model_extraction_preserves_query_and_applies_validated_answers() -> None:
+    request = await extract_travel_request_with_model(
+        "Из Москвы в августе",
+        {"budget_total_rub": 200_000},
+        FakeModelGateway(),  # type: ignore[arg-type]
+    )
+
+    assert request.raw_query == "Из Москвы в августе"
+    assert request.origin_city == "Москва"
+    assert request.adults == 2
+    assert request.budget_total_rub == 200_000

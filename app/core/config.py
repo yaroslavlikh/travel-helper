@@ -16,6 +16,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     app_env: Literal["development", "test", "production"] = "development"
@@ -26,7 +27,12 @@ class Settings(BaseSettings):
 
     llm_provider: str | None = None
     llm_model: str | None = None
-    llm_api_key: SecretStr | None = None
+    llm_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("LLM_API_KEY", "GEMINI_API_KEY"),
+    )
+    llm_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    llm_max_output_tokens: int = Field(default=2_048, ge=128, le=65_536)
 
     langfuse_enabled: bool = False
     langfuse_public_key: SecretStr | None = None

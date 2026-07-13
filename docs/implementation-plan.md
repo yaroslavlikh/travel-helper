@@ -23,7 +23,7 @@ Developer experience входит в slice, а не откладывается �
 
 Критические тесты: structured validation, P0/P1/P2, максимум три вопроса, отсутствие повторных вопросов, merge answers, resume same thread, idempotent replay.
 
-Статус: completed. `POST /recommend` использует in-memory checkpoint для anonymous session, возвращает discriminated `needs_clarification` или `partial`, а extractor намеренно детерминированный до выбора LLM-провайдера.
+Статус: completed. `POST /recommend` использует in-memory checkpoint для anonymous session, возвращает discriminated `needs_clarification` или `partial`. Gemini 3.1 Flash-Lite добавляется как первый structured extractor, а детерминированный extractor сохраняется как явно отмеченный demo fallback.
 
 ## Slice 2 — deterministic recommendations in demo mode
 
@@ -54,7 +54,7 @@ Langfuse adapter, prompt registry fallback, trace metadata, redaction, retention
 Обязательны для Slice 0–1:
 
 1. Утвердить LangGraph + модульный монолит baseline.
-2. Выбрать первый LLM provider/model либо явно решить, что Slice 1 начинается на mock до короткого provider bake-off.
+2. Перед public beta подтвердить Gemini 3.1 Flash-Lite на eval dataset и принять privacy/data-processing режим.
 3. Утвердить Python 3.12 + uv.
 
 Можно отложить до Slice 3:

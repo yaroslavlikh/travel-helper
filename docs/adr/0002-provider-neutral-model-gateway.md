@@ -1,6 +1,6 @@
 # ADR-0002: Provider-neutral model gateway
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-07-13
 
 ## Context
@@ -10,6 +10,8 @@ LLM provider/model будет выбран позже. Pipeline требует s
 ## Decision
 
 Определить узкий application `ModelGateway`, создать единственный client instance в FastAPI lifespan и передавать его узлам через runtime context. Provider adapter и integration package выбираются после project eval. Gateway стандартизует structured output, timeout/retry, usage metadata и typed errors.
+
+Первый provider adapter выбран в [ADR-0005](0005-gemini-flash-model-provider.md); это не меняет provider-neutral границу этого решения.
 
 ## Consequences
 

@@ -1,6 +1,6 @@
 # AI contract and prompt lifecycle
 
-Статус: provider-neutral design; provider/model не выбраны.
+Статус: provider-neutral design; первый adapter — Gemini 3.1 Flash-Lite.
 
 ## Цель границы
 
@@ -53,11 +53,15 @@ Graph nodes не должны знать, используется OpenAI, Anthr
 - estimated cost per completed recommendation;
 - политика хранения данных и доступность из deployment region.
 
-Выбор фиксируется отдельным ADR. Имя модели не должно быть hardcoded: provider, model, timeout и limits задаются settings.
+Первый выбор зафиксирован в [ADR-0005](adr/0005-gemini-flash-model-provider.md). Имя модели не должно быть hardcoded в business logic: provider, model, timeout и limits задаются settings.
 
 ## Demo/no-key mode
 
 Отсутствие LLM key не должно превращать production в молчаливый fake. Допустим отдельный `APP_MODE=demo` с детерминированным ограниченным parser fixture и заметным предупреждением в API/UI. В normal/production mode отсутствие обязательной AI configuration должно делать readiness unhealthy или отключать AI path с понятной ошибкой.
+
+В development demo mode Gemini используется первым, если полностью настроен. При typed provider
+failure допускается детерминированный fallback с явным warning. В production fallback без
+пользовательского предупреждения запрещён.
 
 ## Prompt storage
 

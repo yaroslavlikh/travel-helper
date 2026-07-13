@@ -16,7 +16,7 @@
 | Frontend | HTML/CSS/vanilla JS | Достаточно для одной страницы без отдельной frontend platform |
 | Tests | pytest, pytest-asyncio, respx | Unit и network-independent integration tests |
 | Quality | Ruff; Pyright или mypy | Форматирование/lint и проверка типов без тяжёлого toolchain |
-| Observability | structured logs + observability port; Langfuse adapter later | Бизнес-код готов к tracing, но не зависит от наличия Langfuse |
+| Observability | structured logs + observability port; Langfuse adapter | Бизнес-код трассируется, но не зависит от наличия Langfuse |
 | Packaging | Docker | Одинаковый runtime локально и на хостинге |
 
 ## Почему LangGraph подходит
@@ -27,9 +27,13 @@ LangGraph не должен владеть доменной логикой. Extr
 
 Ссылки: [LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api), [persistence](https://docs.langchain.com/oss/python/langgraph/persistence), [interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts).
 
-## LLM: решение отложено сознательно
+## LLM: Gemini 3.1 Flash-Lite через provider-neutral gateway
 
-Сейчас выбирается не модель, а минимальный capability contract:
+Для development MVP выбран официальный `google-genai` SDK и стабильная модель
+`gemini-3.1-flash-lite`. Решение и privacy-ограничения free tier зафиксированы в
+[ADR-0005](adr/0005-gemini-flash-model-provider.md).
+
+Минимальный capability contract остаётся provider-neutral:
 
 - structured output с проверкой Pydantic schema;
 - async invocation;
@@ -40,7 +44,10 @@ LangGraph не должен владеть доменной логикой. Extr
 
 На старте приложения фабрика создаёт один model client/gateway и кладёт его в application resources. Graph nodes получают gateway через runtime context или dependency container. В graph state клиент не сохраняется.
 
-При выборе модели сравниваются не общие benchmark scores, а eval dataset проекта: качество extraction, precision P0, unsupported-fact rate, latency и стоимость. Provider integration package добавляется только после решения.
+Качество модели проверяется не общими benchmark scores, а eval dataset проекта: качество
+extraction, precision P0, unsupported-fact rate, latency и стоимость. Имя модели, provider и
+credentials задаются settings, поэтому следующая модель не требует менять domain contracts или
+LangGraph topology.
 
 LangChain `init_chat_model` может быть внутренним механизмом фабрики: он даёт единый интерфейс для разных провайдеров и structured output. Домен всё равно зависит от собственного узкого `ModelGateway`, чтобы provider-specific особенности не просочились по всему коду. См. [provider-agnostic model interface](https://docs.langchain.com/oss/python/concepts/providers-and-models).
 
@@ -72,7 +79,7 @@ SQLite не рекомендуется для публичного многоп�
 
 | Решение | Когда принять | Критерии |
 |---|---|---|
-| LLM provider/model | Перед AI vertical slice | Eval quality, structured output, latency, price, data policy |
+| LLM provider/model для public beta | Перед public beta | Eval quality, structured output, latency, price, data policy |
 | General search API | Перед search vertical slice | Геопокрытие, freshness, source URLs, ToS, цена, rate limits |
 | Flight/hotel providers | После проверки general search | Доступность API и качество диапазонов |
 | Hosting | Перед public beta | Managed Postgres, TLS, region, logs, predictable cost |

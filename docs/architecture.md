@@ -16,7 +16,7 @@ flowchart LR
     GRAPH --> CP["LangGraph checkpointer"]
     API --> EVENTS["Anonymous events and feedback"]
     GRAPH -. spans .-> OBS["Observability port"]
-    AI --> LLM["LLM provider: TBD"]
+    AI --> LLM["Gemini 3.1 Flash-Lite"]
     PROVIDERS --> WEB["External APIs and web sources"]
     CP --> DB["SQLite local / PostgreSQL prod"]
     OBS -. later .-> LF["Langfuse"]

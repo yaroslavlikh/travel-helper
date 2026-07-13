@@ -34,6 +34,7 @@ class NeedsClarificationResponse(ApiModel):
     parsed_request: TravelRequest
     questions: list[Ambiguity]
     assumptions: list[str]
+    warnings: list[str] = Field(default_factory=list)
 
 
 class PartialRecommendationResponse(ApiModel):

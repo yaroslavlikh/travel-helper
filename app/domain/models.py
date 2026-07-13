@@ -19,8 +19,8 @@ class DomainModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class TravelRequest(DomainModel):
-    """Only explicitly known user constraints are populated; unknowns stay ``None``."""
+class TravelRequestPatch(DomainModel):
+    """Structured fields an LLM may extract; unknown values must remain ``None``."""
 
     origin_city: str | None = None
     origin_country: str | None = None
@@ -46,6 +46,11 @@ class TravelRequest(DomainModel):
     preferences: list[str] = Field(default_factory=list)
     avoid: list[str] = Field(default_factory=list)
     priorities: list[str] = Field(default_factory=list)
+
+
+class TravelRequest(TravelRequestPatch):
+    """Validated planning request with the immutable original user query."""
+
     raw_query: str = Field(min_length=1)
 
 

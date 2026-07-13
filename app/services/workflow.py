@@ -12,7 +12,8 @@ from langgraph.types import interrupt
 from app.domain.models import Ambiguity, PlannerState, TravelRequest
 from app.observability.port import ObservabilityPort
 from app.services.ambiguity import clarification_questions, detect_ambiguities, explicit_assumptions
-from app.services.extraction import extract_travel_request
+from app.services.extraction import extract_travel_request, extract_travel_request_with_model
+from app.services.model_gateway import ModelGateway, ModelGatewayError
 
 type PlannerGraph = CompiledStateGraph[PlannerState, None, PlannerState, PlannerState]
 
@@ -23,11 +24,31 @@ def initialize_request(state: PlannerState) -> PlannerState:
     return {**state, "status": "received", "warnings": state.get("warnings", [])}
 
 
-def extract_request(state: PlannerState) -> PlannerState:
-    """Build a validated request from the original query plus resumed answers."""
+async def extract_request(
+    state: PlannerState, *, model_gateway: ModelGateway, demo_mode: bool
+) -> PlannerState:
+    """Build a validated request through AI, with an explicit demo-only fallback."""
 
-    parsed = extract_travel_request(state["raw_query"], state.get("answers"))
-    return {"parsed_request": parsed.model_dump(mode="json")}
+    try:
+        parsed = await extract_travel_request_with_model(
+            state["raw_query"], state.get("answers"), model_gateway
+        )
+        return {"parsed_request": parsed.model_dump(mode="json")}
+    except ModelGatewayError as error:
+        if not demo_mode:
+            raise
+        parsed = extract_travel_request(state["raw_query"], state.get("answers"))
+        fallback_warning = (
+            "AI-разбор временно недоступен: использован ограниченный demo parser "
+            f"({type(error).__name__}: {error})."
+        )
+        warnings = list(state.get("warnings", []))
+        if fallback_warning not in warnings:
+            warnings.append(fallback_warning)
+        return {
+            "parsed_request": parsed.model_dump(mode="json"),
+            "warnings": warnings,
+        }
 
 
 def detect_request_ambiguities(state: PlannerState) -> PlannerState:
@@ -74,7 +95,11 @@ def mark_ready_for_search(_: PlannerState) -> PlannerState:
 
 
 def build_planner_graph(
-    *, checkpointer: BaseCheckpointSaver[str], observability: ObservabilityPort
+    *,
+    checkpointer: BaseCheckpointSaver[str],
+    observability: ObservabilityPort,
+    model_gateway: ModelGateway,
+    demo_mode: bool,
 ) -> PlannerGraph:
     """Compile a single-agent, resume-safe planner workflow."""
 
@@ -82,9 +107,14 @@ def build_planner_graph(
         with observability.span("workflow.initialize_request", request_id=state.get("request_id")):
             return initialize_request(state)
 
-    def traced_extraction(state: PlannerState) -> PlannerState:
-        with observability.span("request_extraction", request_id=state.get("request_id")):
-            return extract_request(state)
+    async def traced_extraction(state: PlannerState) -> PlannerState:
+        with observability.span(
+            "request_extraction",
+            request_id=state.get("request_id"),
+            provider=model_gateway.provider_name,
+            model=model_gateway.model_name,
+        ):
+            return await extract_request(state, model_gateway=model_gateway, demo_mode=demo_mode)
 
     def traced_ambiguity_detection(state: PlannerState) -> PlannerState:
         with observability.span("ambiguity_detection", request_id=state.get("request_id")):

@@ -12,6 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "Travel Choice Assistant contributors" }]
 dependencies = [
   "fastapi>=0.115,<1.0",
+  "google-genai>=2.0,<3.0",
   "httpx>=0.28,<1.0",
   "langfuse>=3.0,<5.0",
   "langgraph>=1.0,<2.0",
