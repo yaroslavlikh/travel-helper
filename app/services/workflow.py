@@ -1,32 +1,100 @@
-"""The first compiled LangGraph workflow and its deterministic bootstrap node."""
+"""Checkpointed clarification workflow with deterministic control flow."""
 
 from __future__ import annotations
+
+from typing import Any, Literal
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import interrupt
 
-from app.domain.models import PlannerState
+from app.domain.models import Ambiguity, PlannerState, TravelRequest
 from app.observability.port import ObservabilityPort
+from app.services.ambiguity import clarification_questions, detect_ambiguities, explicit_assumptions
+from app.services.extraction import extract_travel_request
+
+type PlannerGraph = CompiledStateGraph[PlannerState, None, PlannerState, PlannerState]
 
 
 def initialize_request(state: PlannerState) -> PlannerState:
-    """Set the initial workflow state without I/O or non-idempotent side effects."""
+    """Set workflow defaults without I/O or non-idempotent side effects."""
 
-    return {**state, "status": "ready", "warnings": state.get("warnings", [])}
+    return {**state, "status": "received", "warnings": state.get("warnings", [])}
+
+
+def extract_request(state: PlannerState) -> PlannerState:
+    """Build a validated request from the original query plus resumed answers."""
+
+    parsed = extract_travel_request(state["raw_query"], state.get("answers"))
+    return {"parsed_request": parsed.model_dump(mode="json")}
+
+
+def detect_request_ambiguities(state: PlannerState) -> PlannerState:
+    """Classify unknowns and derive defaults without an LLM decision."""
+
+    request = TravelRequest.model_validate(state["parsed_request"])
+    ambiguities = detect_ambiguities(request)
+    questions = clarification_questions(ambiguities)
+    assumptions = explicit_assumptions(ambiguities) if not questions else []
+    return {
+        "ambiguities": [item.model_dump(mode="json") for item in ambiguities],
+        "questions": [item.model_dump(mode="json") for item in questions],
+        "assumptions": assumptions,
+    }
+
+
+def route_after_ambiguities(
+    state: PlannerState,
+) -> Literal["ask_for_clarification", "ready_for_search"]:
+    """Only P0 ambiguities stop the pipeline."""
+
+    has_p0 = any(
+        Ambiguity.model_validate(item).priority == "P0" for item in state.get("ambiguities", [])
+    )
+    return "ask_for_clarification" if has_p0 else "ready_for_search"
+
+
+def ask_for_clarification(state: PlannerState) -> PlannerState:
+    """Pause workflow with serializable questions and resume with an answer patch."""
+
+    answer_patch: Any = interrupt({"questions": state.get("questions", [])})
+    if not isinstance(answer_patch, dict):
+        return {
+            "answers": {},
+            "warnings": [*state.get("warnings", []), "Ответы должны быть объектом field → value."],
+        }
+    return {"answers": answer_patch, "status": "received"}
+
+
+def mark_ready_for_search(_: PlannerState) -> PlannerState:
+    """End this slice at a deterministic hand-off to candidate generation."""
+
+    return {"status": "ready_for_search"}
 
 
 def build_planner_graph(
     *, checkpointer: BaseCheckpointSaver[str], observability: ObservabilityPort
-) -> CompiledStateGraph[PlannerState, None, PlannerState, PlannerState]:
-    """Compile the stable workflow shell used by upcoming planner nodes."""
+) -> PlannerGraph:
+    """Compile a single-agent, resume-safe planner workflow."""
 
     def traced_initialize(state: PlannerState) -> PlannerState:
         with observability.span("workflow.initialize_request", request_id=state.get("request_id")):
             return initialize_request(state)
 
+    def ready_node(state: PlannerState) -> PlannerState:
+        return mark_ready_for_search(state)
+
     builder = StateGraph(PlannerState)
     builder.add_node("initialize_request", traced_initialize)
+    builder.add_node("extract_request", extract_request)
+    builder.add_node("detect_ambiguities", detect_request_ambiguities)
+    builder.add_node("ask_for_clarification", ask_for_clarification)
+    builder.add_node("ready_for_search", ready_node)
     builder.add_edge(START, "initialize_request")
-    builder.add_edge("initialize_request", END)
+    builder.add_edge("initialize_request", "extract_request")
+    builder.add_edge("extract_request", "detect_ambiguities")
+    builder.add_conditional_edges("detect_ambiguities", route_after_ambiguities)
+    builder.add_edge("ask_for_clarification", "extract_request")
+    builder.add_edge("ready_for_search", END)
     return builder.compile(checkpointer=checkpointer)

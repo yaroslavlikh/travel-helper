@@ -23,6 +23,8 @@ Developer experience входит в slice, а не откладывается �
 
 Критические тесты: structured validation, P0/P1/P2, максимум три вопроса, отсутствие повторных вопросов, merge answers, resume same thread, idempotent replay.
 
+Статус: completed. `POST /recommend` использует in-memory checkpoint для anonymous session, возвращает discriminated `needs_clarification` или `partial`, а extractor намеренно детерминированный до выбора LLM-провайдера.
+
 ## Slice 2 — deterministic recommendations in demo mode
 
 Результат: явно маркированные fixtures → normalization → hard filters → scoring → 3–5 API recommendations. Это тестирует весь graph и UI, но не считается production search.

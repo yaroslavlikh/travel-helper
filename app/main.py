@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from typing import Literal, cast
 
 import httpx
@@ -12,22 +11,13 @@ from fastapi import FastAPI, Request
 from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel
 
+from app.api.routes import router as recommendation_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
+from app.core.resources import AppResources
 from app.observability.port import NoopObservability, ObservabilityPort
-from app.services.model_gateway import ModelGateway, create_model_gateway
+from app.services.model_gateway import create_model_gateway
 from app.services.workflow import build_planner_graph
-
-
-@dataclass(slots=True)
-class AppResources:
-    """Long-lived clients constructed exactly once for a FastAPI application instance."""
-
-    settings: Settings
-    http_client: httpx.AsyncClient
-    model_gateway: ModelGateway
-    observability: ObservabilityPort
-    planner_graph: object
 
 
 class ProviderHealth(BaseModel):
@@ -77,6 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=resolved_settings.app_version,
         lifespan=lifespan,
     )
+    app.include_router(recommendation_router)
 
     @app.get("/health", response_model=HealthResponse, tags=["system"])
     async def health(request: Request) -> HealthResponse:
