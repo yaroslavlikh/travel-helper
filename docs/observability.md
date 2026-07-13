@@ -1,6 +1,6 @@
 # Observability and future Langfuse integration
 
-Статус: boundary accepted; backend deferred.
+Статус: Langfuse adapter реализован для local/debug; no-op fallback остаётся default без credentials.
 
 ## Цель
 
@@ -49,6 +49,12 @@ Langfuse adapter должен связывать prompt versions с generations 
 Отдельно от LLM traces хранятся минимальные anonymous events: session_started, query_submitted, clarification_requested, clarification_answered, recommendations_shown, source_opened, feedback_submitted, provider_failed.
 
 Product analytics и Langfuse trace не заменяют друг друга: первое измеряет поведение продукта, второе — выполнение AI pipeline.
+
+## Текущая интеграция
+
+При наличии `LANGFUSE_ENABLED=true`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` и `LANGFUSE_BASE_URL` приложение создаёт один Langfuse client на FastAPI lifespan. Его безопасная аутентификация проверяется отдельно через `auth_check`, а при shutdown вызывается `shutdown()` для отправки буферизованных событий.
+
+Root observation называется `recommendation_pipeline`; дочерние spans покрывают bootstrap, extraction, ambiguity detection, clarification interrupt, hand-off и deterministic scoring. Метаданные содержат session/request IDs и название стадии, но не API keys и не raw query.
 
 ## Локальный режим и деградация
 

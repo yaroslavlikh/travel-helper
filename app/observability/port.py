@@ -14,6 +14,8 @@ class ObservabilityPort(Protocol):
 
     def span(self, name: str, **metadata: Any) -> AbstractContextManager[None]: ...
 
+    def shutdown(self) -> None: ...
+
 
 class NoopObservability:
     """Safe default when Langfuse is not configured or intentionally deferred."""
@@ -25,3 +27,6 @@ class NoopObservability:
     def span(self, name: str, **metadata: Any) -> AbstractContextManager[None]:
         del name, metadata
         return nullcontext()
+
+    def shutdown(self) -> None:
+        return None

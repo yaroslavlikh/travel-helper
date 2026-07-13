@@ -7,7 +7,7 @@ from app.main import create_app
 
 @pytest.mark.asyncio
 async def test_health_exposes_safe_demo_status() -> None:
-    app = create_app(Settings(app_env="test", demo_mode=True))
+    app = create_app(Settings(app_env="test", demo_mode=True, langfuse_enabled=False))
 
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
@@ -29,7 +29,7 @@ async def test_health_exposes_safe_demo_status() -> None:
 
 @pytest.mark.asyncio
 async def test_recommendation_clarifies_then_resumes_same_session() -> None:
-    app = create_app(Settings(app_env="test", demo_mode=True))
+    app = create_app(Settings(app_env="test", demo_mode=True, langfuse_enabled=False))
     query = "Из Москвы на море в августе на 7–10 дней, 150 тысяч на одного, без жары"
 
     async with app.router.lifespan_context(app):

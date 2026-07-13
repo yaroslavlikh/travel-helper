@@ -15,7 +15,8 @@ from app.api.routes import router as recommendation_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.core.resources import AppResources
-from app.observability.port import NoopObservability, ObservabilityPort
+from app.observability.langfuse import create_observability
+from app.observability.port import ObservabilityPort
 from app.services.model_gateway import create_model_gateway
 from app.services.workflow import build_planner_graph
 
@@ -46,7 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         configure_logging(resolved_settings.log_level)
         http_client = httpx.AsyncClient(timeout=httpx.Timeout(15.0))
-        observability: ObservabilityPort = NoopObservability()
+        observability: ObservabilityPort = create_observability(resolved_settings)
         model_gateway = create_model_gateway(resolved_settings)
         app.state.resources = AppResources(
             settings=resolved_settings,
@@ -60,6 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             yield
         finally:
+            observability.shutdown()
             await http_client.aclose()
 
     app = FastAPI(

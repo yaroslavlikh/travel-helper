@@ -82,14 +82,29 @@ def build_planner_graph(
         with observability.span("workflow.initialize_request", request_id=state.get("request_id")):
             return initialize_request(state)
 
+    def traced_extraction(state: PlannerState) -> PlannerState:
+        with observability.span("request_extraction", request_id=state.get("request_id")):
+            return extract_request(state)
+
+    def traced_ambiguity_detection(state: PlannerState) -> PlannerState:
+        with observability.span("ambiguity_detection", request_id=state.get("request_id")):
+            return detect_request_ambiguities(state)
+
+    def traced_clarification(state: PlannerState) -> PlannerState:
+        with observability.span("clarification_interrupt", request_id=state.get("request_id")):
+            return ask_for_clarification(state)
+
     def ready_node(state: PlannerState) -> PlannerState:
-        return mark_ready_for_search(state)
+        with observability.span(
+            "ready_for_candidate_generation", request_id=state.get("request_id")
+        ):
+            return mark_ready_for_search(state)
 
     builder = StateGraph(PlannerState)
     builder.add_node("initialize_request", traced_initialize)
-    builder.add_node("extract_request", extract_request)
-    builder.add_node("detect_ambiguities", detect_request_ambiguities)
-    builder.add_node("ask_for_clarification", ask_for_clarification)
+    builder.add_node("extract_request", traced_extraction)
+    builder.add_node("detect_ambiguities", traced_ambiguity_detection)
+    builder.add_node("ask_for_clarification", traced_clarification)
     builder.add_node("ready_for_search", ready_node)
     builder.add_edge(START, "initialize_request")
     builder.add_edge("initialize_request", "extract_request")

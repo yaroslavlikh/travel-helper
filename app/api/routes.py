@@ -41,22 +41,28 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
 
     session_id = payload.session_id or str(uuid4())
     config: RunnableConfig = {"configurable": {"thread_id": session_id}}
-    if payload.answers is not None:
-        snapshot = resources.planner_graph.get_state(config)
-        if not snapshot.values:
-            raise HTTPException(status_code=404, detail="Unknown planning session")
-        result = resources.planner_graph.invoke(Command(resume=payload.answers), config)
-    else:
-        initial_state: PlannerState = {
-            "request_id": str(uuid4()),
-            "session_id": session_id,
-            "raw_query": payload.query.strip(),
-            "status": "received",
-        }
-        result = resources.planner_graph.invoke(
-            initial_state,
-            config,
-        )
+    with resources.observability.span(
+        "recommendation_pipeline",
+        session_id=session_id,
+        pipeline_stage="root_request",
+        has_clarification_answers=payload.answers is not None,
+    ):
+        if payload.answers is not None:
+            snapshot = resources.planner_graph.get_state(config)
+            if not snapshot.values:
+                raise HTTPException(status_code=404, detail="Unknown planning session")
+            result = resources.planner_graph.invoke(Command(resume=payload.answers), config)
+        else:
+            initial_state: PlannerState = {
+                "request_id": str(uuid4()),
+                "session_id": session_id,
+                "raw_query": payload.query.strip(),
+                "status": "received",
+            }
+            result = resources.planner_graph.invoke(
+                initial_state,
+                config,
+            )
 
     state = cast(dict[str, Any], result)
     if "__interrupt__" in state:
@@ -74,7 +80,12 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
     typed_state = cast(PlannerState, state)
     parsed_request = _state_to_request(typed_state)
     if resources.settings.demo_mode:
-        recommendations = rank_demo_candidates(parsed_request)
+        with resources.observability.span(
+            "deterministic_scoring",
+            request_id=typed_state["request_id"],
+            pipeline_stage="scoring",
+        ):
+            recommendations = rank_demo_candidates(parsed_request)
         return CompletedRecommendationResponse(
             status="completed",
             request_id=typed_state["request_id"],

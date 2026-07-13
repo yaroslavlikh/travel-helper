@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,7 +31,10 @@ class Settings(BaseSettings):
     langfuse_enabled: bool = False
     langfuse_public_key: SecretStr | None = None
     langfuse_secret_key: SecretStr | None = None
-    langfuse_host: str | None = None
+    langfuse_base_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("LANGFUSE_BASE_URL", "LANGFUSE_HOST"),
+    )
 
     @property
     def model_is_configured(self) -> bool:
@@ -43,7 +46,12 @@ class Settings(BaseSettings):
     def langfuse_is_configured(self) -> bool:
         """Whether all Langfuse credentials required by the adapter exist."""
 
-        return bool(self.langfuse_enabled and self.langfuse_public_key and self.langfuse_secret_key)
+        return bool(
+            self.langfuse_enabled
+            and self.langfuse_public_key
+            and self.langfuse_secret_key
+            and self.langfuse_base_url
+        )
 
     @model_validator(mode="after")
     def validate_production_mode(self) -> Settings:
