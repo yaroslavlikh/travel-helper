@@ -31,6 +31,7 @@ from app.domain.models import (
 )
 from app.services.destination_chat import answer_destination_question
 from app.services.extraction import extract_answers_for_questions
+from app.services.flight_dates import build_flight_date_options
 from app.services.scoring import rank_demo_candidates
 
 router = APIRouter(tags=["recommendations"])
@@ -228,6 +229,7 @@ async def _build_recommendation_response(
 
     typed_state = cast(PlannerState, result)
     parsed_request = _state_to_request(typed_state)
+    flight_date_options = build_flight_date_options(parsed_request)
     if resources.settings.demo_mode:
         with resources.observability.span(
             "deterministic_scoring",
@@ -246,6 +248,7 @@ async def _build_recommendation_response(
             parsed_request=parsed_request,
             assumptions=typed_state.get("assumptions", []),
             recommendations=recommendations,
+            flight_date_options=flight_date_options,
             warnings=[
                 *typed_state.get("warnings", []),
                 "Результаты используют локальный demo fixture, а не live search sources.",
@@ -264,6 +267,7 @@ async def _build_recommendation_response(
         session_id=session_id,
         parsed_request=parsed_request,
         assumptions=typed_state.get("assumptions", []),
+        flight_date_options=flight_date_options,
         warnings=[
             *typed_state.get("warnings", []),
             "Поиск и ранжирование направлений будут добавлены следующим этапом.",
@@ -378,6 +382,7 @@ async def record_travel_link_opened(payload: TravelLinkOpenedInput, request: Req
         rank=payload.rank,
         provider=payload.provider,
         link_kind=payload.link_kind,
+        date_mode=payload.date_mode,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

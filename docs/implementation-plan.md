@@ -49,6 +49,11 @@ refinement существующего TravelRequest и отдельную жив
 и внешними navigation links. Desktop и mobile сценарии проверены в реальном браузере. `POST /feedback` принят для локальной продуктовой проверки, но
 сохраняет события только в памяти процесса и не является production-хранилищем.
 
+Commerce handoff дополнен temporal P0: точные даты либо период с длительностью. Backend формирует
+детерминированные варианты конкретных дат, а карточка передаёт выбранную пару в Aviasales без
+заявлений о цене или наличии. Перебор тарифов по гибким датам остаётся частью будущего flight
+provider slice.
+
 ## Slice 5 — observability and public hardening
 
 Реализованы Langfuse traces/sessions/generations, startup auth check, content-capture flag и no-op fallback. Остаются prompt registry fallback, production retention/sampling, rate limit, SSRF protections, managed Postgres и smoke/eval suite.

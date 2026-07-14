@@ -101,6 +101,42 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
     assert resumed.json()["turn_kind"] == "clarification"
     assert resumed.json()["parsed_request"]["destination_scope"] == "international"
     assert len(resumed.json()["recommendations"]) >= 3
+    assert len(resumed.json()["flight_date_options"]) == 3
+    assert all(option["date_mode"] == "derived" for option in resumed.json()["flight_date_options"])
+
+
+@pytest.mark.asyncio
+async def test_month_without_duration_is_clarified_before_flight_handoff() -> None:
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+    query = "Из Москвы на море в августе, 180 тысяч на одного, за границу"
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            clarification = await client.post("/recommend", json={"query": query})
+            initial_body = clarification.json()
+            resumed = await client.post(
+                "/recommend",
+                json={
+                    "query": "На неделю",
+                    "session_id": initial_body["session_id"],
+                    "answers": {
+                        "duration_nights_min": 7,
+                        "duration_nights_max": 7,
+                    },
+                },
+            )
+
+    assert [question["field"] for question in initial_body["questions"]] == ["duration_nights_min"]
+    resumed_body = resumed.json()
+    assert resumed_body["status"] == "completed"
+    assert resumed_body["parsed_request"]["duration_nights_min"] == 7
+    assert (
+        resumed_body["flight_date_options"][0]["return_date"]
+        > (resumed_body["flight_date_options"][0]["departure_date"])
+    )
 
 
 @pytest.mark.asyncio
@@ -260,6 +296,7 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
                     "rank": 1,
                     "provider": "aviasales",
                     "link_kind": "flight",
+                    "date_mode": "derived",
                 },
             )
             recorded_clicks = list(app.state.resources.product_event_store.travel_link_events)
@@ -273,3 +310,4 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
     assert len(recorded_clicks) == 1
     assert recorded_clicks[0].destination_id == "batumi"
     assert recorded_clicks[0].provider == "aviasales"
+    assert recorded_clicks[0].date_mode == "derived"

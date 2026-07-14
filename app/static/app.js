@@ -174,23 +174,30 @@ function renderChatList() {
 function controlFor(question, messageId) {
   const field = question.field;
   const fieldName = `${messageId}-${field}`;
+  const ariaLabel = escapeHtml(question.question || field);
   if (field === "adults") {
-    return `<select class="answer-input" data-field="${field}" required><option value="">Выберите</option><option value="1">1 взрослый</option><option value="2">2 взрослых</option><option value="3">3 взрослых</option><option value="4">4 взрослых</option></select>`;
+    return `<select class="answer-input" data-field="${field}" aria-label="${ariaLabel}" required><option value="">Выберите</option><option value="1">1 взрослый</option><option value="2">2 взрослых</option><option value="3">3 взрослых</option><option value="4">4 взрослых</option></select>`;
   }
   if (field === "budget_total_rub") {
-    return `<input class="answer-input" data-field="${field}" type="number" min="10000" step="5000" placeholder="Например, 150000" required />`;
+    return `<input class="answer-input" data-field="${field}" type="number" min="10000" step="5000" aria-label="${ariaLabel}" placeholder="Например, 150000" required />`;
   }
   if (field === "month") {
-    return `<select class="answer-input" data-field="month" required><option value="">Выберите месяц</option>${MONTHS.map((month, index) => `<option value="${index + 1}">${month}</option>`).join("")}</select>`;
+    return `<select class="answer-input" data-field="month" aria-label="${ariaLabel}" required><option value="">Выберите месяц</option>${MONTHS.map((month, index) => `<option value="${index + 1}">${month}</option>`).join("")}</select>`;
+  }
+  if (field === "duration_nights_min") {
+    return `<input class="answer-input" data-field="${field}" type="number" min="1" max="60" list="${fieldName}-options" aria-label="${ariaLabel}" placeholder="Например, 7" required /><datalist id="${fieldName}-options"><option value="7"></option><option value="10"></option><option value="14"></option></datalist>`;
+  }
+  if (["date_from", "date_to"].includes(field)) {
+    return `<input class="answer-input" data-field="${field}" type="date" aria-label="${ariaLabel}" required />`;
   }
   if (field === "destination_scope") {
     const values = [["domestic", "По России"], ["international", "За границу"], ["any", "Оба варианта"]];
     return `<div class="answer-options">${values.map(([value, label]) => `<label class="answer-option"><input type="radio" name="${fieldName}" data-field="${field}" value="${value}" required /><span>${label}</span></label>`).join("")}</div>`;
   }
   if (field === "origin_city" && question.options?.length) {
-    return `<input class="answer-input" data-field="${field}" type="text" list="${fieldName}-options" placeholder="Например, Москва" required /><datalist id="${fieldName}-options">${question.options.slice(0, 2).map((value) => `<option value="${escapeHtml(value)}"></option>`).join("")}</datalist>`;
+    return `<input class="answer-input" data-field="${field}" type="text" list="${fieldName}-options" aria-label="${ariaLabel}" placeholder="Например, Москва" required /><datalist id="${fieldName}-options">${question.options.slice(0, 2).map((value) => `<option value="${escapeHtml(value)}"></option>`).join("")}</datalist>`;
   }
-  return `<input class="answer-input" data-field="${field}" type="text" placeholder="Ваш ответ" required />`;
+  return `<input class="answer-input" data-field="${field}" type="text" aria-label="${ariaLabel}" placeholder="Ваш ответ" required />`;
 }
 
 function questionMarkup(question, messageId) {
@@ -231,6 +238,8 @@ function readableAnswer(field, value) {
   if (field === "month") return MONTHS[Number(value) - 1] || value;
   if (field === "budget_total_rub") return `${formatMoney(Number(value))}`;
   if (field === "adults") return `${value} взросл.`;
+  if (["duration_nights_min", "duration_nights_max"].includes(field)) return formatNightCount(Number(value));
+  if (["date_from", "date_to"].includes(field)) return formatDateShort(value);
   if (field === "destination_scope") return { domestic: "по России", international: "за границу", any: "Россия и зарубежье" }[value] || value;
   return String(value);
 }
@@ -240,14 +249,20 @@ function collectAnswers(form) {
   form.querySelectorAll("[data-field]").forEach((input) => {
     if (input.type === "radio" && !input.checked) return;
     if (!input.value) return;
-    const numeric = ["adults", "budget_total_rub", "month"].includes(input.dataset.field);
+    const numeric = ["adults", "budget_total_rub", "month", "duration_nights_min", "duration_nights_max"].includes(input.dataset.field);
     answers[input.dataset.field] = numeric ? Number(input.value) : input.value;
   });
+  if (answers.duration_nights_min != null && answers.duration_nights_max == null) {
+    answers.duration_nights_max = answers.duration_nights_min;
+  }
   return answers;
 }
 
 function answerSummary(answers) {
-  return Object.entries(answers).map(([field, value]) => `${FIELD_LABELS[field] || field}: ${readableAnswer(field, value)}`).join("; ");
+  return Object.entries(answers)
+    .filter(([field, value]) => field !== "duration_nights_max" || value !== answers.duration_nights_min)
+    .map(([field, value]) => `${FIELD_LABELS[field] || field}: ${readableAnswer(field, value)}`)
+    .join("; ");
 }
 
 async function submitQuestionAnswers(event) {
@@ -278,6 +293,28 @@ function resolveQuestions(chat, messageId, answerText, answers) {
 
 function formatMoney(value) {
   return `${new Intl.NumberFormat("ru-RU").format(value)} ₽`;
+}
+
+function dateFromIso(value) {
+  return value ? new Date(`${value}T12:00:00`) : null;
+}
+
+function formatDateShort(value) {
+  const parsed = dateFromIso(value);
+  if (!parsed || Number.isNaN(parsed.getTime())) return value || "";
+  return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(parsed);
+}
+
+function formatDateRange(departureDate, returnDate) {
+  return `${formatDateShort(departureDate)} — ${formatDateShort(returnDate)}`;
+}
+
+function formatNightCount(count) {
+  const last = count % 10;
+  const lastTwo = count % 100;
+  if (last === 1 && lastTwo !== 11) return `${count} ночь`;
+  if ([2, 3, 4].includes(last) && ![12, 13, 14].includes(lastTwo)) return `${count} ночи`;
+  return `${count} ночей`;
 }
 
 function recommendationDiff(previous = [], next = []) {
@@ -365,9 +402,18 @@ function renderCriteria(snapshot) {
   if (!request) return "";
   const changed = new Set(snapshot.changed_fields || []);
   const scope = { domestic: "Россия", international: "за рубеж", any: "любая" }[request.destination_scope];
+  const timing = request.date_from
+    ? (request.date_to ? formatDateRange(request.date_from, request.date_to) : `с ${formatDateShort(request.date_from)}`)
+    : (request.month ? MONTHS[request.month - 1] : null);
+  const duration = request.duration_nights_min
+    ? (request.duration_nights_max && request.duration_nights_max !== request.duration_nights_min
+      ? `${request.duration_nights_min}–${request.duration_nights_max} ночей`
+      : formatNightCount(request.duration_nights_min))
+    : null;
   return [
     criterionMarkup("Вылет", request.origin_city, changed.has("origin_city")),
-    criterionMarkup("Когда", request.month ? MONTHS[request.month - 1] : request.date_from, changed.has("month") || changed.has("date_from")),
+    criterionMarkup("Когда", timing, changed.has("month") || changed.has("date_from") || changed.has("date_to")),
+    criterionMarkup("Длительность", duration, changed.has("duration_nights_min") || changed.has("duration_nights_max")),
     criterionMarkup("Бюджет", request.budget_total_rub ? formatMoney(request.budget_total_rub) : null, changed.has("budget_total_rub")),
     criterionMarkup("Куда", scope, changed.has("destination_scope")),
     criterionMarkup("Перелёт", request.max_flight_duration_hours ? `до ${request.max_flight_duration_hours} ч` : null, changed.has("max_flight_duration_hours")),
@@ -380,14 +426,31 @@ function costRange(candidate) {
   return `${formatMoney(candidate.estimated_total_cost_rub_min)} – ${formatMoney(candidate.estimated_total_cost_rub_max)}`;
 }
 
-function aviasalesUrl(candidate, snapshot) {
+function flightDateOptions(snapshot) {
+  const typed = snapshot?.flight_date_options || [];
+  if (typed.length) return typed;
+  const request = snapshot?.parsed_request || {};
+  if (request.date_from && request.date_to) {
+    const durationMs = dateFromIso(request.date_to) - dateFromIso(request.date_from);
+    return [{
+      departure_date: request.date_from,
+      return_date: request.date_to,
+      duration_nights: Math.round(durationMs / 86400000),
+      date_mode: "exact",
+    }];
+  }
+  return [];
+}
+
+function aviasalesUrl(candidate, snapshot, dateOption) {
   const request = snapshot?.parsed_request || {};
   const url = new URL("https://www.aviasales.ru/search/");
   const origin = ORIGIN_IATA[String(request.origin_city || "").trim().toLocaleLowerCase("ru-RU")];
   if (origin) url.searchParams.set("origin_iata", origin);
   if (candidate.nearest_airport) url.searchParams.set("destination_iata", candidate.nearest_airport);
-  if (request.date_from) url.searchParams.set("depart_date", request.date_from);
-  if (request.date_to) url.searchParams.set("return_date", request.date_to);
+  url.searchParams.set("depart_date", dateOption.departure_date);
+  url.searchParams.set("return_date", dateOption.return_date);
+  url.searchParams.set("oneway", "0");
   url.searchParams.set("adults", String(request.adults || 1));
   url.searchParams.set("children", String(request.children || 0));
   url.searchParams.set("infants", "0");
@@ -400,10 +463,21 @@ function providerActions(candidate, snapshot, index) {
   const stayLink = (candidate.external_links || []).find((link) => link.category === "stay");
   const requestId = snapshot?.request_id || "unknown-request";
   const shared = `data-destination-id="${escapeHtml(candidate.destination_id)}" data-rank="${index + 1}" data-request-id="${escapeHtml(requestId)}"`;
+  const options = flightDateOptions(snapshot);
+  const exactOption = options.length === 1 && options[0].date_mode === "exact" ? options[0] : null;
+  const pickerId = `flight-dates-${index}`;
+  let flightAction = `<button class="travel-link aviasales-link flight-date-missing" type="button" data-flight-date-missing><span aria-hidden="true">✈</span> Уточнить даты <small>в чате</small></button>`;
+  let picker = "";
+  if (exactOption) {
+    flightAction = `<a class="travel-link aviasales-link" href="${safeUrl(aviasalesUrl(candidate, snapshot, exactOption))}" target="_blank" rel="noreferrer" ${shared} data-provider="aviasales" data-link-kind="flight" data-date-mode="exact"><span aria-hidden="true">✈</span> Билеты ${escapeHtml(formatDateRange(exactOption.departure_date, exactOption.return_date))} <small>Aviasales</small></a>`;
+  } else if (options.length) {
+    flightAction = `<button class="travel-link aviasales-link flight-date-toggle" type="button" aria-expanded="false" aria-controls="${pickerId}" data-flight-date-toggle="${pickerId}"><span aria-hidden="true">✈</span> Выбрать даты <small>Aviasales</small></button>`;
+    picker = `<section id="${pickerId}" class="flight-date-picker hidden" aria-label="Даты поиска билетов в ${escapeHtml(candidate.city_or_region)}"><div><strong>Когда искать билеты?</strong><span>Пресеты без проверки цены и наличия</span></div><div class="flight-date-options">${options.map((option) => `<a class="flight-date-option" href="${safeUrl(aviasalesUrl(candidate, snapshot, option))}" target="_blank" rel="noreferrer" ${shared} data-provider="aviasales" data-link-kind="flight" data-date-mode="${escapeHtml(option.date_mode)}"><strong>${escapeHtml(formatDateRange(option.departure_date, option.return_date))}</strong><span>${escapeHtml(formatNightCount(option.duration_nights))} · Aviasales</span></a>`).join("")}</div></section>`;
+  }
   return `<div class="card-actions">
-    <a class="travel-link aviasales-link" href="${safeUrl(aviasalesUrl(candidate, snapshot))}" target="_blank" rel="noreferrer" ${shared} data-provider="aviasales" data-link-kind="flight"><span aria-hidden="true">✈</span> Найти билеты <small>Aviasales</small></a>
+    ${flightAction}
     <a class="travel-link yandex-link" href="${safeUrl(stayLink?.url || "https://travel.yandex.ru/")}" target="_blank" rel="noreferrer" ${shared} data-provider="yandex_travel" data-link-kind="stay"><span aria-hidden="true">⌂</span> Найти жильё <small>Яндекс Путешествия</small></a>
-  </div>`;
+  </div>${picker}`;
 }
 
 function destinationDiscussionAction(candidate, chat) {
@@ -464,8 +538,23 @@ function renderFeed() {
   $("#mobile-count").textContent = recommendations.length;
   $("#feed-empty").classList.toggle("hidden", Boolean(recommendations.length));
   $("#recommendation-list").innerHTML = recommendations.map((item, index) => destinationCard(item, index, chat)).join("");
-  document.querySelectorAll(".travel-link[data-provider]").forEach((link) => {
+  document.querySelectorAll("[data-provider][data-link-kind]").forEach((link) => {
     link.addEventListener("click", () => trackTravelLink(link));
+  });
+  document.querySelectorAll("[data-flight-date-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const picker = document.getElementById(button.dataset.flightDateToggle);
+      if (!picker) return;
+      const expanded = button.getAttribute("aria-expanded") === "true";
+      button.setAttribute("aria-expanded", String(!expanded));
+      picker.classList.toggle("hidden", expanded);
+    });
+  });
+  document.querySelectorAll("[data-flight-date-missing]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setMobileView("chat");
+      messageInput.focus();
+    });
   });
   document.querySelectorAll("[data-discuss-destination]").forEach((button) => {
     button.addEventListener("click", () => openDestinationChat(button.dataset.discussDestination));
@@ -487,6 +576,7 @@ function trackTravelLink(link) {
     provider: link.dataset.provider,
     link_kind: link.dataset.linkKind,
   };
+  if (link.dataset.dateMode) payload.date_mode = link.dataset.dateMode;
   fetch("/events/travel-link", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

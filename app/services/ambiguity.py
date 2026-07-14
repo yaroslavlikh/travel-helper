@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 from app.domain.models import Ambiguity, TravelRequest
+from app.services.flight_dates import (
+    MAX_FLIGHT_SEARCH_HORIZON_DAYS,
+    duration_range_is_valid,
+    exact_trip_dates_are_valid,
+)
 
 
-def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
+def detect_ambiguities(request: TravelRequest, *, today: date | None = None) -> list[Ambiguity]:
     """Return every relevant ambiguity, sorted by product priority."""
 
+    current_date = today or date.today()
     items: list[Ambiguity] = []
     if request.origin_city is None:
         items.append(
@@ -19,7 +27,49 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 options=["Москва", "Санкт-Петербург", "Другой город"],
             )
         )
-    if request.month is None and request.date_from is None:
+    has_both_dates = request.date_from is not None and request.date_to is not None
+    has_invalid_exact_dates = has_both_dates and not exact_trip_dates_are_valid(
+        request, today=current_date
+    )
+    if request.date_to is not None and request.date_from is None:
+        items.append(
+            Ambiguity(
+                field="date_from",
+                priority="P0",
+                reason="Для обратного билета нужна дата вылета.",
+                question="Укажите дату вылета.",
+            )
+        )
+    elif has_invalid_exact_dates:
+        items.append(
+            Ambiguity(
+                field=(
+                    "date_to"
+                    if request.date_from
+                    and current_date
+                    <= request.date_from
+                    <= current_date + timedelta(days=MAX_FLIGHT_SEARCH_HORIZON_DAYS)
+                    else "date_from"
+                ),
+                priority="P0",
+                reason="Даты должны быть будущими, возврат — после вылета и не дальше года.",
+                question="Уточните корректные даты вылета и возвращения.",
+            )
+        )
+    elif request.date_from is not None and not (
+        current_date
+        <= request.date_from
+        <= current_date + timedelta(days=MAX_FLIGHT_SEARCH_HORIZON_DAYS)
+    ):
+        items.append(
+            Ambiguity(
+                field="date_from",
+                priority="P0",
+                reason="Поиск билетов поддерживает будущие даты в пределах года.",
+                question="Укажите будущую дату вылета в пределах года.",
+            )
+        )
+    elif request.month is None and request.date_from is None:
         items.append(
             Ambiguity(
                 field="month",
@@ -27,6 +77,18 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 reason="Период влияет на цены, погоду и доступность рейсов.",
                 question="В каком месяце или в какие даты хотите поехать?",
                 options=["Ближайший месяц", "Укажу месяц", "Укажу точные даты"],
+            )
+        )
+    elif not exact_trip_dates_are_valid(
+        request, today=current_date
+    ) and not duration_range_is_valid(request):
+        items.append(
+            Ambiguity(
+                field="duration_nights_min",
+                priority="P0",
+                reason="Без примерной длительности нельзя подготовить конкретные даты билетов.",
+                question="На сколько ночей планируете поездку? Можно примерно.",
+                options=["7 ночей", "10 ночей", "14 ночей"],
             )
         )
     if request.adults is None:

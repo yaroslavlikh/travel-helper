@@ -56,7 +56,14 @@ async def test_graph_retains_answers_across_multiple_clarification_rounds() -> N
         config,
     )
     completed = await graph.ainvoke(
-        Command(resume={"budget_total_rub": 180_000, "destination_scope": "international"}),
+        Command(
+            resume={
+                "duration_nights_min": 7,
+                "duration_nights_max": 10,
+                "budget_total_rub": 180_000,
+                "destination_scope": "international",
+            }
+        ),
         config,
     )
 
@@ -65,6 +72,8 @@ async def test_graph_retains_answers_across_multiple_clarification_rounds() -> N
     assert completed["status"] == "ready_for_search"
     assert completed["parsed_request"]["origin_city"] == "Москва"
     assert completed["parsed_request"]["month"] == 8
+    assert completed["parsed_request"]["duration_nights_min"] == 7
+    assert completed["parsed_request"]["duration_nights_max"] == 10
     assert completed["parsed_request"]["adults"] == 2
     assert completed["parsed_request"]["budget_total_rub"] == 180_000
     assert completed["parsed_request"]["destination_scope"] == "international"
