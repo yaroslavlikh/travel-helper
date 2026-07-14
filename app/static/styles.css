@@ -264,24 +264,12 @@ button { color: inherit; }
 .destination-discuss > span:not(.destination-discuss-icon) { padding: 5px 7px; border-radius: 7px; color: #6785a3; background: white; font-size: 11px; font-weight: 650; }
 .destination-discuss i { font-size: 13px; font-style: normal; }
 .card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 14px; }
-.travel-link { display: grid; width: 100%; min-width: 0; grid-template-columns: auto 1fr; align-items: center; justify-content: center; column-gap: 6px; padding: 11px 10px; border: 1px solid #cfe3f8; border-radius: 10px; color: #0b6dcb; background: #f3f9ff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; text-align: left; text-decoration: none; }
+.travel-link { display: grid; min-width: 0; grid-template-columns: auto 1fr; align-items: center; justify-content: center; column-gap: 6px; padding: 11px 10px; border: 1px solid #cfe3f8; border-radius: 10px; color: #0b6dcb; background: #f3f9ff; text-decoration: none; font-size: 13px; font-weight: 800; text-align: left; }
 .travel-link > span { grid-row: 1 / 3; font-size: 13px; }
 .travel-link small { grid-column: 2; opacity: 0.76; font-size: 10px; font-weight: 650; }
 .aviasales-link { border-color: var(--blue); color: white; background: var(--blue); }
 .yandex-link { border-color: #c8ddf1; color: #205c91; background: white; }
 .travel-link:hover { filter: brightness(0.97); transform: translateY(-1px); }
-.travel-link:focus-visible, .flight-date-option:focus-visible { outline: 3px solid #8ec9ff; outline-offset: 2px; }
-.flight-date-toggle[aria-expanded="true"] { box-shadow: 0 0 0 3px #dcefff; }
-.flight-date-picker { display: grid; gap: 10px; margin-top: 8px; padding: 11px; border: 1px solid #cfe4f8; border-radius: 12px; background: #f6fbff; }
-.flight-date-picker > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.flight-date-picker > div:first-child strong { color: #285b88; font-size: 13px; }
-.flight-date-picker > div:first-child span { color: #8195a9; font-size: 10px; text-align: right; }
-.flight-date-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
-.flight-date-option { display: block; min-width: 0; padding: 9px 10px; border: 1px solid #d3e5f5; border-radius: 10px; color: #23679f; background: white; text-decoration: none; }
-.flight-date-option:hover { border-color: #77baf6; background: #edf7ff; transform: translateY(-1px); }
-.flight-date-option strong, .flight-date-option span { display: block; }
-.flight-date-option strong { font-size: 12px; }
-.flight-date-option span { margin-top: 3px; color: #7d91a5; font-size: 10px; }
 .external-note { margin: 8px 0 0; color: #8e9ba9; font-size: 10px; text-align: center; }
 .card-details { margin-top: 12px; padding-top: 10px; border-top: 1px solid #edf1f5; }
 .card-details summary { color: #66809b; cursor: pointer; font-size: 12px; font-weight: 700; }
@@ -362,7 +350,4 @@ button { color: inherit; }
   .place-list { grid-template-columns: 1fr; }
   .card-actions { grid-template-columns: 1fr; }
   .travel-link { padding: 10px 7px; }
-  .flight-date-picker > div:first-child { display: grid; }
-  .flight-date-picker > div:first-child span { text-align: left; }
-  .flight-date-options { grid-template-columns: 1fr; }
 }

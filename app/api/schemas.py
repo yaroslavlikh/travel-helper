@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.domain.models import Ambiguity, FlightDateOption, ScoredDestination, TravelRequest
+from app.domain.models import Ambiguity, ScoredDestination, TravelRequest
 
 
 class ApiModel(BaseModel):
@@ -34,7 +34,6 @@ class TravelLinkOpenedInput(ApiModel):
     rank: int = Field(ge=1, le=100)
     provider: Literal["aviasales", "yandex_travel"]
     link_kind: Literal["flight", "stay"]
-    date_mode: Literal["exact", "derived"] | None = None
 
 
 class DestinationChatInput(ApiModel):
@@ -78,7 +77,6 @@ class PartialRecommendationResponse(ApiModel):
     parsed_request: TravelRequest
     assumptions: list[str]
     recommendations: list[dict[str, Any]] = Field(default_factory=list)
-    flight_date_options: list[FlightDateOption] = Field(default_factory=list)
     warnings: list[str]
     turn_kind: Literal["initial", "clarification", "refinement"]
     assistant_message: str
@@ -92,7 +90,6 @@ class CompletedRecommendationResponse(ApiModel):
     parsed_request: TravelRequest
     assumptions: list[str]
     recommendations: list[ScoredDestination]
-    flight_date_options: list[FlightDateOption] = Field(default_factory=list)
     warnings: list[str]
     turn_kind: Literal["initial", "clarification", "refinement"]
     assistant_message: str

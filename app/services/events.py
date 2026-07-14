@@ -17,7 +17,6 @@ class TravelLinkOpenedEvent:
     rank: int
     provider: Literal["aviasales", "yandex_travel"]
     link_kind: Literal["flight", "stay"]
-    date_mode: Literal["exact", "derived"] | None
     created_at: datetime
 
 
@@ -36,7 +35,6 @@ class ProductEventStore:
         rank: int,
         provider: Literal["aviasales", "yandex_travel"],
         link_kind: Literal["flight", "stay"],
-        date_mode: Literal["exact", "derived"] | None = None,
     ) -> None:
         self.travel_link_events.append(
             TravelLinkOpenedEvent(
@@ -46,7 +44,6 @@ class ProductEventStore:
                 rank=rank,
                 provider=provider,
                 link_kind=link_kind,
-                date_mode=date_mode,
                 created_at=datetime.now(UTC),
             )
         )

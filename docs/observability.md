@@ -57,9 +57,6 @@ Langfuse adapter связывает каждый Gemini call с generation и и
 Product analytics и Langfuse trace не заменяют друг друга: первое измеряет поведение продукта,
 включая `travel_link_opened`, второе — выполнение AI pipeline.
 
-Для flight CTA событие дополнительно хранит только `date_mode=exact|derived`. Конкретные даты
-вылета и возврата не копируются в product analytics или Langfuse metadata.
-
 ## Текущая интеграция
 
 При наличии `LANGFUSE_ENABLED=true`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` и `LANGFUSE_BASE_URL` приложение создаёт один Langfuse client на FastAPI lifespan. На startup выполняется `auth_check`; неверные credentials безопасно переводят adapter в no-op. При shutdown вызывается `shutdown()`.

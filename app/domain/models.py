@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Literal, Self, TypedDict
+from typing import Any, Literal, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 DestinationScope = Literal["domestic", "international", "any"]
 HeatTolerance = Literal["low", "medium", "high"]
@@ -59,24 +59,6 @@ class TravelRequestRevision(DomainModel):
 
     changes: TravelRequestPatch = Field(default_factory=TravelRequestPatch)
     clear_fields: list[str] = Field(default_factory=list)
-
-
-class FlightDateOption(DomainModel):
-    """A concrete round-trip date pair for an external flight search handoff."""
-
-    departure_date: date
-    return_date: date
-    duration_nights: int = Field(ge=1)
-    date_mode: Literal["exact", "derived"]
-
-    @model_validator(mode="after")
-    def validate_date_pair(self) -> Self:
-        actual_duration = (self.return_date - self.departure_date).days
-        if actual_duration <= 0:
-            raise ValueError("return_date must be after departure_date")
-        if actual_duration != self.duration_nights:
-            raise ValueError("duration_nights must match the date pair")
-        return self
 
 
 class Ambiguity(DomainModel):
