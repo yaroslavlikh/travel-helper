@@ -160,6 +160,21 @@ class ScoredDestination(DomainModel):
     explanation: str
 
 
+class DestinationThreadMessage(DomainModel):
+    """One bounded message in a destination-specific subthread."""
+
+    role: Literal["user", "assistant"]
+    text: str = Field(min_length=1, max_length=4_000)
+
+
+class DestinationChatModelReply(DomainModel):
+    """Structured model output that cannot mutate the main trip by itself."""
+
+    answer: str = Field(min_length=1, max_length=2_000)
+    quick_replies: list[str] = Field(default_factory=list, max_length=3)
+    proposed_trip_change: str | None = Field(default=None, max_length=500)
+
+
 class PlannerState(TypedDict, total=False):
     """JSON-serializable checkpoint state; runtime clients never enter this object."""
 
@@ -171,6 +186,8 @@ class PlannerState(TypedDict, total=False):
     parsed_request: dict[str, Any]
     query_history: list[str]
     question_history: list[dict[str, Any]]
+    destination_threads: dict[str, dict[str, Any]]
+    turn_count: int
     ambiguities: list[dict[str, Any]]
     questions: list[dict[str, Any]]
     assumptions: list[str]

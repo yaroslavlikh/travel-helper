@@ -59,6 +59,7 @@ class LangfuseObservability:
         name: str,
         *,
         session_id: str,
+        trace_name: str | None = None,
         input: Any | None = None,
         metadata: dict[str, Any] | None = None,
         tags: list[str] | None = None,
@@ -72,7 +73,7 @@ class LangfuseObservability:
             ) as observation:
                 with propagate_attributes(
                     session_id=session_id,
-                    trace_name=name,
+                    trace_name=trace_name or name,
                     metadata={key: str(value) for key, value in (metadata or {}).items()},
                     tags=tags,
                 ):

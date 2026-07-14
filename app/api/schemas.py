@@ -36,6 +36,27 @@ class TravelLinkOpenedInput(ApiModel):
     link_kind: Literal["flight", "stay"]
 
 
+class DestinationChatInput(ApiModel):
+    session_id: str = Field(min_length=8, max_length=128)
+    destination_id: str = Field(min_length=1, max_length=128)
+    query: str = Field(min_length=2, max_length=4_000)
+
+
+class DestinationChatResponse(ApiModel):
+    status: Literal["completed"]
+    request_id: str
+    session_id: str
+    subthread_id: str
+    destination_id: str
+    destination_name: str
+    assistant_message: str
+    quick_replies: list[str] = Field(default_factory=list)
+    proposed_trip_change: str | None = None
+    message_count: int
+    turn_index: int
+    warnings: list[str] = Field(default_factory=list)
+
+
 class NeedsClarificationResponse(ApiModel):
     status: Literal["needs_clarification"]
     request_id: str

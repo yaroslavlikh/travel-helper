@@ -45,7 +45,11 @@ const messageList = $("#message-list");
 const composer = $("#composer");
 const messageInput = $("#message-input");
 const sendButton = $("#send-button");
+const destinationComposer = $("#destination-composer");
+const destinationInput = $("#destination-input");
 let busy = false;
+let destinationBusy = false;
+let activeDestinationId = null;
 
 function id() {
   return globalThis.crypto?.randomUUID?.() || `chat-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -94,6 +98,7 @@ function createChat() {
     snapshot: null,
     recommendations: [],
     pendingQuestionMessageId: null,
+    destinationThreads: {},
   };
 }
 
@@ -101,6 +106,9 @@ function loadStore() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved?.chats?.length) {
+      saved.chats.forEach((chat) => {
+        chat.destinationThreads = chat.destinationThreads || {};
+      });
       const activeExists = saved.chats.some((chat) => chat.id === saved.activeChatId);
       saved.activeChatId = activeExists ? saved.activeChatId : saved.chats[0].id;
       return saved;
@@ -398,6 +406,13 @@ function providerActions(candidate, snapshot, index) {
   </div>`;
 }
 
+function destinationDiscussionAction(candidate, chat) {
+  const thread = chat.destinationThreads?.[candidate.destination_id];
+  const messageCount = (thread?.messages || []).filter((message) => message.role === "user").length;
+  const countLabel = messageCount ? `<span>${messageCount} сообщ.</span>` : "<span>Новый субчат</span>";
+  return `<button class="destination-discuss" type="button" data-discuss-destination="${escapeHtml(candidate.destination_id)}"><span class="destination-discuss-icon" aria-hidden="true">✦</span><strong>Обсудить ${escapeHtml(candidate.city_or_region)}</strong>${countLabel}<i aria-hidden="true">→</i></button>`;
+}
+
 function destinationCard(item, index, chat) {
   const candidate = item.candidate;
   const image = candidate.image;
@@ -425,6 +440,7 @@ function destinationCard(item, index, chat) {
       </div>
       ${highlights ? `<div class="card-section"><h4>Конкретные места</h4><div class="place-list">${highlights}</div></div>` : ""}
       ${stayAreas ? `<div class="card-section"><h4>Районы для проживания</h4><div class="stay-areas">${stayAreas}</div></div>` : ""}
+      ${destinationDiscussionAction(candidate, chat)}
       ${providerActions(candidate, chat.snapshot, index)}
       <p class="external-note">Внешний поиск · цены и наличие не подтверждены</p>
       <details class="card-details"><summary>Почему подходит, риски и источники</summary><p class="detail-copy">${escapeHtml(item.explanation)} ${item.risks?.length ? `Риски: ${escapeHtml(item.risks.join("; "))}.` : ""} Въезд: ${escapeHtml(candidate.entry_requirements || "нужно проверить")}.</p><div class="source-links">${sources}</div></details>
@@ -451,6 +467,9 @@ function renderFeed() {
   document.querySelectorAll(".travel-link[data-provider]").forEach((link) => {
     link.addEventListener("click", () => trackTravelLink(link));
   });
+  document.querySelectorAll("[data-discuss-destination]").forEach((button) => {
+    button.addEventListener("click", () => openDestinationChat(button.dataset.discussDestination));
+  });
   const update = $("#feed-update");
   update.textContent = chat.feedUpdate || "";
   update.classList.toggle("hidden", !chat.feedUpdate);
@@ -476,6 +495,154 @@ function trackTravelLink(link) {
   }).catch(() => undefined);
 }
 
+function recommendationById(chat, destinationId) {
+  return (chat.recommendations || []).find((item) => item.candidate.destination_id === destinationId);
+}
+
+function ensureDestinationThread(chat, recommendation) {
+  const candidate = recommendation.candidate;
+  chat.destinationThreads = chat.destinationThreads || {};
+  if (!chat.destinationThreads[candidate.destination_id]) {
+    chat.destinationThreads[candidate.destination_id] = {
+      destinationId: candidate.destination_id,
+      destinationName: candidate.city_or_region,
+      updatedAt: now(),
+      messages: [{
+        id: id(),
+        role: "assistant",
+        text: `Давайте отдельно разберём ${candidate.city_or_region}. Я помню условия этой поездки и опираюсь на текущую карточку; основную подборку здесь не меняю без вашего подтверждения.`,
+        createdAt: now(),
+        quickReplies: ["Где лучше остановиться?", "Что посмотреть рядом?", "Какие есть риски?"],
+      }],
+    };
+    touch(chat);
+  }
+  return chat.destinationThreads[candidate.destination_id];
+}
+
+function addDestinationMessage(chat, destinationId, message) {
+  const thread = chat.destinationThreads[destinationId];
+  thread.messages.push({ id: id(), createdAt: now(), quickReplies: [], ...message });
+  thread.updatedAt = now();
+  touch(chat);
+}
+
+function openDestinationChat(destinationId) {
+  if (busy || destinationBusy) return;
+  const chat = activeChat();
+  const recommendation = recommendationById(chat, destinationId);
+  if (!recommendation) return;
+  ensureDestinationThread(chat, recommendation);
+  activeDestinationId = destinationId;
+  renderDestinationChat();
+  setMobileView("feed");
+  destinationInput.focus();
+}
+
+function closeDestinationChat() {
+  if (destinationBusy) return;
+  activeDestinationId = null;
+  renderDestinationChat();
+}
+
+function destinationMessageMarkup(message) {
+  const applyAction = message.proposedTripChange
+    ? `<button class="apply-trip-change" type="button" data-apply-trip-change="${escapeHtml(message.proposedTripChange)}">Применить ко всей поездке <span>→</span></button>`
+    : "";
+  return `<article class="destination-message ${message.role}">
+    ${message.role === "assistant" ? '<span class="avatar assistant-avatar" aria-hidden="true">✦</span>' : ""}
+    <div><div class="destination-bubble">${escapeHtml(message.text).replaceAll("\n", "<br>")}${applyAction}</div><small>${shortTime(message.createdAt)}</small></div>
+  </article>`;
+}
+
+function renderDestinationChat() {
+  const chat = activeChat();
+  const recommendation = activeDestinationId ? recommendationById(chat, activeDestinationId) : null;
+  const panel = $("#destination-chat-view");
+  const isOpen = Boolean(recommendation);
+  $("#feed-content").classList.toggle("hidden", isOpen);
+  panel.classList.toggle("hidden", !isOpen);
+  $("#feed-panel").classList.toggle("subchat-open", isOpen);
+  if (!recommendation) {
+    activeDestinationId = null;
+    return;
+  }
+
+  const candidate = recommendation.candidate;
+  const thread = ensureDestinationThread(chat, recommendation);
+  $("#destination-chat-title").textContent = candidate.city_or_region;
+  $("#destination-chat-subtitle").textContent = `${candidate.country} · отдельная ветка этой поездки`;
+  const image = $("#destination-chat-image");
+  image.src = safeUrl(candidate.image?.url);
+  image.alt = candidate.image?.alt || candidate.city_or_region;
+  $("#destination-message-list").innerHTML = thread.messages.map(destinationMessageMarkup).join("");
+  const latestAssistant = [...thread.messages].reverse().find((message) => message.role === "assistant");
+  $("#destination-quick-replies").innerHTML = destinationBusy ? "" : (latestAssistant?.quickReplies || []).map((reply) => `<button type="button" data-destination-starter="${escapeHtml(reply)}">${escapeHtml(reply)}</button>`).join("");
+  document.querySelectorAll("[data-destination-starter]").forEach((button) => {
+    button.addEventListener("click", () => sendDestinationMessage(button.dataset.destinationStarter));
+  });
+  document.querySelectorAll("[data-apply-trip-change]").forEach((button) => {
+    button.addEventListener("click", () => applyTripChange(button.dataset.applyTripChange));
+  });
+  destinationInput.disabled = destinationBusy;
+  $("#destination-send").disabled = destinationBusy;
+  $("#destination-typing").classList.toggle("hidden", !destinationBusy);
+  requestAnimationFrame(() => {
+    const list = $("#destination-message-list");
+    list.scrollTop = list.scrollHeight;
+  });
+}
+
+async function sendDestinationMessage(text) {
+  if (busy || destinationBusy || !text?.trim() || !activeDestinationId) return;
+  const chat = activeChat();
+  const chatId = chat.id;
+  const destinationId = activeDestinationId;
+  const query = text.trim();
+  addDestinationMessage(chat, destinationId, { role: "user", text: query });
+  destinationInput.value = "";
+  destinationBusy = true;
+  renderDestinationChat();
+  try {
+    const response = await fetch("/destination-chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: chatId, destination_id: destinationId, query }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "Не удалось получить ответ");
+    const targetChat = store.chats.find((item) => item.id === chatId);
+    if (!targetChat?.destinationThreads?.[destinationId]) return;
+    addDestinationMessage(targetChat, destinationId, {
+      role: "assistant",
+      text: payload.assistant_message,
+      quickReplies: payload.quick_replies || [],
+      proposedTripChange: payload.proposed_trip_change || null,
+    });
+  } catch (error) {
+    const targetChat = store.chats.find((item) => item.id === chatId);
+    if (targetChat?.destinationThreads?.[destinationId]) {
+      addDestinationMessage(targetChat, destinationId, {
+        role: "assistant",
+        text: `Не получилось продолжить разговор: ${error.message}. История ветки сохранена — попробуйте ещё раз.`,
+      });
+    }
+  } finally {
+    destinationBusy = false;
+    if (store.activeChatId === chatId && activeDestinationId === destinationId) {
+      renderFeed();
+      renderDestinationChat();
+    }
+  }
+}
+
+async function applyTripChange(change) {
+  if (!change || busy || destinationBusy) return;
+  closeDestinationChat();
+  setMobileView("chat");
+  await sendCurrentMessage(change);
+}
+
 function chatStatus(chat) {
   const count = chat.recommendations?.length || 0;
   if (chat.pendingQuestionMessageId) return "Жду ваши уточнения · память включена";
@@ -490,10 +657,12 @@ function renderAll() {
   renderChatList();
   renderMessages();
   renderFeed();
+  renderDestinationChat();
 }
 
 function switchChat(chatId) {
-  if (busy || !store.chats.some((chat) => chat.id === chatId)) return;
+  if (busy || destinationBusy || !store.chats.some((chat) => chat.id === chatId)) return;
+  activeDestinationId = null;
   store.activeChatId = chatId;
   persist();
   renderAll();
@@ -501,7 +670,8 @@ function switchChat(chatId) {
 }
 
 function openNewChat() {
-  if (busy) return;
+  if (busy || destinationBusy) return;
+  activeDestinationId = null;
   const chat = createChat();
   store.chats.push(chat);
   store.activeChatId = chat.id;
@@ -531,6 +701,18 @@ function setMobileView(view) {
   document.body.dataset.mobileView = view;
   document.querySelectorAll(".mobile-tab").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
 }
+
+destinationComposer.addEventListener("submit", (event) => {
+  event.preventDefault();
+  sendDestinationMessage(destinationInput.value);
+});
+destinationInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    event.preventDefault();
+    destinationComposer.requestSubmit();
+  }
+});
+$("#destination-back").addEventListener("click", closeDestinationChat);
 
 composer.addEventListener("submit", (event) => {
   event.preventDefault();

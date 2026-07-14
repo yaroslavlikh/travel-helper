@@ -64,6 +64,7 @@ def test_trace_propagates_session_and_flushes_immediately(
     with observability.trace(
         "recommendation_pipeline",
         session_id="chat-session-123",
+        trace_name="Turn 01 · initial request",
         input={"query": "Хочу на море"},
         metadata={"turnid": "turn-1", "turnkind": "initial"},
         tags=["travel-chat", "initial"],
@@ -75,7 +76,7 @@ def test_trace_propagates_session_and_flushes_immediately(
     assert propagated == [
         {
             "session_id": "chat-session-123",
-            "trace_name": "recommendation_pipeline",
+            "trace_name": "Turn 01 · initial request",
             "metadata": {"turnid": "turn-1", "turnkind": "initial"},
             "tags": ["travel-chat", "initial"],
         }

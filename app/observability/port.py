@@ -33,6 +33,7 @@ class ObservabilityPort(Protocol):
         name: str,
         *,
         session_id: str,
+        trace_name: str | None = None,
         input: Any | None = None,
         metadata: dict[str, Any] | None = None,
         tags: list[str] | None = None,
@@ -81,11 +82,12 @@ class NoopObservability:
         name: str,
         *,
         session_id: str,
+        trace_name: str | None = None,
         input: Any | None = None,
         metadata: dict[str, Any] | None = None,
         tags: list[str] | None = None,
     ) -> AbstractContextManager[ObservationHandle]:
-        del name, session_id, input, metadata, tags
+        del name, session_id, trace_name, input, metadata, tags
         return nullcontext(NoopObservation())
 
     def span(self, name: str, **metadata: Any) -> AbstractContextManager[ObservationHandle]:

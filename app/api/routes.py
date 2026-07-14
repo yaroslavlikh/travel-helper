@@ -11,6 +11,8 @@ from langgraph.types import Command
 
 from app.api.schemas import (
     CompletedRecommendationResponse,
+    DestinationChatInput,
+    DestinationChatResponse,
     FeedbackInput,
     NeedsClarificationResponse,
     PartialRecommendationResponse,
@@ -19,7 +21,15 @@ from app.api.schemas import (
     TravelLinkOpenedInput,
 )
 from app.core.resources import AppResources
-from app.domain.models import Ambiguity, PlannerState, TravelRequest, TravelRequestPatch
+from app.domain.models import (
+    Ambiguity,
+    DestinationThreadMessage,
+    PlannerState,
+    ScoredDestination,
+    TravelRequest,
+    TravelRequestPatch,
+)
+from app.services.destination_chat import answer_destination_question
 from app.services.extraction import extract_answers_for_questions
 from app.services.scoring import rank_demo_candidates
 
@@ -105,13 +115,17 @@ async def _invoke_planner_turn(
     graph_is_interrupted: bool,
     previous_request: TravelRequest | None,
     turn_kind: Literal["initial", "clarification", "refinement"],
+    turn_index: int,
 ) -> dict[str, Any]:
     if payload.answers is not None:
         if existing_state is None or not graph_is_interrupted:
             raise HTTPException(status_code=404, detail="Unknown planning session")
         query_history = [*existing_state.get("query_history", []), payload.query.strip()][-20:]
         result = await resources.planner_graph.ainvoke(
-            Command(resume=payload.answers, update={"query_history": query_history}),
+            Command(
+                resume=payload.answers,
+                update={"query_history": query_history, "turn_count": turn_index},
+            ),
             config,
         )
         return cast(dict[str, Any], result)
@@ -133,7 +147,11 @@ async def _invoke_planner_turn(
         result = await resources.planner_graph.ainvoke(
             Command(
                 resume=answer_patch,
-                update={"query_history": query_history, "warnings": warnings},
+                update={
+                    "query_history": query_history,
+                    "warnings": warnings,
+                    "turn_count": turn_index,
+                },
             ),
             config,
         )
@@ -151,6 +169,8 @@ async def _invoke_planner_turn(
                 payload.query.strip(),
             ][-20:],
             "question_history": existing_state.get("question_history", []),
+            "destination_threads": existing_state.get("destination_threads", {}),
+            "turn_count": turn_index,
             "ambiguities": [],
             "questions": [],
             "assumptions": [],
@@ -167,6 +187,8 @@ async def _invoke_planner_turn(
         "answers": {},
         "query_history": [payload.query.strip()],
         "question_history": [],
+        "destination_threads": {},
+        "turn_count": turn_index,
         "warnings": [],
         "status": "received",
     }
@@ -287,6 +309,44 @@ def _trace_output(
     return result
 
 
+def _recommendation_trace_name(
+    turn_index: int, turn_kind: Literal["initial", "clarification", "refinement"]
+) -> str:
+    labels = {
+        "initial": "initial request",
+        "clarification": "clarification",
+        "refinement": "refinement",
+    }
+    return f"Turn {turn_index:02d} · {labels[turn_kind]}"
+
+
+def _destination_trace_input(
+    payload: DestinationChatInput, *, capture_content: bool
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "query_length": len(payload.query),
+        "destination_id": payload.destination_id,
+    }
+    if capture_content:
+        result["query"] = payload.query
+    return result
+
+
+def _find_current_recommendation(
+    *, destination_id: str, request: TravelRequest, resources: AppResources
+) -> ScoredDestination | None:
+    if not resources.settings.demo_mode:
+        return None
+    return next(
+        (
+            item
+            for item in rank_demo_candidates(request)
+            if item.candidate.destination_id == destination_id
+        ),
+        None,
+    )
+
+
 @router.post("/feedback", status_code=status.HTTP_204_NO_CONTENT)
 async def submit_feedback(payload: FeedbackInput, request: Request) -> Response:
     """Record minimal anonymous product feedback without user accounts."""
@@ -322,6 +382,115 @@ async def record_travel_link_opened(payload: TravelLinkOpenedInput, request: Req
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.post("/destination-chat", response_model=DestinationChatResponse)
+async def destination_chat(
+    payload: DestinationChatInput, request: Request
+) -> DestinationChatResponse:
+    """Continue a bounded card-specific conversation inside the parent trip session."""
+
+    resources = request.app.state.resources
+    if not isinstance(resources, AppResources):
+        raise RuntimeError("Application resources are unavailable")
+    config: RunnableConfig = {"configurable": {"thread_id": payload.session_id}}
+    snapshot = await resources.planner_graph.aget_state(config)
+    if not snapshot.values:
+        raise HTTPException(status_code=404, detail="Unknown planning session")
+    state = cast(PlannerState, snapshot.values)
+    if snapshot.next or not state.get("parsed_request"):
+        raise HTTPException(
+            status_code=409,
+            detail="Complete the main trip clarification before discussing a destination",
+        )
+    trip_request = _state_to_request(state)
+    recommendation = _find_current_recommendation(
+        destination_id=payload.destination_id,
+        request=trip_request,
+        resources=resources,
+    )
+    if recommendation is None:
+        raise HTTPException(status_code=404, detail="Destination is not in the current shortlist")
+
+    destination = recommendation.candidate
+    subthread_id = f"destination:{destination.destination_id}"
+    raw_threads = state.get("destination_threads", {})
+    threads = dict(raw_threads) if isinstance(raw_threads, dict) else {}
+    raw_thread = threads.get(destination.destination_id, {})
+    raw_history = raw_thread.get("messages", []) if isinstance(raw_thread, dict) else []
+    history: list[DestinationThreadMessage] = []
+    for item in raw_history[-20:]:
+        try:
+            history.append(DestinationThreadMessage.model_validate(item))
+        except (TypeError, ValueError):
+            continue
+    turn_index = max(state.get("turn_count", 0), len(state.get("query_history", []))) + 1
+    request_id = str(uuid4())
+    trace_name = f"Turn {turn_index:02d} · destination question · {destination.city_or_region}"
+    with resources.observability.trace(
+        "destination_conversation",
+        session_id=payload.session_id,
+        trace_name=trace_name,
+        input=_destination_trace_input(
+            payload,
+            capture_content=resources.settings.langfuse_capture_content,
+        ),
+        metadata={
+            "turn_id": request_id,
+            "turn_kind": "destination_question",
+            "turn_index": turn_index,
+            "subthread_id": subthread_id,
+            "destination_id": destination.destination_id,
+            "demo_mode": resources.settings.demo_mode,
+        },
+        tags=["travel-chat", "destination-question"],
+    ) as trace:
+        reply, warnings = await answer_destination_question(
+            query=payload.query.strip(),
+            trip_request=trip_request,
+            recommendation=recommendation,
+            history=history,
+            gateway=resources.model_gateway,
+            demo_mode=resources.settings.demo_mode,
+        )
+        updated_history = [
+            *history,
+            DestinationThreadMessage(role="user", text=payload.query.strip()),
+            DestinationThreadMessage(role="assistant", text=reply.answer),
+        ][-20:]
+        threads[destination.destination_id] = {
+            "destination_id": destination.destination_id,
+            "messages": [item.model_dump(mode="json") for item in updated_history],
+        }
+        await resources.planner_graph.aupdate_state(
+            config,
+            {"destination_threads": threads, "turn_count": turn_index},
+        )
+        response = DestinationChatResponse(
+            status="completed",
+            request_id=request_id,
+            session_id=payload.session_id,
+            subthread_id=subthread_id,
+            destination_id=destination.destination_id,
+            destination_name=destination.city_or_region,
+            assistant_message=reply.answer,
+            quick_replies=reply.quick_replies,
+            proposed_trip_change=reply.proposed_trip_change,
+            message_count=len(updated_history),
+            turn_index=turn_index,
+            warnings=warnings,
+        )
+        trace.update(
+            output={
+                "status": response.status,
+                "request_id": request_id,
+                "destination_id": destination.destination_id,
+                "message_count": response.message_count,
+                "proposed_trip_change": bool(response.proposed_trip_change),
+            },
+            metadata={"outcome": "completed"},
+        )
+        return response
+
+
 @router.post("/recommend", response_model=RecommendationResponse)
 async def recommend(payload: RecommendInput, request: Request) -> RecommendationResponse:
     """Start, resume, or refine one anonymous planning thread."""
@@ -346,20 +515,29 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
         graph_is_interrupted=graph_is_interrupted,
         previous_request=previous_request,
     )
+    turn_index = (
+        max(
+            (existing_state or {}).get("turn_count", 0),
+            len((existing_state or {}).get("query_history", [])),
+        )
+        + 1
+    )
     turn_id = str(uuid4())
 
     with resources.observability.trace(
         "recommendation_pipeline",
         session_id=session_id,
+        trace_name=_recommendation_trace_name(turn_index, turn_kind),
         input=_trace_input(
             payload,
             capture_content=resources.settings.langfuse_capture_content,
         ),
         metadata={
-            "turnid": turn_id,
-            "turnkind": turn_kind,
-            "demomode": resources.settings.demo_mode,
-            "hasanswers": payload.answers is not None,
+            "turn_id": turn_id,
+            "turn_kind": turn_kind,
+            "turn_index": turn_index,
+            "demo_mode": resources.settings.demo_mode,
+            "has_answers": payload.answers is not None,
         },
         tags=["travel-chat", turn_kind],
     ) as trace:
@@ -372,6 +550,7 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
             graph_is_interrupted=graph_is_interrupted,
             previous_request=previous_request,
             turn_kind=turn_kind,
+            turn_index=turn_index,
         )
         response = await _build_recommendation_response(
             result=result,

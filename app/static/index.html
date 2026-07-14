@@ -73,22 +73,48 @@
       </main>
 
       <section id="feed-panel" class="feed-panel" aria-label="Лента вариантов">
-        <header class="feed-header">
-          <div>
-            <span class="feed-kicker">Живая подборка</span>
-            <h2>Куда можно поехать</h2>
+        <div id="feed-content" class="feed-content">
+          <header class="feed-header">
+            <div>
+              <span class="feed-kicker">Живая подборка</span>
+              <h2>Куда можно поехать</h2>
+            </div>
+            <span id="result-count" class="result-count">0 вариантов</span>
+          </header>
+          <div id="criteria" class="criteria"></div>
+          <div id="feed-empty" class="feed-empty">
+            <div class="empty-illustration"><span>✦</span><i>✈</i></div>
+            <h3>Здесь появятся места</h3>
+            <p>Обсудите поездку в чате — я покажу конкретные города, районы и идеи для отдыха.</p>
           </div>
-          <span id="result-count" class="result-count">0 вариантов</span>
-        </header>
-        <div id="criteria" class="criteria"></div>
-        <div id="feed-empty" class="feed-empty">
-          <div class="empty-illustration"><span>✦</span><i>✈</i></div>
-          <h3>Здесь появятся места</h3>
-          <p>Обсудите поездку в чате — я покажу конкретные города, районы и идеи для отдыха.</p>
+          <div id="feed-update" class="feed-update hidden"></div>
+          <div id="recommendation-list" class="recommendation-list"></div>
+          <div id="feed-notices" class="feed-notices"></div>
         </div>
-        <div id="feed-update" class="feed-update hidden"></div>
-        <div id="recommendation-list" class="recommendation-list"></div>
-        <div id="feed-notices" class="feed-notices"></div>
+
+        <section id="destination-chat-view" class="destination-chat-view hidden" aria-label="Обсуждение направления">
+          <header class="destination-chat-header">
+            <button id="destination-back" class="destination-back" type="button" aria-label="Вернуться к вариантам">←</button>
+            <img id="destination-chat-image" class="destination-chat-image" alt="" />
+            <div>
+              <span class="feed-kicker">Разговор о направлении</span>
+              <h2 id="destination-chat-title">Направление</h2>
+              <p id="destination-chat-subtitle">Отдельная ветка этой поездки</p>
+            </div>
+          </header>
+          <div id="destination-message-list" class="destination-message-list" aria-live="polite"></div>
+          <div id="destination-typing" class="destination-typing hidden" aria-live="polite">
+            <span class="avatar assistant-avatar">✦</span>
+            <span>Разбираюсь в карточке…</span>
+          </div>
+          <div id="destination-quick-replies" class="destination-quick-replies"></div>
+          <form id="destination-composer" class="destination-composer">
+            <label class="sr-only" for="destination-input">Вопрос о направлении</label>
+            <textarea id="destination-input" rows="1" maxlength="4000" placeholder="Спросите про районы, места или риски…" required></textarea>
+            <button id="destination-send" type="submit" aria-label="Отправить вопрос">→</button>
+          </form>
+          <p class="destination-note">Этот разговор не меняет общую подборку без вашего подтверждения</p>
+        </section>
       </section>
     </div>
 
