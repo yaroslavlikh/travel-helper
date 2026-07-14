@@ -29,6 +29,16 @@ const FIELD_LABELS = {
   avoid: "что исключить",
   priorities: "приоритеты",
 };
+const ORIGIN_IATA = {
+  "москва": "MOW",
+  "санкт-петербург": "LED",
+  "петербург": "LED",
+  "спб": "LED",
+  "екатеринбург": "SVX",
+  "казань": "KZN",
+  "новосибирск": "OVB",
+  "сочи": "AER",
+};
 
 const $ = (selector) => document.querySelector(selector);
 const messageList = $("#message-list");
@@ -362,11 +372,33 @@ function costRange(candidate) {
   return `${formatMoney(candidate.estimated_total_cost_rub_min)} – ${formatMoney(candidate.estimated_total_cost_rub_max)}`;
 }
 
-function linkLabel(category) {
-  return { stay: "Где остановиться", activity: "Что посмотреть", package_tour: "Найти тур" }[category] || "Открыть";
+function aviasalesUrl(candidate, snapshot) {
+  const request = snapshot?.parsed_request || {};
+  const url = new URL("https://www.aviasales.ru/search/");
+  const origin = ORIGIN_IATA[String(request.origin_city || "").trim().toLocaleLowerCase("ru-RU")];
+  if (origin) url.searchParams.set("origin_iata", origin);
+  if (candidate.nearest_airport) url.searchParams.set("destination_iata", candidate.nearest_airport);
+  if (request.date_from) url.searchParams.set("depart_date", request.date_from);
+  if (request.date_to) url.searchParams.set("return_date", request.date_to);
+  url.searchParams.set("adults", String(request.adults || 1));
+  url.searchParams.set("children", String(request.children || 0));
+  url.searchParams.set("infants", "0");
+  url.searchParams.set("trip_class", "0");
+  url.searchParams.set("currency", "RUB");
+  return url.href;
 }
 
-function destinationCard(item, index) {
+function providerActions(candidate, snapshot, index) {
+  const stayLink = (candidate.external_links || []).find((link) => link.category === "stay");
+  const requestId = snapshot?.request_id || "unknown-request";
+  const shared = `data-destination-id="${escapeHtml(candidate.destination_id)}" data-rank="${index + 1}" data-request-id="${escapeHtml(requestId)}"`;
+  return `<div class="card-actions">
+    <a class="travel-link aviasales-link" href="${safeUrl(aviasalesUrl(candidate, snapshot))}" target="_blank" rel="noreferrer" ${shared} data-provider="aviasales" data-link-kind="flight"><span aria-hidden="true">✈</span> Найти билеты <small>Aviasales</small></a>
+    <a class="travel-link yandex-link" href="${safeUrl(stayLink?.url || "https://travel.yandex.ru/")}" target="_blank" rel="noreferrer" ${shared} data-provider="yandex_travel" data-link-kind="stay"><span aria-hidden="true">⌂</span> Найти жильё <small>Яндекс Путешествия</small></a>
+  </div>`;
+}
+
+function destinationCard(item, index, chat) {
   const candidate = item.candidate;
   const image = candidate.image;
   const imageUrl = safeUrl(image?.url);
@@ -375,8 +407,6 @@ function destinationCard(item, index) {
       <strong>↗ ${escapeHtml(place.name)}</strong><span>${escapeHtml(place.description)}</span>
     </a>`).join("");
   const stayAreas = (candidate.stay_areas || []).map((area) => `<span class="stay-area">${escapeHtml(area)}</span>`).join("");
-  const links = (candidate.external_links || []).map((link) => `
-    <a class="travel-link" href="${safeUrl(link.url)}" target="_blank" rel="noreferrer" title="${escapeHtml(link.title)}">${linkLabel(link.category)} <span>↗</span></a>`).join("");
   const sources = (candidate.sources || []).map((source) => `<a href="${safeUrl(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.title)}</a>`).join("");
   const flight = candidate.flight_duration_hours ? `${candidate.flight_duration_hours} ч · ${candidate.transfers_count || 0} перес.` : "Уточнить";
   const weather = candidate.expected_temperature_c != null ? `${candidate.expected_temperature_c}° · море ${candidate.expected_sea_temperature_c ?? "—"}°` : "Уточнить";
@@ -395,7 +425,7 @@ function destinationCard(item, index) {
       </div>
       ${highlights ? `<div class="card-section"><h4>Конкретные места</h4><div class="place-list">${highlights}</div></div>` : ""}
       ${stayAreas ? `<div class="card-section"><h4>Районы для проживания</h4><div class="stay-areas">${stayAreas}</div></div>` : ""}
-      <div class="card-actions">${links}</div>
+      ${providerActions(candidate, chat.snapshot, index)}
       <p class="external-note">Внешний поиск · цены и наличие не подтверждены</p>
       <details class="card-details"><summary>Почему подходит, риски и источники</summary><p class="detail-copy">${escapeHtml(item.explanation)} ${item.risks?.length ? `Риски: ${escapeHtml(item.risks.join("; "))}.` : ""} Въезд: ${escapeHtml(candidate.entry_requirements || "нужно проверить")}.</p><div class="source-links">${sources}</div></details>
     </div>
@@ -417,12 +447,33 @@ function renderFeed() {
   $("#result-count").textContent = pluralOptions(recommendations.length);
   $("#mobile-count").textContent = recommendations.length;
   $("#feed-empty").classList.toggle("hidden", Boolean(recommendations.length));
-  $("#recommendation-list").innerHTML = recommendations.map(destinationCard).join("");
+  $("#recommendation-list").innerHTML = recommendations.map((item, index) => destinationCard(item, index, chat)).join("");
+  document.querySelectorAll(".travel-link[data-provider]").forEach((link) => {
+    link.addEventListener("click", () => trackTravelLink(link));
+  });
   const update = $("#feed-update");
   update.textContent = chat.feedUpdate || "";
   update.classList.toggle("hidden", !chat.feedUpdate);
   const notices = chat.snapshot?.warnings || [];
   $("#feed-notices").innerHTML = notices.map((notice) => `<div class="notice">${escapeHtml(notice)}</div>`).join("");
+}
+
+function trackTravelLink(link) {
+  const chat = activeChat();
+  const payload = {
+    session_id: chat.id,
+    request_id: link.dataset.requestId,
+    destination_id: link.dataset.destinationId,
+    rank: Number(link.dataset.rank),
+    provider: link.dataset.provider,
+    link_kind: link.dataset.linkKind,
+  };
+  fetch("/events/travel-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  }).catch(() => undefined);
 }
 
 function chatStatus(chat) {

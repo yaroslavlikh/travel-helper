@@ -185,9 +185,25 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
                     "comment": "Полезно",
                 },
             )
+            travel_link = await client.post(
+                "/events/travel-link",
+                json={
+                    "session_id": "session-123",
+                    "request_id": "request-123",
+                    "destination_id": "batumi",
+                    "rank": 1,
+                    "provider": "aviasales",
+                    "link_kind": "flight",
+                },
+            )
+            recorded_clicks = list(app.state.resources.product_event_store.travel_link_events)
 
     assert page.status_code == 200
     assert "Пора в путь" in page.text
     assert "AI travel copilot" in page.text
     assert "Живая подборка" in page.text
     assert feedback.status_code == 204
+    assert travel_link.status_code == 204
+    assert len(recorded_clicks) == 1
+    assert recorded_clicks[0].destination_id == "batumi"
+    assert recorded_clicks[0].provider == "aviasales"

@@ -27,6 +27,15 @@ class FeedbackInput(ApiModel):
     comment: str | None = Field(default=None, max_length=1_000)
 
 
+class TravelLinkOpenedInput(ApiModel):
+    session_id: str = Field(min_length=8, max_length=128)
+    request_id: str = Field(min_length=8, max_length=128)
+    destination_id: str = Field(min_length=1, max_length=128)
+    rank: int = Field(ge=1, le=100)
+    provider: Literal["aviasales", "yandex_travel"]
+    link_kind: Literal["flight", "stay"]
+
+
 class NeedsClarificationResponse(ApiModel):
     status: Literal["needs_clarification"]
     request_id: str

@@ -256,9 +256,12 @@ button { color: inherit; }
 .place span { display: block; margin-top: 3px; color: #8292a3; font-size: 8px; line-height: 1.35; }
 .stay-areas { display: flex; flex-wrap: wrap; gap: 5px; }
 .stay-area { padding: 5px 7px; border-radius: 7px; color: #506f8f; background: #eef5fb; font-size: 9px; }
-.card-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 14px; }
-.travel-link { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 4px; padding: 8px 5px; border: 1px solid #cfe3f8; border-radius: 9px; color: #0b6dcb; background: #f3f9ff; text-decoration: none; font-size: 9px; font-weight: 750; text-align: center; }
-.travel-link:first-child { border-color: var(--blue); color: white; background: var(--blue); }
+.card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 14px; }
+.travel-link { display: grid; min-width: 0; grid-template-columns: auto 1fr; align-items: center; justify-content: center; column-gap: 5px; padding: 9px 8px; border: 1px solid #cfe3f8; border-radius: 10px; color: #0b6dcb; background: #f3f9ff; text-decoration: none; font-size: 9px; font-weight: 800; text-align: left; }
+.travel-link > span { grid-row: 1 / 3; font-size: 13px; }
+.travel-link small { grid-column: 2; opacity: 0.72; font-size: 7px; font-weight: 650; }
+.aviasales-link { border-color: var(--blue); color: white; background: var(--blue); }
+.yandex-link { border-color: #c8ddf1; color: #205c91; background: white; }
 .travel-link:hover { filter: brightness(0.97); transform: translateY(-1px); }
 .external-note { margin: 7px 0 0; color: #a0aab5; font-size: 7px; text-align: center; }
 .card-details { margin-top: 12px; padding-top: 10px; border-top: 1px solid #edf1f5; }

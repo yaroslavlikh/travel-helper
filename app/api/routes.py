@@ -16,6 +16,7 @@ from app.api.schemas import (
     PartialRecommendationResponse,
     RecommendationResponse,
     RecommendInput,
+    TravelLinkOpenedInput,
 )
 from app.core.resources import AppResources
 from app.domain.models import Ambiguity, PlannerState, TravelRequest, TravelRequestPatch
@@ -299,6 +300,24 @@ async def submit_feedback(payload: FeedbackInput, request: Request) -> Response:
         destination_id=payload.destination_id,
         value=payload.value,
         comment=payload.comment,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/events/travel-link", status_code=status.HTTP_204_NO_CONTENT)
+async def record_travel_link_opened(payload: TravelLinkOpenedInput, request: Request) -> Response:
+    """Record a bounded anonymous provider click without delaying navigation."""
+
+    resources = request.app.state.resources
+    if not isinstance(resources, AppResources):
+        raise RuntimeError("Application resources are unavailable")
+    resources.product_event_store.record_travel_link_opened(
+        session_id=payload.session_id,
+        request_id=payload.request_id,
+        destination_id=payload.destination_id,
+        rank=payload.rank,
+        provider=payload.provider,
+        link_kind=payload.link_kind,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

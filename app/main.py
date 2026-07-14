@@ -22,6 +22,7 @@ from app.core.logging import configure_logging
 from app.core.resources import AppResources
 from app.observability.langfuse import create_observability
 from app.observability.port import ObservabilityPort
+from app.services.events import ProductEventStore
 from app.services.feedback import FeedbackStore
 from app.services.model_gateway import create_model_gateway
 from app.services.workflow import build_planner_graph
@@ -82,6 +83,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     demo_mode=resolved_settings.demo_mode,
                 ),
                 feedback_store=FeedbackStore(),
+                product_event_store=ProductEventStore(),
             )
             try:
                 yield
