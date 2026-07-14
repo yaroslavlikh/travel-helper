@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any
 
 from pydantic import BaseModel
@@ -102,3 +103,41 @@ def test_revision_changes_only_explicit_fields_and_can_clear_constraints() -> No
     assert updated.budget_total_rub == 160_000
     assert updated.sea_required is False
     assert updated.preferences == []
+
+
+def test_planning_window_replaces_confirmed_flight_dates() -> None:
+    base = TravelRequest(
+        raw_query="Точно с 15 по 23 августа",
+        flight_departure_date=date(2026, 8, 15),
+        flight_return_date=date(2026, 8, 23),
+    )
+    revision = TravelRequestRevision(changes=TravelRequestPatch(month=9))
+
+    updated = merge_travel_request_revision(base, revision)
+
+    assert updated.month == 9
+    assert updated.flight_departure_date is None
+    assert updated.flight_return_date is None
+
+
+def test_confirmed_flight_dates_replace_approximate_window() -> None:
+    base = TravelRequest(
+        raw_query="Можно в августе",
+        month=8,
+        date_from=date(2026, 8, 10),
+        date_to=date(2026, 8, 20),
+    )
+    revision = TravelRequestRevision(
+        changes=TravelRequestPatch(
+            flight_departure_date=date(2026, 8, 15),
+            flight_return_date=date(2026, 8, 23),
+        )
+    )
+
+    updated = merge_travel_request_revision(base, revision)
+
+    assert updated.flight_departure_date == date(2026, 8, 15)
+    assert updated.flight_return_date == date(2026, 8, 23)
+    assert updated.month is None
+    assert updated.date_from is None
+    assert updated.date_to is None

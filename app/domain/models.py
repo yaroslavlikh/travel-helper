@@ -26,14 +26,20 @@ class TravelRequestPatch(DomainModel):
     origin_country: str | None = None
     citizenship: str | None = None
     destination_scope: DestinationScope | None = None
+    # These fields describe an approximate departure window, not a round-trip ticket.
     date_from: date | None = None
     date_to: date | None = None
     month: int | None = Field(default=None, ge=1, le=12)
+    # Only explicitly confirmed flight dates may cross the provider boundary.
+    flight_departure_date: date | None = None
+    flight_return_date: date | None = None
+    flight_one_way: bool | None = None
     duration_nights_min: int | None = Field(default=None, ge=1)
     duration_nights_max: int | None = Field(default=None, ge=1)
     date_flexibility_days: int | None = Field(default=None, ge=0)
     adults: int | None = Field(default=None, ge=1)
     children: int | None = Field(default=None, ge=0)
+    infants: int | None = Field(default=None, ge=0)
     budget_total_rub: int | None = Field(default=None, ge=1)
     budget_strict: bool | None = None
     trip_style: list[str] = Field(default_factory=list)
@@ -108,7 +114,7 @@ class ExternalTravelLink(DomainModel):
 
     title: str
     provider: str
-    category: Literal["stay", "activity", "package_tour"]
+    category: Literal["flight", "stay", "activity", "package_tour"]
     url: str
 
 

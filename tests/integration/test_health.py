@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 import pytest
@@ -273,3 +274,27 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
     assert len(recorded_clicks) == 1
     assert recorded_clicks[0].destination_id == "batumi"
     assert recorded_clicks[0].provider == "aviasales"
+
+
+@pytest.mark.asyncio
+async def test_card_flight_link_keeps_month_only_request_flexible() -> None:
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+    query = "Из Москвы на море в августе на неделю, 180 тысяч на одного, за границу"
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/recommend", json={"query": query})
+
+    body = response.json()
+    links = body["recommendations"][0]["candidate"]["external_links"]
+    flight_link = next(link for link in links if link["category"] == "flight")
+    params = parse_qs(urlparse(flight_link["url"]).query)
+
+    assert flight_link["provider"] == "aviasales"
+    assert params["origin_iata"] == ["MOW"]
+    assert "destination_iata" in params
+    assert "depart_date" not in params
+    assert "return_date" not in params

@@ -29,6 +29,7 @@ from app.domain.models import (
     TravelRequest,
     TravelRequestPatch,
 )
+from app.services.aviasales import add_aviasales_links
 from app.services.destination_chat import answer_destination_question
 from app.services.extraction import extract_answers_for_questions
 from app.services.scoring import rank_demo_candidates
@@ -234,7 +235,11 @@ async def _build_recommendation_response(
             request_id=typed_state["request_id"],
             pipeline_stage="scoring",
         ) as scoring_observation:
-            recommendations = rank_demo_candidates(parsed_request)
+            recommendations = add_aviasales_links(
+                rank_demo_candidates(parsed_request),
+                parsed_request,
+                marker=resources.settings.aviasales_marker,
+            )
             scoring_observation.update(
                 output={"recommendation_count": len(recommendations)},
                 metadata={"outcome": "success"},

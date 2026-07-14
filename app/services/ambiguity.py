@@ -19,7 +19,11 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 options=["Москва", "Санкт-Петербург", "Другой город"],
             )
         )
-    if request.month is None and request.date_from is None:
+    if (
+        request.month is None
+        and request.date_from is None
+        and request.flight_departure_date is None
+    ):
         items.append(
             Ambiguity(
                 field="month",

@@ -46,7 +46,9 @@ Developer experience входит в slice, а не откладывается �
 Статус: completed. Статический frontend отдаётся FastAPI по `/`. Chat-first UI поддерживает
 несколько локально сохранённых threads, автоматически открытый первый chat, сохранённые вопросы,
 refinement существующего TravelRequest и отдельную живую ленту с фотографиями, конкретными местами
-и внешними navigation links. Desktop и mobile сценарии проверены в реальном браузере. `POST /feedback` принят для локальной продуктовой проверки, но
+и внешними navigation links. Aviasales handoff собирается в backend по отдельному контракту точных
+дат и не превращает примерный период в дату обратного билета. Desktop и mobile сценарии проверены
+в реальном браузере. `POST /feedback` принят для локальной продуктовой проверки, но
 сохраняет события только в памяти процесса и не является production-хранилищем.
 
 ## Slice 5 — observability and public hardening

@@ -1,3 +1,5 @@
+from datetime import date
+
 from app.domain.models import TravelRequest
 from app.services.ambiguity import clarification_questions, detect_ambiguities, explicit_assumptions
 
@@ -27,3 +29,19 @@ def test_known_fields_are_not_asked_again_and_defaults_are_disclosed() -> None:
         "Готовность оформлять визу не указана: рассматриваем любые варианты."
         in explicit_assumptions(ambiguities)
     )
+
+
+def test_confirmed_flight_dates_satisfy_period_question() -> None:
+    request = TravelRequest(
+        raw_query="Точно с 15 по 23 августа",
+        origin_city="Москва",
+        flight_departure_date=date(2026, 8, 15),
+        flight_return_date=date(2026, 8, 23),
+        adults=1,
+        budget_total_rub=100_000,
+        destination_scope="international",
+    )
+
+    fields = [item.field for item in clarification_questions(detect_ambiguities(request))]
+
+    assert "month" not in fields
