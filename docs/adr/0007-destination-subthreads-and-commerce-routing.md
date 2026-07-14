@@ -52,9 +52,8 @@ multi-agent orchestration не добавляются.
 1. слева «Найти билеты · Aviasales»;
 2. справа «Найти жильё · Яндекс Путешествия».
 
-Aviasales URL получает известные origin/destination IATA, пассажиров и конкретные даты. Правило
-temporal readiness и выбор явно помеченных derived-пресетов для неполных дат уточнены и заменены
-[ADR-0008](0008-flight-date-readiness-and-handoff.md).
+Aviasales URL получает известные origin/destination IATA, пассажиров и только подтверждённые точные
+даты. Если известен лишь месяц, дата не выдумывается и открывается предзаполненная форма маршрута.
 Яндекс Путешествия получает destination-specific hotel URL из routing-слоя карточки. Ни одна ссылка
 не считается evidence наличия или цены.
 
