@@ -81,6 +81,9 @@ flowchart TD
 ## Clarification и resume
 
 - P0 приводит к LangGraph `interrupt` с JSON-serializable массивом максимум из трёх вопросов.
+- Temporal P0 считается закрытым точными датами либо сочетанием опорной даты/месяца и примерной
+  длительности. Варианты конкретных дат для provider handoff вычисляются детерминированным
+  application service после завершения clarification.
 - Клиент получает `needs_clarification` и сохраняет opaque session ID.
 - Следующий API call возобновляет тот же `thread_id` с answers.
 - Узел с interrupt не выполняет non-idempotent side effects до паузы: при resume LangGraph начинает узел заново.
@@ -129,6 +132,9 @@ Scoring получает только normalized candidate + TravelRequest + wei
 - Dev-only parse endpoint допускается только под config flag.
 
 API schema не должен раскрывать внутренние LangGraph checkpoint payloads. Идемпотентность повторного resume обеспечивается request/operation ID.
+
+Completed/partial response может включать typed `flight_date_options`. Это navigation-пресеты, а
+не evidence цены или наличия; правила зафиксированы в [ADR-0008](adr/0008-flight-date-readiness-and-handoff.md).
 
 ## Security and privacy
 
