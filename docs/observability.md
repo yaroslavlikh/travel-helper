@@ -8,7 +8,11 @@
 
 ## Инструментация по стадиям
 
-Один root trace на `POST /recommend` или resume. Child observations соответствуют стабильным stage names:
+Один root trace на каждый `POST /recommend`, resume или `POST /destination-chat`. Все traces одной
+поездки объединены общим Langfuse session, но сохраняют отдельные latency/error boundaries. В UI
+они получают имена `Turn NN · initial request`, `Turn NN · clarification`,
+`Turn NN · refinement` или `Turn NN · destination question · <place>`. Child observations
+соответствуют стабильным stage names:
 
 - `workflow.initialize_request`;
 - request_extraction;
@@ -21,6 +25,7 @@
 - hard_filtering;
 - scoring;
 - recommendation_explanation.
+- destination_question_answering.
 
 Минимальные metadata: request_id, anonymous session_id, pipeline stage, prompt name/version/source, provider/model, latency, attempt, candidate counts, filtered count, outcome и normalized error type.
 
@@ -49,7 +54,8 @@ Langfuse adapter связывает каждый Gemini call с generation и и
 
 Отдельно от LLM traces хранятся минимальные anonymous events: session_started, query_submitted, clarification_requested, clarification_answered, recommendations_shown, source_opened, feedback_submitted, provider_failed.
 
-Product analytics и Langfuse trace не заменяют друг друга: первое измеряет поведение продукта, второе — выполнение AI pipeline.
+Product analytics и Langfuse trace не заменяют друг друга: первое измеряет поведение продукта,
+включая `travel_link_opened`, второе — выполнение AI pipeline.
 
 ## Текущая интеграция
 

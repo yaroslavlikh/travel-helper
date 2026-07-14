@@ -43,7 +43,8 @@ State — versioned, JSON-serializable contract. Предполагаемые г
 
 - identity: request_id, session_id/thread_id, state_schema_version;
 - input: raw_query, clarification_answers;
-- conversation: bounded query history, question history и previous normalized request;
+- conversation: bounded query history, question history, destination subthreads и previous
+  normalized request;
 - intent: parsed TravelRequest, ambiguities, assumptions;
 - search: generated queries, raw provider results, provider warnings;
 - candidates: normalized candidates, evidence, conflicts;
@@ -121,6 +122,9 @@ Scoring получает только normalized candidate + TravelRequest + wei
 - `GET /health`: readiness и состояние настроенных adapters без secrets.
 - `POST /recommend`: новый turn, clarification resume или refinement существующего thread;
   discriminated response `needs_clarification | completed | partial`.
+- `POST /destination-chat`: bounded вопрос по карточке без автоматического изменения основной
+  поездки; возвращает optional предложение отправить refinement в основной chat.
+- `POST /events/travel-link`: best-effort anonymous событие перехода к flight/hotel provider.
 - `POST /feedback`: anonymous up/down и optional comment.
 - Dev-only parse endpoint допускается только под config flag.
 
