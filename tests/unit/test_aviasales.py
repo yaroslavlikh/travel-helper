@@ -14,37 +14,26 @@ def test_flexible_planning_window_is_not_sent_as_round_trip_dates() -> None:
     request = TravelRequest(
         raw_query="Можно улететь 15 или 16 августа",
         origin_city="Москва",
-        date_from=date(2026, 8, 15),
-        date_to=date(2026, 8, 16),
-        adults=2,
-        children=1,
-        infants=1,
+        departure_window_from=date(2026, 8, 15),
+        departure_window_to=date(2026, 8, 16),
+        adults=1,
     )
 
-    params = query_params(
-        build_aviasales_url(
-            request,
-            destination_iata="BUS",
-            today=date(2026, 7, 15),
-        )
+    url = build_aviasales_url(
+        request,
+        destination_iata="BUS",
+        today=date(2026, 7, 15),
     )
 
-    assert params["origin_iata"] == ["MOW"]
-    assert params["destination_iata"] == ["BUS"]
-    assert params["adults"] == ["2"]
-    assert params["children"] == ["1"]
-    assert params["infants"] == ["1"]
-    assert "depart_date" not in params
-    assert "return_date" not in params
-    assert "oneway" not in params
+    assert url == "https://www.aviasales.ru/routes/mow/bus"
 
 
 def test_confirmed_round_trip_dates_follow_aviasales_contract() -> None:
     request = TravelRequest(
         raw_query="Точно лечу с 15 по 23 августа",
         origin_city="Москва",
-        flight_departure_date=date(2026, 8, 15),
-        flight_return_date=date(2026, 8, 23),
+        date_from=date(2026, 8, 15),
+        date_to=date(2026, 8, 23),
         adults=1,
     )
 
@@ -54,45 +43,53 @@ def test_confirmed_round_trip_dates_follow_aviasales_contract() -> None:
         marker="partner.subid",
         today=date(2026, 7, 15),
     )
-    params = query_params(url)
-
-    assert url.startswith("https://www.aviasales.ru/search?")
-    assert params["depart_date"] == ["2026-08-15"]
-    assert params["return_date"] == ["2026-08-23"]
-    assert params["oneway"] == ["0"]
-    assert params["marker"] == ["partner.subid"]
+    assert urlparse(url).path == "/search/MOW1508BUS23081"
+    assert query_params(url)["marker"] == ["partner.subid"]
 
 
 def test_confirmed_one_way_trip_omits_return_date() -> None:
     request = TravelRequest(
         raw_query="Обратный билет не нужен",
         origin_city="Санкт-Петербург",
-        flight_departure_date=date(2026, 9, 2),
+        date_from=date(2026, 9, 2),
         flight_one_way=True,
-        adults=1,
+        adults=2,
     )
 
-    params = query_params(
-        build_aviasales_url(
-            request,
-            destination_iata="AYT",
-            today=date(2026, 7, 15),
-        )
+    url = build_aviasales_url(
+        request,
+        destination_iata="AYT",
+        today=date(2026, 7, 15),
     )
 
-    assert params["origin_iata"] == ["LED"]
-    assert params["depart_date"] == ["2026-09-02"]
-    assert params["oneway"] == ["1"]
-    assert "return_date" not in params
+    assert url == "https://www.aviasales.ru/search/LED0209AYT2"
 
 
 def test_unknown_origin_never_falls_back_to_moscow_route() -> None:
     request = TravelRequest(raw_query="Из Тулы", origin_city="Тула", adults=1)
 
-    params = query_params(build_aviasales_url(request, destination_iata="AER"))
+    url = build_aviasales_url(request, destination_iata="AER")
 
-    assert "origin_iata" not in params
-    assert "destination_iata" not in params
+    assert url == "https://www.aviasales.ru/"
+
+
+def test_family_request_uses_route_page_until_compact_passenger_contract_is_verified() -> None:
+    request = TravelRequest(
+        raw_query="С ребёнком с 15 по 23 августа",
+        origin_city="Москва",
+        date_from=date(2026, 8, 15),
+        date_to=date(2026, 8, 23),
+        adults=2,
+        children=1,
+    )
+
+    url = build_aviasales_url(
+        request,
+        destination_iata="AER",
+        today=date(2026, 7, 15),
+    )
+
+    assert url == "https://www.aviasales.ru/routes/mow/aer"
 
 
 def test_recommendations_receive_one_backend_generated_flight_link() -> None:
@@ -111,4 +108,5 @@ def test_recommendations_receive_one_backend_generated_flight_link() -> None:
 
     assert len(flight_links) == 1
     assert flight_links[0].provider == "aviasales"
-    assert "destination_iata=" in flight_links[0].url
+    assert flight_links[0].url.startswith("https://www.aviasales.ru/routes/mow/")
+    assert flight_links[0].title == "Выбрать даты"

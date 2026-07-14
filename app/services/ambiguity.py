@@ -22,6 +22,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
     if (
         request.month is None
         and request.date_from is None
+        and request.departure_window_from is None
         and request.flight_departure_date is None
     ):
         items.append(

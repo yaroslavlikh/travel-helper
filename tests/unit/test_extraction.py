@@ -105,39 +105,55 @@ def test_revision_changes_only_explicit_fields_and_can_clear_constraints() -> No
     assert updated.preferences == []
 
 
-def test_planning_window_replaces_confirmed_flight_dates() -> None:
+def test_flexible_departure_window_replaces_exact_trip_dates() -> None:
     base = TravelRequest(
         raw_query="Точно с 15 по 23 августа",
-        flight_departure_date=date(2026, 8, 15),
-        flight_return_date=date(2026, 8, 23),
+        date_from=date(2026, 8, 15),
+        date_to=date(2026, 8, 23),
     )
-    revision = TravelRequestRevision(changes=TravelRequestPatch(month=9))
+    revision = TravelRequestRevision(
+        changes=TravelRequestPatch(
+            departure_window_from=date(2026, 8, 15),
+            departure_window_to=date(2026, 8, 16),
+        )
+    )
 
     updated = merge_travel_request_revision(base, revision)
 
-    assert updated.month == 9
-    assert updated.flight_departure_date is None
-    assert updated.flight_return_date is None
+    assert updated.departure_window_from == date(2026, 8, 15)
+    assert updated.departure_window_to == date(2026, 8, 16)
+    assert updated.date_from is None
+    assert updated.date_to is None
 
 
 def test_confirmed_flight_dates_replace_approximate_window() -> None:
     base = TravelRequest(
         raw_query="Можно в августе",
         month=8,
-        date_from=date(2026, 8, 10),
-        date_to=date(2026, 8, 20),
+        departure_window_from=date(2026, 8, 10),
+        departure_window_to=date(2026, 8, 20),
     )
     revision = TravelRequestRevision(
         changes=TravelRequestPatch(
-            flight_departure_date=date(2026, 8, 15),
-            flight_return_date=date(2026, 8, 23),
+            date_from=date(2026, 8, 15),
+            date_to=date(2026, 8, 23),
         )
     )
 
     updated = merge_travel_request_revision(base, revision)
 
-    assert updated.flight_departure_date == date(2026, 8, 15)
-    assert updated.flight_return_date == date(2026, 8, 23)
+    assert updated.date_from == date(2026, 8, 15)
+    assert updated.date_to == date(2026, 8, 23)
     assert updated.month is None
-    assert updated.date_from is None
-    assert updated.date_to is None
+    assert updated.departure_window_from is None
+    assert updated.departure_window_to is None
+
+
+def test_one_way_refinement_keeps_known_flexible_month() -> None:
+    base = TravelRequest(raw_query="В октябре", month=10)
+    revision = TravelRequestRevision(changes=TravelRequestPatch(flight_one_way=True))
+
+    updated = merge_travel_request_revision(base, revision)
+
+    assert updated.month == 10
+    assert updated.flight_one_way is True

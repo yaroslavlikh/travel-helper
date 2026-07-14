@@ -291,10 +291,7 @@ async def test_card_flight_link_keeps_month_only_request_flexible() -> None:
     body = response.json()
     links = body["recommendations"][0]["candidate"]["external_links"]
     flight_link = next(link for link in links if link["category"] == "flight")
-    params = parse_qs(urlparse(flight_link["url"]).query)
-
     assert flight_link["provider"] == "aviasales"
-    assert params["origin_iata"] == ["MOW"]
-    assert "destination_iata" in params
-    assert "depart_date" not in params
-    assert "return_date" not in params
+    assert flight_link["title"] == "Выбрать даты"
+    assert urlparse(flight_link["url"]).path.startswith("/routes/mow/")
+    assert parse_qs(urlparse(flight_link["url"]).query) == {}

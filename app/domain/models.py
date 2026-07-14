@@ -26,11 +26,14 @@ class TravelRequestPatch(DomainModel):
     origin_country: str | None = None
     citizenship: str | None = None
     destination_scope: DestinationScope | None = None
-    # These fields describe an approximate departure window, not a round-trip ticket.
+    # Exact trip boundaries: outbound and return dates when both are confirmed.
     date_from: date | None = None
     date_to: date | None = None
     month: int | None = Field(default=None, ge=1, le=12)
-    # Only explicitly confirmed flight dates may cross the provider boundary.
+    # A range of possible outbound days, distinct from a return date.
+    departure_window_from: date | None = None
+    departure_window_to: date | None = None
+    # Kept for compatibility with already persisted local chat snapshots.
     flight_departure_date: date | None = None
     flight_return_date: date | None = None
     flight_one_way: bool | None = None

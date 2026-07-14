@@ -35,8 +35,24 @@ def test_confirmed_flight_dates_satisfy_period_question() -> None:
     request = TravelRequest(
         raw_query="Точно с 15 по 23 августа",
         origin_city="Москва",
-        flight_departure_date=date(2026, 8, 15),
-        flight_return_date=date(2026, 8, 23),
+        date_from=date(2026, 8, 15),
+        date_to=date(2026, 8, 23),
+        adults=1,
+        budget_total_rub=100_000,
+        destination_scope="international",
+    )
+
+    fields = [item.field for item in clarification_questions(detect_ambiguities(request))]
+
+    assert "month" not in fields
+
+
+def test_departure_window_satisfies_period_question() -> None:
+    request = TravelRequest(
+        raw_query="Могу вылететь 15 или 16 августа",
+        origin_city="Москва",
+        departure_window_from=date(2026, 8, 15),
+        departure_window_to=date(2026, 8, 16),
         adults=1,
         budget_total_rub=100_000,
         destination_scope="international",

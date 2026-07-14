@@ -10,6 +10,8 @@ const FIELD_LABELS = {
   month: "месяц",
   date_from: "дата начала",
   date_to: "дата окончания",
+  departure_window_from: "окно вылета с",
+  departure_window_to: "окно вылета по",
   flight_departure_date: "точная дата вылета",
   flight_return_date: "точная дата возвращения",
   flight_one_way: "билет в одну сторону",
@@ -358,12 +360,17 @@ function renderCriteria(snapshot) {
   if (!request) return "";
   const changed = new Set(snapshot.changed_fields || []);
   const scope = { domestic: "Россия", international: "за рубеж", any: "любая" }[request.destination_scope];
-  const exactDates = request.flight_departure_date && request.flight_return_date
-    ? `${request.flight_departure_date} — ${request.flight_return_date}`
-    : request.flight_departure_date;
+  const departureDate = request.flight_departure_date || request.date_from;
+  const returnDate = request.flight_return_date || request.date_to;
+  const exactDates = departureDate && returnDate
+    ? `${departureDate} — ${returnDate}`
+    : departureDate;
+  const departureWindow = request.departure_window_from && request.departure_window_to
+    ? `вылет ${request.departure_window_from} — ${request.departure_window_to}`
+    : request.departure_window_from;
   return [
     criterionMarkup("Вылет", request.origin_city, changed.has("origin_city")),
-    criterionMarkup("Когда", exactDates || (request.month ? MONTHS[request.month - 1] : request.date_from), changed.has("month") || changed.has("date_from") || changed.has("flight_departure_date") || changed.has("flight_return_date")),
+    criterionMarkup("Когда", exactDates || departureWindow || (request.month ? MONTHS[request.month - 1] : null), changed.has("month") || changed.has("date_from") || changed.has("date_to") || changed.has("departure_window_from") || changed.has("departure_window_to") || changed.has("flight_departure_date") || changed.has("flight_return_date")),
     criterionMarkup("Бюджет", request.budget_total_rub ? formatMoney(request.budget_total_rub) : null, changed.has("budget_total_rub")),
     criterionMarkup("Куда", scope, changed.has("destination_scope")),
     criterionMarkup("Перелёт", request.max_flight_duration_hours ? `до ${request.max_flight_duration_hours} ч` : null, changed.has("max_flight_duration_hours")),
@@ -382,7 +389,7 @@ function providerActions(candidate, snapshot, index) {
   const requestId = snapshot?.request_id || "unknown-request";
   const shared = `data-destination-id="${escapeHtml(candidate.destination_id)}" data-rank="${index + 1}" data-request-id="${escapeHtml(requestId)}"`;
   return `<div class="card-actions">
-    <a class="travel-link aviasales-link" href="${safeUrl(flightLink?.url || "https://www.aviasales.ru/")}" target="_blank" rel="noreferrer" ${shared} data-provider="aviasales" data-link-kind="flight"><span aria-hidden="true">✈</span> Найти билеты <small>Aviasales</small></a>
+    <a class="travel-link aviasales-link" href="${safeUrl(flightLink?.url || "https://www.aviasales.ru/")}" target="_blank" rel="noreferrer" ${shared} data-provider="aviasales" data-link-kind="flight"><span aria-hidden="true">✈</span> ${escapeHtml(flightLink?.title || "Найти билеты")} <small>Aviasales</small></a>
     <a class="travel-link yandex-link" href="${safeUrl(stayLink?.url || "https://travel.yandex.ru/")}" target="_blank" rel="noreferrer" ${shared} data-provider="yandex_travel" data-link-kind="stay"><span aria-hidden="true">⌂</span> Найти жильё <small>Яндекс Путешествия</small></a>
   </div>`;
 }
