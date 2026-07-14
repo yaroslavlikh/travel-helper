@@ -52,9 +52,9 @@ multi-agent orchestration не добавляются.
 1. слева «Найти билеты · Aviasales»;
 2. справа «Найти жильё · Яндекс Путешествия».
 
-Aviasales URL получает известные origin/destination IATA, пассажиров и только подтверждённые точные
-flight dates по контракту [ADR-0008](0008-aviasales-deeplink-contract.md). Если известен лишь месяц
-или примерный диапазон, дата не выдумывается и открывается форма выбора дат.
+Aviasales URL получает только известные origin/destination IATA по контракту
+[ADR-0008](0008-aviasales-deeplink-contract.md). Даты и состав путешественников временно не
+передаются: пользователь выбирает их на route page Aviasales.
 Яндекс Путешествия получает destination-specific hotel URL из routing-слоя карточки. Ни одна ссылка
 не считается evidence наличия или цены.
 

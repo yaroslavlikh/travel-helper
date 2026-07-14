@@ -22,13 +22,12 @@ def test_flexible_planning_window_is_not_sent_as_round_trip_dates() -> None:
     url = build_aviasales_url(
         request,
         destination_iata="BUS",
-        today=date(2026, 7, 15),
     )
 
     assert url == "https://www.aviasales.ru/routes/mow/bus"
 
 
-def test_confirmed_round_trip_dates_follow_aviasales_contract() -> None:
+def test_confirmed_round_trip_dates_are_not_sent_to_aviasales() -> None:
     request = TravelRequest(
         raw_query="Точно лечу с 15 по 23 августа",
         origin_city="Москва",
@@ -41,13 +40,12 @@ def test_confirmed_round_trip_dates_follow_aviasales_contract() -> None:
         request,
         destination_iata="bus",
         marker="partner.subid",
-        today=date(2026, 7, 15),
     )
-    assert urlparse(url).path == "/search/MOW1508BUS23081"
+    assert urlparse(url).path == "/routes/mow/bus"
     assert query_params(url)["marker"] == ["partner.subid"]
 
 
-def test_confirmed_one_way_trip_omits_return_date() -> None:
+def test_confirmed_one_way_trip_uses_the_same_route_contract() -> None:
     request = TravelRequest(
         raw_query="Обратный билет не нужен",
         origin_city="Санкт-Петербург",
@@ -59,10 +57,17 @@ def test_confirmed_one_way_trip_omits_return_date() -> None:
     url = build_aviasales_url(
         request,
         destination_iata="AYT",
-        today=date(2026, 7, 15),
     )
 
-    assert url == "https://www.aviasales.ru/search/LED0209AYT2"
+    assert url == "https://www.aviasales.ru/routes/led/ayt"
+
+
+def test_moscow_abbreviation_still_keeps_the_route() -> None:
+    request = TravelRequest(raw_query="Вылет из МСК", origin_city="МСК", adults=1)
+
+    url = build_aviasales_url(request, destination_iata="AER")
+
+    assert url == "https://www.aviasales.ru/routes/mow/aer"
 
 
 def test_unknown_origin_never_falls_back_to_moscow_route() -> None:
@@ -73,7 +78,7 @@ def test_unknown_origin_never_falls_back_to_moscow_route() -> None:
     assert url == "https://www.aviasales.ru/"
 
 
-def test_family_request_uses_route_page_until_compact_passenger_contract_is_verified() -> None:
+def test_family_request_uses_the_same_route_contract() -> None:
     request = TravelRequest(
         raw_query="С ребёнком с 15 по 23 августа",
         origin_city="Москва",
@@ -86,7 +91,6 @@ def test_family_request_uses_route_page_until_compact_passenger_contract_is_veri
     url = build_aviasales_url(
         request,
         destination_iata="AER",
-        today=date(2026, 7, 15),
     )
 
     assert url == "https://www.aviasales.ru/routes/mow/aer"
