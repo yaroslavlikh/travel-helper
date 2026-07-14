@@ -36,7 +36,7 @@ make check
 
 - Завершён Slice 0: FastAPI app, typed settings, startup lifecycle, provider-neutral `ModelGateway`, LangGraph workflow shell, `/health`, Dockerfile, Makefile и CI.
 - Завершён Slice 1: typed `TravelRequest`, детерминированный demo-extractor, P0/P1/P2 rules и checkpointed `/recommend` clarification/resume.
-- Завершён Slice 2: 11 явно помеченных demo fixtures, auditable hard filters, JSON-конфигурация весов и детерминированный scoring с sources/risks.
+- Завершён Slice 2: 26 явно помеченных demo fixtures по основным туристическим странам, auditable hard filters, JSON-конфигурация весов и детерминированный scoring с sources/risks.
 - Завершён Slice 4: chat-first responsive UI, несколько локально сохранённых чатов, многораундовые уточнения и живая лента конкретных направлений.
 - Вопросы и ответы остаются в transcript; критерии thread сохраняются в SQLite LangGraph checkpointer, а браузерное представление — в `localStorage`.
 - Demo-карточки содержат реальные credited-фотографии, районы, достопримечательности и внешние переходы к поиску проживания, активностей и туров. Эти ссылки не подтверждают цену или наличие.

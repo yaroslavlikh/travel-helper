@@ -55,3 +55,27 @@ def test_demo_candidates_include_credited_places_and_navigation_links() -> None:
             "package_tour",
             "stay",
         }
+
+
+def test_demo_bank_covers_major_tourist_countries_without_duplicate_routes() -> None:
+    candidates = load_demo_candidates()
+    destination_ids = [candidate.destination_id for candidate in candidates]
+    route_keys = [
+        (candidate.country, candidate.city_or_region, candidate.nearest_airport)
+        for candidate in candidates
+    ]
+
+    assert len(candidates) >= 26
+    assert len(destination_ids) == len(set(destination_ids))
+    assert len(route_keys) == len(set(route_keys))
+    assert {
+        "Таиланд",
+        "Малайзия",
+        "Испания",
+        "Греция",
+        "Индонезия",
+        "Вьетнам",
+        "ОАЭ",
+        "Турция",
+        "Италия",
+    }.issubset({candidate.country for candidate in candidates})

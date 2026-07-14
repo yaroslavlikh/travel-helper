@@ -144,6 +144,201 @@
         {"title":"Экскурсии и острова","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Nha-Trang/"},
         {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Нячанг"}
       ]
+    },
+    "kohsamui": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Koh_Samui_Beach.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Koh_Samui_Beach.jpg","alt":"Тропический пляж острова Самуи","credit":"Sonia Selivonchik · Wikimedia Commons · CC BY-SA 4.0"},
+      "highlights": [
+        {"name":"Пляж Ламай","category":"beach","description":"Протяжённый пляжный район с кафе и спокойными участками.","url":"https://www.google.com/maps/search/?api=1&query=Lamai+Beach+Koh+Samui"},
+        {"name":"Рыбацкая деревня Бопхут","category":"area","description":"Историческая улица у моря, рестораны и вечерний рынок.","url":"https://www.google.com/maps/search/?api=1&query=Fishermans+Village+Bophut"}
+      ],
+      "stay_areas": ["Ламай", "Бопхут или Чавенг"],
+      "external_links": [
+        {"title":"Проживание на Самуи","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/koh-samui/"},
+        {"title":"Экскурсии на Самуи","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Koh-Samui/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+на+Самуи"}
+      ]
+    },
+    "krabi": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Railay.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Railay.jpg","alt":"Известняковые скалы и пляж Рейли в Краби","credit":"Wendy Harman · Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Пляж Рейли","category":"beach","description":"Полуостров со скалами и пляжами, доступный в основном по воде.","url":"https://www.google.com/maps/search/?api=1&query=Railay+Beach+Krabi"},
+        {"name":"Ао Нанг","category":"area","description":"Главная туристическая база для пляжей и поездок по островам.","url":"https://www.google.com/maps/search/?api=1&query=Ao+Nang+Krabi"}
+      ],
+      "stay_areas": ["Ао Нанг", "Рейли или Клонг-Муанг"],
+      "external_links": [
+        {"title":"Проживание в Краби","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/krabi/"},
+        {"title":"Острова и активности","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Krabi/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Краби"}
+      ]
+    },
+    "kualalumpur": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Kuala_Lumpur_skyline_seen_from_the_National_Mosque_of_Malaysia.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Kuala_Lumpur_skyline_seen_from_the_National_Mosque_of_Malaysia.jpg","alt":"Панорама Куала-Лумпура","credit":"Sam Hidayat · Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Башни Петронас","category":"sight","description":"Главный архитектурный ориентир города и парк KLCC.","url":"https://www.google.com/maps/search/?api=1&query=Petronas+Towers"},
+        {"name":"Букит-Бинтанг","category":"area","description":"Центральный район с ресторанами, торговлей и вечерней жизнью.","url":"https://www.google.com/maps/search/?api=1&query=Bukit+Bintang+Kuala+Lumpur"}
+      ],
+      "stay_areas": ["KLCC", "Букит-Бинтанг или Чайнатаун"],
+      "external_links": [
+        {"title":"Проживание в Куала-Лумпуре","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/kuala-lumpur/"},
+        {"title":"Экскурсии по городу","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Kuala-Lumpur/"},
+        {"title":"Поиск туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=туры+в+Куала-Лумпур"}
+      ]
+    },
+    "langkawi": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Langkawi_beach.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Langkawi_beach.jpg","alt":"Песчаный пляж острова Лангкави","credit":"Anton Zelenov · Wikimedia Commons · CC BY-SA 3.0"},
+      "highlights": [
+        {"name":"Пантай-Сенанг","category":"beach","description":"Самый развитый пляжный район острова с кафе и водными активностями.","url":"https://www.google.com/maps/search/?api=1&query=Pantai+Cenang+Langkawi"},
+        {"name":"Небесный мост Лангкави","category":"sight","description":"Пешеходный мост и панорамные виды с горы Мат-Чинчанг.","url":"https://www.google.com/maps/search/?api=1&query=Langkawi+Sky+Bridge"}
+      ],
+      "stay_areas": ["Пантай-Сенанг", "Танджунг-Ру или Куах"],
+      "external_links": [
+        {"title":"Проживание на Лангкави","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/langkawi/"},
+        {"title":"Островные активности","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Langkawi/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+на+Лангкави"}
+      ]
+    },
+    "penang": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/George_town_penang.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:George_town_penang.jpg","alt":"Панорама Джорджтауна на острове Пенанг","credit":"Dennis Sylvester Hurd · Wikimedia Commons · CC BY 2.0"},
+      "highlights": [
+        {"name":"Джорджтаун","category":"area","description":"Исторические кварталы, уличное искусство и известная гастрономия.","url":"https://www.google.com/maps/search/?api=1&query=George+Town+Penang"},
+        {"name":"Пенанг-Хилл","category":"nature","description":"Высокая обзорная точка с фуникулёром и тропическими маршрутами.","url":"https://www.google.com/maps/search/?api=1&query=Penang+Hill"}
+      ],
+      "stay_areas": ["Джорджтаун", "Бату-Ферринги"],
+      "external_links": [
+        {"title":"Проживание на Пенанге","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/penang/"},
+        {"title":"Экскурсии и гастрономия","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Penang/"},
+        {"title":"Поиск туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=туры+на+Пенанг"}
+      ]
+    },
+    "barcelona": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Barcelona_Skyline.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Barcelona_Skyline.jpg","alt":"Панорама Барселоны","credit":"SGDWN · Wikimedia Commons · CC BY-SA 4.0"},
+      "highlights": [
+        {"name":"Саграда-Фамилия","category":"sight","description":"Главный архитектурный символ Барселоны и наследие Гауди.","url":"https://www.google.com/maps/search/?api=1&query=Sagrada+Familia"},
+        {"name":"Барселонета","category":"beach","description":"Городской пляжный район рядом со старым центром и портом.","url":"https://www.google.com/maps/search/?api=1&query=Barceloneta+Beach"}
+      ],
+      "stay_areas": ["Эшампле", "Готический квартал или Грасия"],
+      "external_links": [
+        {"title":"Проживание в Барселоне","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/barcelona/"},
+        {"title":"Экскурсии по Барселоне","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Barcelona/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Барселону"}
+      ]
+    },
+    "mallorca": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Beach_of_Palma_de_Mallorca.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Beach_of_Palma_de_Mallorca.jpg","alt":"Пляж Пальмы-де-Майорки","credit":"Otto Domes · Wikimedia Commons · CC BY-SA 4.0"},
+      "highlights": [
+        {"name":"Пальма","category":"area","description":"Островная столица с собором, старым городом и городской набережной.","url":"https://www.google.com/maps/search/?api=1&query=Palma+Mallorca"},
+        {"name":"Сольер","category":"area","description":"Город и бухта у гор Трамунтана, связанные историческим поездом.","url":"https://www.google.com/maps/search/?api=1&query=Soller+Mallorca"}
+      ],
+      "stay_areas": ["Пальма", "Алькудия или Порт-де-Сольер"],
+      "external_links": [
+        {"title":"Проживание на Майорке","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/mallorca/"},
+        {"title":"Экскурсии по острову","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Mallorca/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+на+Майорку"}
+      ]
+    },
+    "tenerife": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Playa_de_Las_Teresitas.JPG?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Playa_de_Las_Teresitas.JPG","alt":"Пляж Лас-Тереситас на Тенерифе","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Вулкан Тейде","category":"nature","description":"Национальный парк и главный природный ориентир острова.","url":"https://www.google.com/maps/search/?api=1&query=Teide+National+Park"},
+        {"name":"Лас-Тереситас","category":"beach","description":"Песчаный пляж у Санта-Крус на северо-востоке острова.","url":"https://www.google.com/maps/search/?api=1&query=Playa+de+Las+Teresitas"}
+      ],
+      "stay_areas": ["Коста-Адехе", "Пуэрто-де-ла-Крус или Санта-Крус"],
+      "external_links": [
+        {"title":"Проживание на Тенерифе","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/tenerife/"},
+        {"title":"Экскурсии по Тенерифе","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Tenerife/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+на+Тенерифе"}
+      ]
+    },
+    "crete": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Chania_harbour.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Chania_harbour.jpg","alt":"Венецианская гавань Ханьи на Крите","credit":"Doris Antony · Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Старый порт Ханьи","category":"sight","description":"Венецианская гавань, маяк и исторические кварталы.","url":"https://www.google.com/maps/search/?api=1&query=Chania+Old+Venetian+Port"},
+        {"name":"Кносский дворец","category":"sight","description":"Крупный археологический комплекс минойской цивилизации.","url":"https://www.google.com/maps/search/?api=1&query=Knossos+Palace"}
+      ],
+      "stay_areas": ["Ханья", "Ретимно или район Ираклиона"],
+      "external_links": [
+        {"title":"Проживание на Крите","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/crete/"},
+        {"title":"Экскурсии по Криту","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Crete/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+на+Крит"}
+      ]
+    },
+    "rhodes": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Rhodes%27_old_town.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Rhodes%27_old_town.jpg","alt":"Улица средневекового города Родоса","credit":"LunaLinda · Wikimedia Commons · CC BY-SA 4.0"},
+      "highlights": [
+        {"name":"Средневековый город Родос","category":"sight","description":"Крепостные стены, улица Рыцарей и исторические кварталы.","url":"https://www.google.com/maps/search/?api=1&query=Medieval+City+of+Rhodes"},
+        {"name":"Линдос","category":"area","description":"Белый посёлок, акрополь и бухты на восточном побережье.","url":"https://www.google.com/maps/search/?api=1&query=Lindos+Rhodes"}
+      ],
+      "stay_areas": ["Город Родос", "Линдос или Фалираки"],
+      "external_links": [
+        {"title":"Проживание на Родосе","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/rhodes/"},
+        {"title":"Экскурсии по Родосу","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Rhodes/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+на+Родос"}
+      ]
+    },
+    "bali": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Tanah-Lot_Bali_Indonesia_Pura-Tanah-Lot-01.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Tanah-Lot_Bali_Indonesia_Pura-Tanah-Lot-01.jpg","alt":"Храм Танах-Лот на Бали","credit":"CEphoto, Uwe Aranas · Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Убуд","category":"area","description":"Культурный центр острова, рисовые террасы и природные маршруты.","url":"https://www.google.com/maps/search/?api=1&query=Ubud+Bali"},
+        {"name":"Танах-Лот","category":"sight","description":"Морской храм на скальном выступе западного побережья.","url":"https://www.google.com/maps/search/?api=1&query=Tanah+Lot+Bali"}
+      ],
+      "stay_areas": ["Убуд", "Санур, Чангу или Улувату"],
+      "external_links": [
+        {"title":"Проживание на Бали","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/bali/"},
+        {"title":"Экскурсии по Бали","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Bali/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+на+Бали"}
+      ]
+    },
+    "danang": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Beach%2C_Da_Nang.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Beach%2C_Da_Nang.jpg","alt":"Песчаное побережье Дананга","credit":"Andrea Schaffer · Wikimedia Commons · CC BY 2.0"},
+      "highlights": [
+        {"name":"Пляж Ми-Кхе","category":"beach","description":"Длинный городской пляж рядом с основной туристической инфраструктурой.","url":"https://www.google.com/maps/search/?api=1&query=My+Khe+Beach+Da+Nang"},
+        {"name":"Мраморные горы","category":"nature","description":"Группа известняковых холмов с пещерами, храмами и обзорными точками.","url":"https://www.google.com/maps/search/?api=1&query=Marble+Mountains+Da+Nang"}
+      ],
+      "stay_areas": ["Ми-Кхе", "Сон-Тра или центр Дананга"],
+      "external_links": [
+        {"title":"Проживание в Дананге","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/da-nang/"},
+        {"title":"Экскурсии из Дананга","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Da-Nang/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Дананг"}
+      ]
+    },
+    "abudhabi": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Skyline_Abu_Dhabi.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Skyline_Abu_Dhabi.jpg","alt":"Панорама Абу-Даби","credit":"Wikimedia Commons · лицензия на странице файла"},
+      "highlights": [
+        {"name":"Мечеть шейха Зайда","category":"sight","description":"Крупный архитектурный комплекс и один из главных символов эмирата.","url":"https://www.google.com/maps/search/?api=1&query=Sheikh+Zayed+Grand+Mosque"},
+        {"name":"Остров Саадият","category":"beach","description":"Пляжи, музеи и курортная инфраструктура недалеко от центра.","url":"https://www.google.com/maps/search/?api=1&query=Saadiyat+Island"}
+      ],
+      "stay_areas": ["Корниш", "Саадият или остров Яс"],
+      "external_links": [
+        {"title":"Проживание в Абу-Даби","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/abu-dhabi/"},
+        {"title":"Экскурсии и музеи","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Abu-Dhabi/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Абу-Даби"}
+      ]
+    },
+    "istanbul": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Bosphorus%2C_Istanbul_%28P1100179%29.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Bosphorus%2C_Istanbul_%28P1100179%29.jpg","alt":"Вид на Босфор со стороны Стамбула","credit":"Matti Blume · Wikimedia Commons · CC BY-SA"},
+      "highlights": [
+        {"name":"Султанахмет","category":"area","description":"Исторический центр с Айя-Софией, Голубой мечетью и дворцом Топкапы.","url":"https://www.google.com/maps/search/?api=1&query=Sultanahmet+Istanbul"},
+        {"name":"Босфор","category":"sight","description":"Пролив, городские паромы и набережные двух частей города.","url":"https://www.google.com/maps/search/?api=1&query=Bosphorus+Istanbul"}
+      ],
+      "stay_areas": ["Султанахмет", "Каракёй, Галата или Кадыкёй"],
+      "external_links": [
+        {"title":"Проживание в Стамбуле","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/istanbul/"},
+        {"title":"Экскурсии по Стамбулу","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Istanbul/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+в+Стамбул"}
+      ]
+    },
+    "sicily": {
+      "image": {"url":"https://commons.wikimedia.org/wiki/Special:Redirect/file/Taormina_Sicily_Italy.jpg?width=1280","source_url":"https://commons.wikimedia.org/wiki/File:Taormina_Sicily_Italy.jpg","alt":"Побережье Сицилии у Таормины","credit":"Drork · Wikimedia Commons · public domain"},
+      "highlights": [
+        {"name":"Таормина","category":"area","description":"Исторический город над морем с античным театром и видами на Этну.","url":"https://www.google.com/maps/search/?api=1&query=Taormina+Sicily"},
+        {"name":"Сиракузы и Ортиджа","category":"sight","description":"Античное наследие и компактный старый город у моря.","url":"https://www.google.com/maps/search/?api=1&query=Ortigia+Syracuse+Sicily"}
+      ],
+      "stay_areas": ["Таормина", "Катания или Ортиджа"],
+      "external_links": [
+        {"title":"Проживание на Сицилии","provider":"Яндекс Путешествия","category":"stay","url":"https://travel.yandex.ru/hotels/sicily/"},
+        {"title":"Экскурсии по Сицилии","provider":"Tripster","category":"activity","url":"https://experience.tripster.ru/experience/Sicily/"},
+        {"title":"Поиск пакетных туров","provider":"Внешний поиск","category":"package_tour","url":"https://www.google.com/search?q=пакетные+туры+на+Сицилию"}
+      ]
     }
   }
 }
