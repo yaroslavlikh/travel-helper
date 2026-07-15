@@ -101,6 +101,23 @@ def test_strict_budget_only_fallback_keeps_matching_destinations_visible() -> No
     assert all(STRICT_BUDGET_FALLBACK in item.assumptions for item in ranked)
 
 
+def test_no_sea_and_infrastructure_rank_a_city_above_beach_resorts() -> None:
+    request = TravelRequest(
+        raw_query="Азия, инфраструктура и активности, не хочу море",
+        destination_scope="international",
+        preferences=["Азия", "инфраструктура", "активности"],
+        avoid=["море"],
+    )
+    candidates = load_demo_candidates()
+    kuala_lumpur = next(item for item in candidates if item.destination_id == "kualalumpur")
+    phuket = next(item for item in candidates if item.destination_id == "phuket")
+
+    assert (
+        score_candidate(kuala_lumpur, request).total_score
+        > score_candidate(phuket, request).total_score
+    )
+
+
 def test_demo_candidates_include_credited_places_and_navigation_links() -> None:
     candidates = load_demo_candidates()
 

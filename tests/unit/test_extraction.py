@@ -125,6 +125,13 @@ def test_colloquial_not_really_want_sea_is_not_a_requirement() -> None:
     request = extract_travel_request("Хочу отдых в Азии, не оч хочу на море")
 
     assert request.sea_required is False
+    assert "море" in request.avoid
+
+
+def test_infrastructure_and_activities_become_preference_hints() -> None:
+    request = extract_travel_request("Нужна нормальная инфраструктура и куча активностей")
+
+    assert request.preferences == ["инфраструктура", "активности"]
 
 
 def test_flexible_departure_window_replaces_exact_trip_dates() -> None:

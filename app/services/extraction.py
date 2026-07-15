@@ -117,6 +117,18 @@ def _explicit_sea_requirement(text: str) -> bool | None:
     return True if any(fragment in text for fragment in ("море", "пляж")) else None
 
 
+def _apply_explicit_preference_hints(values: dict[str, Any], text: str) -> None:
+    preferences = list(values.get("preferences") or [])
+    if "инфраструктур" in text:
+        preferences.append("инфраструктура")
+    if any(fragment in text for fragment in ("активност", "развлечен", "движ")):
+        preferences.append("активности")
+    if preferences:
+        values["preferences"] = list(dict.fromkeys(preferences))
+    if _explicit_sea_requirement(text) is False:
+        values["avoid"] = list(dict.fromkeys([*(values.get("avoid") or []), "море"]))
+
+
 def extract_travel_request(raw_query: str, answers: dict[str, Any] | None = None) -> TravelRequest:
     """Extract a conservative request patch without turning inference into a fact."""
 
@@ -155,6 +167,7 @@ def extract_travel_request(raw_query: str, answers: dict[str, Any] | None = None
     sea_requirement = _explicit_sea_requirement(text)
     if sea_requirement is not None:
         values["sea_required"] = sea_requirement
+    _apply_explicit_preference_hints(values, text)
     if any(
         fragment in text
         for fragment in ("не люблю жар", "не люблю сильную жар", "без жары", "не жарко")
@@ -256,6 +269,7 @@ Latest user message serialized as JSON:
         if sea_requirement is not None:
             revised = revised.model_copy(update={"sea_required": sea_requirement})
         values = revised.model_dump(mode="python")
+        _apply_explicit_preference_hints(values, raw_query.casefold())
         _apply_answers(values, answers or {})
         _normalize_date_contract(values)
         return TravelRequest.model_validate(values)
@@ -297,6 +311,7 @@ Validated clarification answers serialized as JSON:
     sea_requirement = _explicit_sea_requirement(raw_query.casefold())
     if sea_requirement is not None:
         values["sea_required"] = sea_requirement
+    _apply_explicit_preference_hints(values, raw_query.casefold())
     values["raw_query"] = raw_query
     _apply_answers(values, answers or {})
     _normalize_date_contract(values)

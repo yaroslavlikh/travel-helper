@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from app.domain.models import DestinationCandidate, ScoredDestination, TravelRequest
-from app.services.destination_semantics import normalized_preference_tags
+from app.services.destination_semantics import normalized_avoided_tags, normalized_preference_tags
 from app.services.filtering import hard_filter_reasons
 
 SCORING_PATH = Path(__file__).resolve().parents[1] / "data" / "scoring.json"
@@ -63,11 +63,13 @@ def _transport_convenience(candidate: DestinationCandidate) -> float | None:
 
 def _preference_fit(candidate: DestinationCandidate, request: TravelRequest) -> float | None:
     preferences = normalized_preference_tags(request)
-    if not preferences:
+    avoided = normalized_avoided_tags(request)
+    if not preferences and not avoided:
         return 60.0
     normalized = {tag.casefold() for tag in candidate.destination_tags}
     matches = sum(preference in normalized for preference in preferences)
-    return 100.0 * matches / len(preferences)
+    avoided_matches = sum(tag not in normalized for tag in avoided)
+    return 100.0 * (matches + avoided_matches) / (len(preferences) + len(avoided))
 
 
 def _evidence_quality(candidate: DestinationCandidate) -> float | None:
