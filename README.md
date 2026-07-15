@@ -63,7 +63,9 @@ raw JSON в `data/raw/istanbul/` (игнорируется Git), нормали�
 - Завершён Slice 4: chat-first responsive UI, несколько локально сохранённых чатов, многораундовые уточнения и живая лента конкретных направлений.
 - Вопросы и ответы остаются в transcript; критерии thread сохраняются в SQLite LangGraph checkpointer, а браузерное представление — в `localStorage`.
 - Demo-карточки содержат реальные credited-фотографии, районы, достопримечательности и внешние переходы к поиску проживания, активностей и туров. Эти ссылки не подтверждают цену или наличие.
-- Aviasales-ссылки формируются на backend и передают только маршрут через route page; даты пользователь выбирает у провайдера, а affiliate marker при наличии читается из `AVIASALES_MARKER`.
+- Aviasales-ссылки формируются на backend: точные даты и пассажиры открывают заполненный `/search/`,
+  а приблизительный месяц или окно вылета — route page без выдуманных дат; affiliate marker при
+  наличии читается из `AVIASALES_MARKER`.
 - Для AI extraction выбран Gemini 3.1 Flash-Lite через provider-neutral gateway; без ключа или при сбое development demo использует явно отмеченный deterministic fallback.
 - Langfuse группирует все turns одного чата в session: каждый запрос/ответ — отдельный trace, Gemini — generation, graph stages и вопросы — дочерние spans. Без валидных credentials используется no-op exporter.
 - Добавлен bounded Istanbul places pipeline: Postgres/PostGIS/pgvector schema, OSM provenance,

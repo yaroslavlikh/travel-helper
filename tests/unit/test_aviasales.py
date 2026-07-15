@@ -27,7 +27,7 @@ def test_flexible_planning_window_is_not_sent_as_round_trip_dates() -> None:
     assert url == "https://www.aviasales.ru/routes/mow/bus"
 
 
-def test_confirmed_round_trip_dates_are_not_sent_to_aviasales() -> None:
+def test_confirmed_round_trip_dates_and_passengers_are_sent_to_aviasales() -> None:
     request = TravelRequest(
         raw_query="Точно лечу с 15 по 23 августа",
         origin_city="Москва",
@@ -41,11 +41,22 @@ def test_confirmed_round_trip_dates_are_not_sent_to_aviasales() -> None:
         destination_iata="bus",
         marker="partner.subid",
     )
-    assert urlparse(url).path == "/routes/mow/bus"
-    assert query_params(url)["marker"] == ["partner.subid"]
+    assert urlparse(url).path == "/search/"
+    assert query_params(url) == {
+        "origin_iata": ["MOW"],
+        "destination_iata": ["BUS"],
+        "depart_date": ["2026-08-15"],
+        "return_date": ["2026-08-23"],
+        "oneway": ["0"],
+        "adults": ["1"],
+        "children": ["0"],
+        "infants": ["0"],
+        "trip_class": ["0"],
+        "marker": ["partner.subid"],
+    }
 
 
-def test_confirmed_one_way_trip_uses_the_same_route_contract() -> None:
+def test_confirmed_one_way_trip_uses_exact_departure_date() -> None:
     request = TravelRequest(
         raw_query="Обратный билет не нужен",
         origin_city="Санкт-Петербург",
@@ -59,7 +70,16 @@ def test_confirmed_one_way_trip_uses_the_same_route_contract() -> None:
         destination_iata="AYT",
     )
 
-    assert url == "https://www.aviasales.ru/routes/led/ayt"
+    assert query_params(url) == {
+        "origin_iata": ["LED"],
+        "destination_iata": ["AYT"],
+        "depart_date": ["2026-09-02"],
+        "oneway": ["1"],
+        "adults": ["2"],
+        "children": ["0"],
+        "infants": ["0"],
+        "trip_class": ["0"],
+    }
 
 
 def test_moscow_abbreviation_still_keeps_the_route() -> None:
@@ -78,7 +98,7 @@ def test_unknown_origin_never_falls_back_to_moscow_route() -> None:
     assert url == "https://www.aviasales.ru/"
 
 
-def test_family_request_uses_the_same_route_contract() -> None:
+def test_family_request_sends_exact_dates_and_all_passengers() -> None:
     request = TravelRequest(
         raw_query="С ребёнком с 15 по 23 августа",
         origin_city="Москва",
@@ -93,7 +113,9 @@ def test_family_request_uses_the_same_route_contract() -> None:
         destination_iata="AER",
     )
 
-    assert url == "https://www.aviasales.ru/routes/mow/aer"
+    assert query_params(url)["adults"] == ["2"]
+    assert query_params(url)["children"] == ["1"]
+    assert query_params(url)["return_date"] == ["2026-08-23"]
 
 
 def test_recommendations_receive_one_backend_generated_flight_link() -> None:
