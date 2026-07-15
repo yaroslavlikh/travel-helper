@@ -28,6 +28,23 @@ def test_hard_filter_returns_machine_readable_reason() -> None:
     assert "destination_scope_mismatch" in hard_filter_reasons(sochi, _sample_request())
 
 
+def test_region_and_country_exclusions_are_hard_filters() -> None:
+    candidates = load_demo_candidates()
+    request = TravelRequest(
+        raw_query="Хочу Азию, не хочу Грузию",
+        preferences=["Азия"],
+        avoid=["Грузия"],
+    )
+    batumi = next(item for item in candidates if item.destination_id == "batumi")
+    langkawi = next(item for item in candidates if item.destination_id == "langkawi")
+
+    assert hard_filter_reasons(batumi, request) == [
+        "preferred_region_mismatch",
+        "explicitly_avoided",
+    ]
+    assert hard_filter_reasons(langkawi, request) == []
+
+
 def test_scoring_is_deterministic_and_retains_sources() -> None:
     request = _sample_request()
     batumi = next(item for item in load_demo_candidates() if item.destination_id == "batumi")
@@ -36,6 +53,27 @@ def test_scoring_is_deterministic_and_retains_sources() -> None:
     ranked = rank_demo_candidates(request)
     assert ranked == sorted(ranked, key=lambda item: item.total_score, reverse=True)
     assert all(item.candidate.sources for item in ranked)
+
+
+def test_asian_spicy_food_request_surfaces_malaysia_and_excludes_georgia() -> None:
+    request = TravelRequest(
+        raw_query="Хочу поесть острую еду за 150к, хочу Азию, не хочу Грузию",
+        origin_city="Москва",
+        adults=1,
+        budget_total_rub=150_000,
+        destination_scope="international",
+        preferences=["острая еда", "Азия"],
+        avoid=["Грузия"],
+    )
+
+    ranked = rank_demo_candidates(request)
+
+    assert ranked
+    assert all(
+        item.candidate.country in {"Таиланд", "Малайзия", "Вьетнам", "Индонезия"} for item in ranked
+    )
+    assert any(item.candidate.country == "Малайзия" for item in ranked)
+    assert all(item.candidate.country != "Грузия" for item in ranked)
 
 
 def test_demo_candidates_include_credited_places_and_navigation_links() -> None:

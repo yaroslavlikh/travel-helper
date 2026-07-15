@@ -69,6 +69,13 @@ def test_extracts_russian_number_words_for_travelers_and_flight_limit() -> None:
     assert request.max_flight_duration_hours == 4
 
 
+def test_extracts_region_food_preference_and_explicit_country_exclusion() -> None:
+    request = extract_travel_request("Хочу в Азию поесть острую еду, только не Грузию")
+
+    assert request.preferences == ["Азия", "острая еда"]
+    assert request.avoid == ["Грузия"]
+
+
 async def test_model_extraction_preserves_query_and_applies_validated_answers() -> None:
     request = await extract_travel_request_with_model(
         "Из Москвы в августе",

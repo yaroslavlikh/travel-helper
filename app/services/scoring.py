@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from app.domain.models import DestinationCandidate, ScoredDestination, TravelRequest
+from app.services.destination_semantics import normalized_preference_tags
 from app.services.filtering import hard_filter_reasons
 
 SCORING_PATH = Path(__file__).resolve().parents[1] / "data" / "scoring.json"
@@ -46,7 +47,7 @@ def _weather_fit(candidate: DestinationCandidate, request: TravelRequest) -> flo
 
 
 def _entry_simplicity(candidate: DestinationCandidate) -> float | None:
-    return {"none": 100.0, "evisa": 80.0, "visa": 45.0, "unknown": 25.0}.get(
+    return {"none": 100.0, "evisa": 80.0, "visa": 45.0, "unknown": None}.get(
         candidate.visa_complexity or "unknown"
     )
 
@@ -60,11 +61,11 @@ def _transport_convenience(candidate: DestinationCandidate) -> float | None:
 
 
 def _preference_fit(candidate: DestinationCandidate, request: TravelRequest) -> float | None:
-    preferences = set(request.preferences + request.trip_style)
+    preferences = normalized_preference_tags(request)
     if not preferences:
         return 60.0
     normalized = {tag.casefold() for tag in candidate.destination_tags}
-    matches = sum(preference.casefold() in normalized for preference in preferences)
+    matches = sum(preference in normalized for preference in preferences)
     return 100.0 * matches / len(preferences)
 
 

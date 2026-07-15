@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from app.domain.models import DestinationCandidate, TravelRequest
+from app.services.destination_semantics import (
+    matches_explicit_avoid,
+    matches_requested_regions,
+)
 
 
 def hard_filter_reasons(candidate: DestinationCandidate, request: TravelRequest) -> list[str]:
@@ -18,6 +22,10 @@ def hard_filter_reasons(candidate: DestinationCandidate, request: TravelRequest)
         reasons.append("destination_scope_mismatch")
     if request.sea_required and "sea" not in candidate.destination_tags:
         reasons.append("sea_required")
+    if not matches_requested_regions(candidate, request):
+        reasons.append("preferred_region_mismatch")
+    if matches_explicit_avoid(candidate, request):
+        reasons.append("explicitly_avoided")
     if (
         request.budget_strict
         and request.budget_total_rub is not None
