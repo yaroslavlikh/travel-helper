@@ -112,7 +112,7 @@ def _normalize_date_contract(values: dict[str, Any]) -> None:
 def _explicit_sea_requirement(text: str) -> bool | None:
     """Recognize an explicit sea reversal before it is merged into chat memory."""
 
-    if re.search(r"(?:не\s+(?:очень\s+)?хочу|не\s+нужн|без)\s+(?:на\s+)?(?:море|пляж)", text):
+    if re.search(r"(?:не\s+(?:оч(?:ень)?\s+)?хочу|не\s+нужн|без)\s+(?:на\s+)?(?:море|пляж)", text):
         return False
     return True if any(fragment in text for fragment in ("море", "пляж")) else None
 

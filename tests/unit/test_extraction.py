@@ -121,6 +121,12 @@ def test_explicit_no_sea_refinement_overrides_existing_requirement() -> None:
     assert updated.sea_required is False
 
 
+def test_colloquial_not_really_want_sea_is_not_a_requirement() -> None:
+    request = extract_travel_request("Хочу отдых в Азии, не оч хочу на море")
+
+    assert request.sea_required is False
+
+
 def test_flexible_departure_window_replaces_exact_trip_dates() -> None:
     base = TravelRequest(
         raw_query="Точно с 15 по 23 августа",
