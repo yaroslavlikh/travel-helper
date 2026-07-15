@@ -109,6 +109,14 @@ def _normalize_date_contract(values: dict[str, Any]) -> None:
         values["flight_one_way"] = None
 
 
+def _explicit_sea_requirement(text: str) -> bool | None:
+    """Recognize an explicit sea reversal before it is merged into chat memory."""
+
+    if re.search(r"(?:не\s+(?:очень\s+)?хочу|не\s+нужн|без)\s+(?:на\s+)?(?:море|пляж)", text):
+        return False
+    return True if any(fragment in text for fragment in ("море", "пляж")) else None
+
+
 def extract_travel_request(raw_query: str, answers: dict[str, Any] | None = None) -> TravelRequest:
     """Extract a conservative request patch without turning inference into a fact."""
 
@@ -144,8 +152,9 @@ def extract_travel_request(raw_query: str, answers: dict[str, Any] | None = None
         values["destination_scope"] = "international"
     elif any(fragment in text for fragment in ("по россии", "в россии", "внутри страны")):
         values["destination_scope"] = "domestic"
-    if any(fragment in text for fragment in ("море", "пляж")):
-        values["sea_required"] = True
+    sea_requirement = _explicit_sea_requirement(text)
+    if sea_requirement is not None:
+        values["sea_required"] = sea_requirement
     if any(
         fragment in text
         for fragment in ("не люблю жар", "не люблю сильную жар", "без жары", "не жарко")
@@ -243,6 +252,9 @@ Latest user message serialized as JSON:
             metadata={"has_clarification_answers": bool(answers)},
         )
         revised = merge_travel_request_revision(base_request, revision)
+        sea_requirement = _explicit_sea_requirement(raw_query.casefold())
+        if sea_requirement is not None:
+            revised = revised.model_copy(update={"sea_required": sea_requirement})
         values = revised.model_dump(mode="python")
         _apply_answers(values, answers or {})
         _normalize_date_contract(values)
@@ -281,7 +293,10 @@ Validated clarification answers serialized as JSON:
         schema=TravelRequestPatch,
         metadata={"has_clarification_answers": bool(answers)},
     )
-    values = patch.model_dump(mode="python")
+    values = patch.model_dump(mode="python", exclude_none=True)
+    sea_requirement = _explicit_sea_requirement(raw_query.casefold())
+    if sea_requirement is not None:
+        values["sea_required"] = sea_requirement
     values["raw_query"] = raw_query
     _apply_answers(values, answers or {})
     _normalize_date_contract(values)
@@ -309,8 +324,6 @@ def merge_travel_request_revision(
     for field in LIST_REQUEST_FIELDS:
         if not changes.get(field):
             changes.pop(field, None)
-    if changes.get("sea_required") is False:
-        changes.pop("sea_required", None)
     changed_fields = set(changes)
     if changed_fields.intersection(FLEXIBLE_DATE_FIELDS):
         values["date_from"] = None
