@@ -34,7 +34,7 @@ from app.places.repository import PlacesUnavailableError
 from app.services.aviasales import add_aviasales_links
 from app.services.destination_chat import answer_destination_question
 from app.services.extraction import extract_answers_for_questions
-from app.services.scoring import rank_demo_candidates
+from app.services.scoring import STRICT_BUDGET_FALLBACK, rank_demo_candidates
 
 router = APIRouter(tags=["recommendations"])
 
@@ -286,6 +286,11 @@ async def _build_recommendation_response(
             recommendations=recommendations,
             warnings=[
                 *typed_state.get("warnings", []),
+                *(
+                    [STRICT_BUDGET_FALLBACK]
+                    if any(STRICT_BUDGET_FALLBACK in item.assumptions for item in recommendations)
+                    else []
+                ),
                 "Результаты используют локальный demo fixture, а не live search sources.",
             ],
             turn_kind=turn_kind,
