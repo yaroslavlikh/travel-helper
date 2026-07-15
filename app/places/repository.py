@@ -19,7 +19,7 @@ from app.places.models import (
     PlaceSearchResponse,
     PlaceSearchResult,
 )
-from app.places.semantics import deterministic_embedding, vector_literal
+from app.places.semantics import deterministic_embedding, inferred_categories, vector_literal
 
 
 class PlacesUnavailableError(RuntimeError):
@@ -70,10 +70,12 @@ class PostgresPlacesRepository:
             "pe.model_version = %s",
         ]
         normalized_query = query.query.casefold()
+        category_hints = inferred_categories(query.query)
         params: list[object] = [
             embedding,
             normalized_query,
             normalized_query,
+            category_hints,
             query.destination.casefold(),
             self.embedding_version,
         ]
@@ -134,6 +136,7 @@ class PostgresPlacesRepository:
                         WHEN p.normalized_name ILIKE '%%' || %s || '%%' THEN 1.0
                         ELSE 0.0
                     END AS lexical_score,
+                    CASE WHEN c.slug = ANY(%s) THEN 1.0 ELSE 0.0 END AS category_score,
                     COALESCE(pf.tourist_relevance, 0) * 0.55
                       + COALESCE(pf.uniqueness_score, 0) * 0.25
                       + COALESCE(pf.source_quality, 0) * 0.20 AS feature_score,
@@ -159,7 +162,8 @@ class PostgresPlacesRepository:
                 WHERE {where_clause}
             )
             SELECT *, (
-                semantic_score * 0.40 + lexical_score * 0.25 + feature_score * 0.35
+                semantic_score * 0.30 + lexical_score * 0.15 + category_score * 0.30
+                + feature_score * 0.25
             ) AS rank_score
             FROM ranked
             ORDER BY rank_score DESC, freshness_score DESC, canonical_name
@@ -180,6 +184,7 @@ class PostgresPlacesRepository:
                 "semantic": round(float(row["semantic_score"]), 4),
                 "lexical": round(float(row["lexical_score"]), 4),
                 "features": round(float(row["feature_score"]), 4),
+                "category": round(float(row["category_score"]), 4),
                 "final": round(float(row["rank_score"]), 4),
             }
             reasons = [

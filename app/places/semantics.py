@@ -39,6 +39,19 @@ CATEGORY_TAGS = {
     "historic": {"architecture", "culture", "instagrammable"},
 }
 
+QUERY_CATEGORY_HINTS = {
+    "museum": ("музе",),
+    "gallery": ("галере",),
+    "historic": ("истор", "древност", "мемориал", "дворц", "памятник", "архитект"),
+    "sight": ("достопримечатель", "впервые"),
+    "viewpoint": ("видов", "смотров", "босфор", "закат", "романтич"),
+    "park": ("парк", "сад", "прогул", "дет", "семейн"),
+    "beach": ("пляж", "море", "набережн"),
+    "market": ("рынок", "сувенир", "локальн"),
+    "nightlife": ("ночн", "клуб", "вечер"),
+    "family": ("дет", "семейн"),
+}
+
 
 def normalize_text(value: str) -> str:
     """Lowercase a name for conservative equality checks across imports."""
@@ -58,6 +71,17 @@ def category_from_osm(tags: dict[str, str]) -> str | None:
 
 def tags_for_category(category: str) -> set[str]:
     return set(CATEGORY_TAGS.get(category, set()))
+
+
+def inferred_categories(query: str) -> list[str]:
+    """Infer a small, explainable category boost from common Russian place intents."""
+
+    normalized = normalize_text(query)
+    return [
+        category
+        for category, hints in QUERY_CATEGORY_HINTS.items()
+        if any(hint in normalized for hint in hints)
+    ]
 
 
 def deterministic_embedding(parts: Iterable[str]) -> list[float]:

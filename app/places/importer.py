@@ -24,6 +24,7 @@ from app.places.semantics import (
 
 ISTANBUL_BBOX = (28.55, 40.80, 29.45, 41.35)
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_USER_AGENT = "travel-helper/0.1 (+https://github.com/yaroslavlikh/travel-helper)"
 OSM_LICENSE = "ODbL 1.0"
 OSM_ATTRIBUTION = "© OpenStreetMap contributors"
 COMMONS_LICENSE = "See Wikimedia Commons file page"
@@ -62,19 +63,16 @@ def overpass_query() -> str:
     """Bound source scope to named Istanbul POIs useful for travellers, not all commerce."""
 
     west, south, east, north = ISTANBUL_BBOX
-    filters = """
-      nwr["tourism"~"museum|gallery|attraction|viewpoint|zoo|theme_park"]["name"];
-      nwr["historic"~"monument|memorial|castle|archaeological_site"]["name"];
-      nwr["leisure"~"park|garden"]["name"];
-      nwr["natural"="beach"]["name"];
-      nwr["amenity"~"marketplace|nightclub"]["name"];
-    """
-    return f"""[out:json][timeout:120];
-      (
-        {filters}
-      )({south},{west},{north},{east});
-      out center tags;
-    """
+    bbox = f"({south},{west},{north},{east})"
+    selectors = (
+        '["tourism"~"museum|gallery|attraction|viewpoint|zoo|theme_park"]["name"]',
+        '["historic"~"monument|memorial|castle|archaeological_site"]["name"]',
+        '["leisure"~"park|garden"]["name"]',
+        '["natural"="beach"]["name"]',
+        '["amenity"~"marketplace|nightclub"]["name"]',
+    )
+    statements = "\n".join(f"nwr{selector}{bbox};" for selector in selectors)
+    return f"[out:json][timeout:120];\n({statements}\n);\nout center tags;"
 
 
 def fetch_istanbul_osm(client: httpx.Client | None = None) -> dict[str, Any]:
@@ -83,7 +81,11 @@ def fetch_istanbul_osm(client: httpx.Client | None = None) -> dict[str, Any]:
     owns_client = client is None
     request_client = client or httpx.Client(timeout=httpx.Timeout(150.0))
     try:
-        response = request_client.post(OVERPASS_URL, data={"data": overpass_query()})
+        response = request_client.post(
+            OVERPASS_URL,
+            data={"data": overpass_query()},
+            headers={"Accept": "application/json", "User-Agent": OVERPASS_USER_AGENT},
+        )
         response.raise_for_status()
         payload = response.json()
     finally:
