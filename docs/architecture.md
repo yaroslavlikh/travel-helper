@@ -16,10 +16,12 @@ flowchart LR
     GRAPH --> PROVIDERS["Search and travel provider ports"]
     GRAPH --> CP["LangGraph checkpointer"]
     API --> EVENTS["Anonymous events and feedback"]
+    API --> PLACES["Places repository"]
     GRAPH -. spans .-> OBS["Observability port"]
     AI --> LLM["Gemini 3.1 Flash-Lite"]
     PROVIDERS --> WEB["External APIs and web sources"]
     CP --> DB["SQLite local / PostgreSQL prod"]
+    PLACES --> PG["PostgreSQL + PostGIS + pgvector"]
     OBS -. later .-> LF["Langfuse"]
 ```
 
@@ -125,6 +127,10 @@ Scoring получает только normalized candidate + TravelRequest + wei
 - `POST /destination-chat`: bounded вопрос по карточке без автоматического изменения основной
   поездки; возвращает optional предложение отправить refinement в основной chat.
 - `POST /events/travel-link`: best-effort anonymous событие перехода к flight/hotel provider.
+- `POST /places/search`: гибридный поиск только по опубликованному каноническому каталогу мест;
+  при отсутствии базы честно возвращает `503` и не подменяет ответ demo fixture.
+- `POST /events/place`: privacy-bounded impression/open/save/hide/select для последующей оценки
+  ранжирования; raw текст запроса в это событие не записывается.
 - `POST /feedback`: anonymous up/down и optional comment.
 - Dev-only parse endpoint допускается только под config flag.
 
@@ -142,6 +148,7 @@ API schema не должен раскрывать внутренние LangGraph
 ## Deployment target
 
 Один containerized web service + managed PostgreSQL. Static frontend отдаётся тем же приложением.
-Local/dev thread state хранится в SQLite, а public deployment использует managed PostgreSQL. Это
+Local/dev thread state хранится в SQLite; канонический каталог мест всегда использует отдельный
+PostgreSQL/PostGIS/pgvector store. Это
 достаточно для первой сотни пользователей. Отдельный worker появляется только если измеренный
 search latency потребует asynchronous jobs, которые переживают HTTP request.

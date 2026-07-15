@@ -22,6 +22,7 @@ from app.core.logging import configure_logging
 from app.core.resources import AppResources
 from app.observability.langfuse import create_observability
 from app.observability.port import ObservabilityPort
+from app.places.repository import create_places_repository
 from app.services.events import ProductEventStore
 from app.services.feedback import FeedbackStore
 from app.services.model_gateway import create_model_gateway
@@ -84,6 +85,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 ),
                 feedback_store=FeedbackStore(),
                 product_event_store=ProductEventStore(),
+                places_repository=create_places_repository(
+                    resolved_settings.places_database_url,
+                    resolved_settings.places_embedding_version,
+                ),
             )
             try:
                 yield

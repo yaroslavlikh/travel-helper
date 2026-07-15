@@ -8,6 +8,7 @@ import httpx
 
 from app.core.config import Settings
 from app.observability.port import ObservabilityPort
+from app.places.repository import PlacesRepository
 from app.services.events import ProductEventStore
 from app.services.feedback import FeedbackStore
 from app.services.model_gateway import ModelGateway
@@ -25,3 +26,4 @@ class AppResources:
     planner_graph: PlannerGraph
     feedback_store: FeedbackStore
     product_event_store: ProductEventStore
+    places_repository: PlacesRepository
