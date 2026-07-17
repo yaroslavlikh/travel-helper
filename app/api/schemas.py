@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.models import Ambiguity, ScoredDestination, TravelRequest
+from app.places.models import PlaceSearchResult
 
 
 class ApiModel(BaseModel):
@@ -51,6 +52,9 @@ class DestinationChatResponse(ApiModel):
     destination_name: str
     assistant_message: str
     quick_replies: list[str] = Field(default_factory=list)
+    places: list[PlaceSearchResult] = Field(default_factory=list)
+    place_retrieval_id: str | None = None
+    place_ranking_version: str | None = None
     proposed_trip_change: str | None = None
     message_count: int
     turn_index: int

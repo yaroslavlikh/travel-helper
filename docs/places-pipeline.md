@@ -11,6 +11,9 @@
   `place_source_records`, snapshots, images), но их adapters не включены в этот bounded slice.
 - Платные API, scraping Google/Tripadvisor/Yandex/2GIS, отдельная vector DB, Kafka и глобальный
   каталог не используются.
+- Короткое описание POI принимается только из reviewed manifest с явно записанными правами на
+  хранение, embeddings и показ excerpt. Публичная статья сама по себе таким разрешением не является;
+  детали — в [ADR-0010](adr/0010-provenance-preserving-poi-descriptions.md).
 
 ## Стадии
 
@@ -31,7 +34,10 @@
 geospatial radius, duration и accessibility flags. Retrieval смешивает cosine similarity pgvector,
 name lexical signal и `place_features`; затем применяет category diversity (не более двух мест одной
 категории, пока не достигнут limit). Response возвращает `retrieval_id`, component scores,
-ranking version, freshness и image attribution.
+ranking version, freshness, image attribution и provenance основного source record. В subchat
+Стамбула этот же bounded retrieval вызывает только POI-вопросы и отдаёт не более пяти мест.
+Для каждого места может вернуться одно активное, не просроченное, атрибутированное описание. В
+subchat в prompt попадает только короткий excerpt уже отобранных результатов, а не весь каталог.
 
 ## Операционные команды
 
@@ -39,6 +45,7 @@ ranking version, freshness и image attribution.
 make places-up
 make places-migrate
 make places-import-istanbul
+make places-import-descriptions DESCRIPTIONS_INPUT=path/to/reviewed-manifest.json
 make places-eval-istanbul
 ```
 

@@ -33,6 +33,7 @@ from app.places.models import PlaceEventInput, PlaceSearchQuery, PlaceSearchResp
 from app.places.repository import PlacesUnavailableError
 from app.services.aviasales import add_aviasales_links
 from app.services.destination_chat import answer_destination_question
+from app.services.destination_pois import search_destination_pois
 from app.services.extraction import extract_answers_for_questions
 from app.services.scoring import STRICT_BUDGET_FALLBACK, rank_demo_candidates
 
@@ -486,6 +487,11 @@ async def destination_chat(
         },
         tags=["travel-chat", "destination-question"],
     ) as trace:
+        poi_search = await search_destination_pois(
+            destination_id=destination.destination_id,
+            query=payload.query.strip(),
+            repository=resources.places_repository,
+        )
         reply, warnings = await answer_destination_question(
             query=payload.query.strip(),
             trip_request=trip_request,
@@ -493,6 +499,7 @@ async def destination_chat(
             history=history,
             gateway=resources.model_gateway,
             demo_mode=resources.settings.demo_mode,
+            poi_places=poi_search.places,
         )
         updated_history = [
             *history,
@@ -516,10 +523,13 @@ async def destination_chat(
             destination_name=destination.city_or_region,
             assistant_message=reply.answer,
             quick_replies=reply.quick_replies,
+            places=poi_search.places,
+            place_retrieval_id=str(poi_search.retrieval_id) if poi_search.retrieval_id else None,
+            place_ranking_version=poi_search.ranking_version,
             proposed_trip_change=reply.proposed_trip_change,
             message_count=len(updated_history),
             turn_index=turn_index,
-            warnings=warnings,
+            warnings=[*poi_search.user_warnings, *warnings],
         )
         trace.update(
             output={
@@ -528,6 +538,9 @@ async def destination_chat(
                 "destination_id": destination.destination_id,
                 "message_count": response.message_count,
                 "proposed_trip_change": bool(response.proposed_trip_change),
+                "poi_count": len(response.places),
+                "poi_description_count": sum(bool(place.description) for place in response.places),
+                "poi_retrieval_id": response.place_retrieval_id,
             },
             metadata={"outcome": "completed"},
         )

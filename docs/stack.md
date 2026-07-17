@@ -58,7 +58,8 @@ LangChain `init_chat_model` может быть внутренним механ�
 - Public deployment: Async PostgreSQL checkpointer.
 - Anonymous `session_id` маппится на LangGraph `thread_id`, но наружу не выдаются checkpoint IDs.
 - Product events/feedback могут жить в той же PostgreSQL инсталляции, но в собственных таблицах.
-- Никакой long-term semantic memory и embeddings в MVP.
+- LangGraph не хранит long-term semantic memory. Bounded POI documents, chunks и их embeddings
+  живут только в отдельном canonical places PostgreSQL с provenance, лицензией и freshness.
 
 SQLite не рекомендуется для публичного многопроцессного deployment: ограничения конкурентной записи и локального диска усложнят эксплуатацию сильнее, чем маленький managed PostgreSQL.
 
@@ -71,7 +72,8 @@ SQLite не рекомендуется для публичного многоп�
 - Celery/Redis/queue до появления измеренной потребности в background jobs.
 - ORM и миграционный framework до появления собственных бизнес-таблиц сложнее events/feedback.
 - React/Next.js для единственной интерактивной страницы.
-- Vector database и embeddings.
+- Отдельную vector database и неограниченный web-RAG: bounded POI chunks использует уже имеющийся
+  pgvector в canonical places PostgreSQL.
 - Service container framework; достаточно FastAPI lifespan + typed resource container.
 - Multi-agent framework. Один граф, узкие узлы и детерминированные ветки.
 

@@ -125,10 +125,13 @@ Scoring получает только normalized candidate + TravelRequest + wei
 - `POST /recommend`: новый turn, clarification resume или refinement существующего thread;
   discriminated response `needs_clarification | completed | partial`.
 - `POST /destination-chat`: bounded вопрос по карточке без автоматического изменения основной
-  поездки; возвращает optional предложение отправить refinement в основной chat.
+  поездки; для POI-вопросов о Стамбуле добавляет до пяти результатов из канонического каталога с
+  provenance и retrieval ID. Эти записи не подтверждают текущие часы работы, цены или доступность.
+  Endpoint возвращает optional предложение отправить refinement в основной chat.
 - `POST /events/travel-link`: best-effort anonymous событие перехода к flight/hotel provider.
 - `POST /places/search`: гибридный поиск только по опубликованному каноническому каталогу мест;
-  при отсутствии базы честно возвращает `503` и не подменяет ответ demo fixture.
+  активное лицензированное описание возвращается только с provenance, freshness и source URL.
+  При отсутствии базы endpoint честно возвращает `503` и не подменяет ответ demo fixture.
 - `POST /events/place`: privacy-bounded impression/open/save/hide/select для последующей оценки
   ранжирования; raw текст запроса в это событие не записывается.
 - `POST /feedback`: anonymous up/down и optional comment.
@@ -143,6 +146,8 @@ API schema не должен раскрывать внутренние LangGraph
 - Secrets только в environment/secret manager, никогда в state, logs, prompts metadata или API responses.
 - SSRF-safe URL fetching: allow only http/https, block private/link-local ranges, enforce size/time limits.
 - Source excerpts считаются untrusted content; prompt-injection из найденных страниц не меняет системные правила или tools.
+- Текст POI хранится и векторизуется только при явно записанном разрешении source; в prompt попадает
+  clipped excerpt top-POI, а не raw document или весь каталог.
 - Feedback comments ограничиваются по длине и очищаются для отображения.
 
 ## Deployment target

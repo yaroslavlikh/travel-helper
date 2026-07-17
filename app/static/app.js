@@ -537,9 +537,15 @@ function destinationMessageMarkup(message) {
   const applyAction = message.proposedTripChange
     ? `<button class="apply-trip-change" type="button" data-apply-trip-change="${escapeHtml(message.proposedTripChange)}">Применить ко всей поездке <span>→</span></button>`
     : "";
+  const places = (message.places || []).map((place, index) => `
+    <a class="destination-poi" href="${safeUrl(place.description?.source?.url || place.source?.url)}" target="_blank" rel="noreferrer" data-place-id="${escapeHtml(place.place_id)}" data-place-position="${index + 1}" data-place-retrieval-id="${escapeHtml(message.placeRetrievalId || "")}" data-place-ranking-version="${escapeHtml(message.placeRankingVersion || "")}">
+      <strong>${escapeHtml(place.name)}</strong><span>${escapeHtml(place.category || "Место")} · ${escapeHtml((place.tags || []).slice(0, 3).join(" · "))}</span>${place.description ? `<em>${escapeHtml(place.description.text)}</em><small>Описание: ${escapeHtml(place.description.source?.name || "проверить")}</small>` : ""}<small>Источник: ${escapeHtml(place.source?.name || "проверить")}</small>
+    </a>`).join("");
+  const placesMarkup = places ? `<section class="destination-pois"><p>Места из каталога</p>${places}</section>` : "";
+  const warningsMarkup = (message.warnings || []).map((warning) => `<p class="destination-warning">${escapeHtml(warning)}</p>`).join("");
   return `<article class="destination-message ${message.role}">
     ${message.role === "assistant" ? '<span class="avatar assistant-avatar" aria-hidden="true">✦</span>' : ""}
-    <div><div class="destination-bubble">${escapeHtml(message.text).replaceAll("\n", "<br>")}${applyAction}</div><small>${shortTime(message.createdAt)}</small></div>
+    <div><div class="destination-bubble">${escapeHtml(message.text).replaceAll("\n", "<br>")}${applyAction}</div>${placesMarkup}${warningsMarkup}<small>${shortTime(message.createdAt)}</small></div>
   </article>`;
 }
 
@@ -571,6 +577,9 @@ function renderDestinationChat() {
   });
   document.querySelectorAll("[data-apply-trip-change]").forEach((button) => {
     button.addEventListener("click", () => applyTripChange(button.dataset.applyTripChange));
+  });
+  document.querySelectorAll("[data-place-id]").forEach((place) => {
+    place.addEventListener("click", () => trackDestinationPoi(place));
   });
   destinationInput.disabled = destinationBusy;
   $("#destination-send").disabled = destinationBusy;
@@ -606,6 +615,10 @@ async function sendDestinationMessage(text) {
       text: payload.assistant_message,
       quickReplies: payload.quick_replies || [],
       proposedTripChange: payload.proposed_trip_change || null,
+      places: payload.places || [],
+      placeRetrievalId: payload.place_retrieval_id || null,
+      placeRankingVersion: payload.place_ranking_version || null,
+      warnings: payload.warnings || [],
     });
   } catch (error) {
     const targetChat = store.chats.find((item) => item.id === chatId);
@@ -622,6 +635,25 @@ async function sendDestinationMessage(text) {
       renderDestinationChat();
     }
   }
+}
+
+function trackDestinationPoi(place) {
+  const chat = activeChat();
+  const retrievalId = place.dataset.placeRetrievalId;
+  if (!retrievalId) return;
+  fetch("/events/place", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      event_type: "place_opened",
+      session_id: chat.id,
+      place_id: place.dataset.placeId,
+      retrieval_id: retrievalId,
+      position: Number(place.dataset.placePosition),
+      ranking_version: place.dataset.placeRankingVersion || null,
+    }),
+    keepalive: true,
+  }).catch(() => undefined);
 }
 
 async function applyTripChange(change) {

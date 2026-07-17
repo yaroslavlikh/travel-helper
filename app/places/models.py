@@ -36,6 +36,26 @@ class PlaceImage(BaseModel):
     attribution: str
 
 
+class PlaceSource(BaseModel):
+    """The source that supports the existence and basic metadata of one place."""
+
+    name: str
+    url: str
+    attribution: str
+    license: str | None = None
+
+
+class PlaceDescription(BaseModel):
+    """One active, attributed POI description selected for bounded RAG context."""
+
+    text: str
+    language_code: str
+    content_kind: Literal["overview", "practical", "editorial"]
+    source: PlaceSource
+    observed_at: datetime
+    valid_until: datetime | None = None
+
+
 class PlaceSearchResult(BaseModel):
     place_id: UUID
     name: str
@@ -44,6 +64,8 @@ class PlaceSearchResult(BaseModel):
     longitude: float
     category: str | None = None
     tags: list[str] = Field(default_factory=list)
+    source: PlaceSource
+    description: PlaceDescription | None = None
     image: PlaceImage | None = None
     scores: dict[str, float]
     reasons: list[str]
