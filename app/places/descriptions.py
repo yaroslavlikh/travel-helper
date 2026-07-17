@@ -670,4 +670,3 @@ def _is_expired(valid_until: datetime | None, *, now: datetime) -> bool:
     if valid_until is None:
         return False
     return valid_until <= now
-    model_config = ConfigDict(extra="forbid")

@@ -278,6 +278,14 @@ button { color: inherit; }
 .source-links a { color: #0b75dc; font-size: 11px; }
 .feed-notices { display: grid; gap: 6px; margin-top: 13px; }
 .notice { padding: 9px 11px; border-radius: 9px; color: #8b681b; background: #fff7df; font-size: 11px; line-height: 1.5; }
+.planning-context { padding: 11px 12px; border: 1px solid #d9e8f5; border-radius: 10px; color: #4c6984; background: #f8fbfe; font-size: 12px; line-height: 1.5; }
+.planning-context > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.planning-context span { color: #71879b; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.planning-context strong { color: #22679f; font-size: 12px; }
+.planning-context p { margin: 6px 0 0; }
+.planning-context small { display: block; margin-top: 7px; color: #8496a7; font-size: 10px; }
+.planning-context.low { border-color: #f0dca8; background: #fffaf0; }
+.planning-context.low strong { color: #9a701c; }
 
 .destination-chat-view { display: flex; height: calc(100vh - 48px); min-height: 460px; flex-direction: column; overflow: hidden; border: 1px solid #dce8f3; border-radius: 18px; background: white; box-shadow: var(--shadow); }
 .destination-chat-header { display: grid; grid-template-columns: auto 48px 1fr; align-items: center; gap: 10px; padding: 14px 15px; border-bottom: 1px solid var(--line); background: linear-gradient(135deg, #fff, #f5faff); }

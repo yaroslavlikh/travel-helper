@@ -444,6 +444,25 @@ function pluralOptions(count) {
   return `${count} вариантов`;
 }
 
+function planningContextMarkup(snapshot) {
+  const confidence = snapshot?.planning_confidence;
+  if (!confidence) return "";
+  const level = {
+    high: "уверенная основа",
+    medium: "есть условия для уточнения",
+    low: "широкий ориентир",
+  }[confidence.level] || "ориентир";
+  const next = snapshot?.next_best_question;
+  const question = next?.question
+    ? `<p>Если захочется сузить подборку: <strong>${escapeHtml(next.question)}</strong></p>`
+    : "";
+  return `<section class="planning-context ${escapeHtml(confidence.level || "low")}">
+    <div><span>Точность планирования</span><strong>${escapeHtml(level)}</strong></div>
+    <p>${escapeHtml(confidence.summary || "Подборка учитывает доступные условия.")}</p>
+    ${question}<small>На него можно не отвечать сейчас — текущая подборка уже рабочая.</small>
+  </section>`;
+}
+
 function renderFeed() {
   const chat = activeChat();
   const recommendations = chat.recommendations || [];
@@ -462,7 +481,10 @@ function renderFeed() {
   update.textContent = chat.feedUpdate || "";
   update.classList.toggle("hidden", !chat.feedUpdate);
   const notices = chat.snapshot?.warnings || [];
-  $("#feed-notices").innerHTML = notices.map((notice) => `<div class="notice">${escapeHtml(notice)}</div>`).join("");
+  $("#feed-notices").innerHTML = [
+    planningContextMarkup(chat.snapshot),
+    ...notices.map((notice) => `<div class="notice">${escapeHtml(notice)}</div>`),
+  ].join("");
 }
 
 function trackTravelLink(link) {

@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     """Settings intentionally keep integrations disabled until configured."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Keep shared development defaults in .env while allowing per-machine secrets and
+        # observability settings in the ignored .env.local file. Later files take precedence.
+        env_file=(".env", ".env.local"),
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
@@ -38,7 +40,8 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
     llm_max_output_tokens: int = Field(default=2_048, ge=128, le=65_536)
 
-    langfuse_enabled: bool = False
+    # None means "enable when complete credentials are present"; false remains an explicit opt-out.
+    langfuse_enabled: bool | None = None
     langfuse_public_key: SecretStr | None = None
     langfuse_secret_key: SecretStr | None = None
     langfuse_base_url: str | None = Field(
@@ -58,7 +61,7 @@ class Settings(BaseSettings):
         """Whether all Langfuse credentials required by the adapter exist."""
 
         return bool(
-            self.langfuse_enabled
+            self.langfuse_enabled is not False
             and self.langfuse_public_key
             and self.langfuse_secret_key
             and self.langfuse_base_url

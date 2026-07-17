@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.domain.models import Ambiguity, ScoredDestination, TravelRequest
+from app.domain.models import Ambiguity, PlanningConfidence, ScoredDestination, TravelRequest
 from app.places.models import PlaceSearchResult
 
 
@@ -68,6 +68,7 @@ class NeedsClarificationResponse(ApiModel):
     parsed_request: TravelRequest
     questions: list[Ambiguity]
     assumptions: list[str]
+    planning_confidence: PlanningConfidence
     warnings: list[str] = Field(default_factory=list)
     turn_kind: Literal["initial", "clarification", "refinement"]
     assistant_message: str
@@ -80,6 +81,8 @@ class PartialRecommendationResponse(ApiModel):
     session_id: str
     parsed_request: TravelRequest
     assumptions: list[str]
+    planning_confidence: PlanningConfidence
+    next_best_question: Ambiguity | None = None
     recommendations: list[dict[str, Any]] = Field(default_factory=list)
     warnings: list[str]
     turn_kind: Literal["initial", "clarification", "refinement"]
@@ -93,6 +96,8 @@ class CompletedRecommendationResponse(ApiModel):
     session_id: str
     parsed_request: TravelRequest
     assumptions: list[str]
+    planning_confidence: PlanningConfidence
+    next_best_question: Ambiguity | None = None
     recommendations: list[ScoredDestination]
     warnings: list[str]
     turn_kind: Literal["initial", "clarification", "refinement"]

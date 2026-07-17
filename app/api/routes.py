@@ -25,6 +25,7 @@ from app.domain.models import (
     Ambiguity,
     DestinationThreadMessage,
     PlannerState,
+    PlanningConfidence,
     ScoredDestination,
     TravelRequest,
     TravelRequestPatch,
@@ -77,6 +78,15 @@ def _state_to_request(state: PlannerState) -> TravelRequest:
 
 def _state_to_questions(state: PlannerState) -> list[Ambiguity]:
     return [Ambiguity.model_validate(question) for question in state.get("questions", [])]
+
+
+def _state_to_planning_confidence(state: PlannerState) -> PlanningConfidence:
+    return PlanningConfidence.model_validate(state["planning_confidence"])
+
+
+def _state_to_next_best_question(state: PlannerState) -> Ambiguity | None:
+    payload = state.get("next_best_question")
+    return Ambiguity.model_validate(payload) if payload else None
 
 
 def _changed_fields(previous: TravelRequest | None, current: TravelRequest) -> list[str]:
@@ -251,6 +261,7 @@ async def _build_recommendation_response(
             parsed_request=_state_to_request(typed_state),
             questions=questions,
             assumptions=typed_state.get("assumptions", []),
+            planning_confidence=_state_to_planning_confidence(typed_state),
             warnings=typed_state.get("warnings", []),
             turn_kind=turn_kind,
             assistant_message=_turn_message(
@@ -284,6 +295,8 @@ async def _build_recommendation_response(
             session_id=session_id,
             parsed_request=parsed_request,
             assumptions=typed_state.get("assumptions", []),
+            planning_confidence=_state_to_planning_confidence(typed_state),
+            next_best_question=_state_to_next_best_question(typed_state),
             recommendations=recommendations,
             warnings=[
                 *typed_state.get("warnings", []),
@@ -308,6 +321,8 @@ async def _build_recommendation_response(
         session_id=session_id,
         parsed_request=parsed_request,
         assumptions=typed_state.get("assumptions", []),
+        planning_confidence=_state_to_planning_confidence(typed_state),
+        next_best_question=_state_to_next_best_question(typed_state),
         warnings=[
             *typed_state.get("warnings", []),
             "Поиск и ранжирование направлений будут добавлены следующим этапом.",
@@ -339,6 +354,7 @@ def _trace_output(
         "turn_kind": response.turn_kind,
         "request_id": response.request_id,
         "changed_fields": response.changed_fields,
+        "planning_confidence": response.planning_confidence.level,
     }
     if isinstance(response, NeedsClarificationResponse):
         result["question_count"] = len(response.questions)

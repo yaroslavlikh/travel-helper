@@ -11,7 +11,7 @@ from app.domain.models import (
     TravelRequest,
 )
 from app.places.models import PlaceSearchResult
-from app.services.model_gateway import ModelGateway, ModelGatewayError
+from app.services.model_gateway import ModelConfigurationError, ModelGateway, ModelGatewayError
 
 
 async def answer_destination_question(
@@ -121,8 +121,12 @@ Serialized context:
         if not demo_mode:
             raise
         warning = (
-            "AI-ответ по направлению временно недоступен: использована карточка без новых фактов "
-            f"({type(error).__name__})."
+            "Локальный режим: ответ собран по данным текущей карточки без новых внешних фактов."
+            if isinstance(error, ModelConfigurationError)
+            else (
+                "AI-ответ по направлению временно недоступен: использована карточка "
+                "без новых фактов."
+            )
         )
         return _fallback_reply(
             query=query, recommendation=recommendation, poi_places=poi_places or []
@@ -140,6 +144,58 @@ def _fallback_reply(
             f"По каталогу Стамбула для этого вопроса подходят: {places}. "
             "Это данные о самих местах; режим работы, стоимость и условия посещения нужно "
             "проверить по ссылкам на источники."
+        )
+    elif any(fragment in normalized for fragment in ("виза", "виз", "въезд", "въезд")):
+        entry = candidate.entry_requirements or "условия въезда не указаны в карточке"
+        visa = {
+            "none": "в demo-карточке визовое требование не отмечено",
+            "evisa": "в demo-карточке отмечена электронная виза",
+            "visa": "в demo-карточке отмечена обычная виза",
+            "unknown": "в demo-карточке визовый статус не подтверждён",
+        }.get(candidate.visa_complexity or "unknown", "визовый статус не подтверждён")
+        answer = (
+            f"Для {candidate.city_or_region}: {entry}; {visa}. "
+            "Это не подтверждение актуальных правил: перед поездкой проверьте требования на "
+            "официальном ресурсе страны назначения."
+        )
+    elif any(fragment in normalized for fragment in ("цена", "стоим", "бюджет", "дорого")):
+        minimum = candidate.estimated_total_cost_rub_min
+        maximum = candidate.estimated_total_cost_rub_max
+        if minimum is not None and maximum is not None:
+            cost = f"примерно {minimum:,}–{maximum:,} ₽".replace(",", " ")
+        elif minimum is not None:
+            cost = f"от {minimum:,} ₽".replace(",", " ")
+        else:
+            cost = "диапазон стоимости в карточке не указан"
+        answer = (
+            f"По demo-карточке {candidate.city_or_region} ориентир на поездку — {cost}. "
+            "Это не live-цена и не предложение бронирования: точную сумму нужно проверить по "
+            "датам, составу поездки и актуальным билетам."
+        )
+    elif any(fragment in normalized for fragment in ("перел", "лететь", "рейс", "пересад")):
+        duration = (
+            f"около {candidate.flight_duration_hours:g} ч"
+            if candidate.flight_duration_hours is not None
+            else "длительность не указана"
+        )
+        transfers = candidate.transfers_count
+        transfer_text = f", пересадок: {transfers}" if transfers is not None else ""
+        answer = (
+            f"Для {candidate.city_or_region} в demo-карточке указан перелёт "
+            f"{duration}{transfer_text}. "
+            "Расписание, маршрут и наличие рейсов нужно подтвердить в поиске билетов."
+        )
+    elif any(fragment in normalized for fragment in ("погод", "температур", "жарк", "дожд")):
+        temperature = (
+            f"около {candidate.expected_temperature_c:g}°C"
+            if candidate.expected_temperature_c is not None
+            else "температура не указана"
+        )
+        rain = candidate.precipitation_risk or "не указан"
+        answer = (
+            f"В demo-карточке для {candidate.city_or_region} указан ориентир {temperature}; "
+            f"риск осадков: {rain}. Без месяца это не прогноз: для решения о поездке "
+            "нужны даты и актуальный источник погоды."
         )
     elif any(fragment in normalized for fragment in ("жить", "где останов", "район")):
         areas = ", ".join(candidate.stay_areas) or "районы в карточке не указаны"

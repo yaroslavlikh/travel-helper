@@ -79,7 +79,7 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
     app = create_app(
         Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
     )
-    query = "Из Москвы на море в августе на 7–10 дней, 150 тысяч на одного, без жары"
+    query = "Хочу на море в августе на 7–10 дней, 150 тысяч на одного, без жары"
 
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
@@ -89,18 +89,18 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
             resumed = await client.post(
                 "/recommend",
                 json={
-                    "query": "Давайте только за границу",
+                    "query": "Вылетаю из Москвы",
                     "session_id": initial_body["session_id"],
                 },
             )
 
     assert clarification.status_code == 200
     assert initial_body["status"] == "needs_clarification"
-    assert [question["field"] for question in initial_body["questions"]] == ["destination_scope"]
+    assert [question["field"] for question in initial_body["questions"]] == ["origin_city"]
     assert resumed.status_code == 200
     assert resumed.json()["status"] == "completed"
     assert resumed.json()["turn_kind"] == "clarification"
-    assert resumed.json()["parsed_request"]["destination_scope"] == "international"
+    assert resumed.json()["parsed_request"]["origin_city"] == "Москва"
     assert len(resumed.json()["recommendations"]) >= 3
 
 
@@ -130,10 +130,10 @@ async def test_clarification_is_recorded_as_session_trace(
     assert root["name"] == "recommendation_pipeline"
     assert root["trace_name"] == "Turn 01 · initial request"
     assert root["updates"][-1]["output"]["status"] == "needs_clarification"
-    assert root["updates"][-1]["output"]["question_count"] == 3
+    assert root["updates"][-1]["output"]["question_count"] == 1
     assert clarification["updates"][-1]["output"] == {
         "status": "waiting_for_user",
-        "question_fields": ["origin_city", "month", "adults"],
+        "question_fields": ["origin_city"],
     }
 
 

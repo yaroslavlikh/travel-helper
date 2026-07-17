@@ -16,10 +16,10 @@ from app.places.models import (
     PlaceDescription,
     PlaceEventInput,
     PlaceImage,
-    PlaceSource,
     PlaceSearchQuery,
     PlaceSearchResponse,
     PlaceSearchResult,
+    PlaceSource,
 )
 from app.places.semantics import deterministic_embedding, inferred_categories, vector_literal
 

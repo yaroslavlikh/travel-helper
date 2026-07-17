@@ -88,6 +88,19 @@ flowchart TD
 - Узел с interrupt не выполняет non-idempotent side effects до паузы: при resume LangGraph начинает узел заново.
 - Ответы валидируются, merge не затирает исходно подтверждённые значения неявно, ambiguity detection запускается повторно.
 
+## Graceful uncertainty
+
+`origin_city` — единственный P0 для текущего flight-aware shortlist. Остальные отсутствующие поля
+остаются в state как typed ambiguities с impact level и не вызывают `interrupt`. Узел ambiguity
+detection вычисляет `planning_confidence` и выбирает один `next_best_question`; оба значения
+детерминированы, сериализуемы и попадают в trace без raw user text. Клиент показывает вопрос как
+необязательное уточнение: результат уже доступен, а игнорирование вопроса не запускает повторный
+опрос.
+
+Scoring не заполняет неизвестные поля дефолтными числами. Как и прежде, unavailable component
+исключается из опубликованной формулы с нормализацией оставшихся весов; planning confidence делает
+границы такого результата видимыми отдельно от source confidence.
+
 ## Follow-up refinement
 
 - Новый message в завершённом thread запускает новый graph turn с `previous_request`.

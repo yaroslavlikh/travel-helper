@@ -91,7 +91,25 @@ async def test_destination_answer_has_explicit_demo_fallback() -> None:
 
     assert recommendation.candidate.city_or_region in reply.answer
     assert recommendation.candidate.stay_areas[0] in reply.answer
-    assert warnings and "AI-ответ" in warnings[0]
+    assert warnings and "Локальный режим" in warnings[0]
+
+
+async def test_destination_fallback_answers_a_visa_question_from_the_card() -> None:
+    request = trip_request()
+    recommendation = rank_demo_candidates(request)[0]
+
+    reply, warnings = await answer_destination_question(
+        query="Там нужна виза?",
+        trip_request=request,
+        recommendation=recommendation,
+        history=[],
+        gateway=DisabledModelGateway("not configured"),
+        demo_mode=True,
+    )
+
+    assert recommendation.candidate.entry_requirements in reply.answer
+    assert "официальном ресурсе" in reply.answer
+    assert warnings and "Локальный режим" in warnings[0]
 
 
 async def test_destination_answer_passes_canonical_pois_as_evidence_context() -> None:
@@ -189,4 +207,4 @@ async def test_destination_fallback_names_retrieved_pois_without_claiming_live_f
 
     assert "Галатская башня" in reply.answer
     assert "нужно проверить" in reply.answer
-    assert warnings and "AI-ответ" in warnings[0]
+    assert warnings and "Локальный режим" in warnings[0]

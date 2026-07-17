@@ -11,7 +11,13 @@ from langgraph.types import interrupt
 
 from app.domain.models import Ambiguity, PlannerState, TravelRequest
 from app.observability.port import ObservabilityPort
-from app.services.ambiguity import clarification_questions, detect_ambiguities, explicit_assumptions
+from app.services.ambiguity import (
+    clarification_questions,
+    detect_ambiguities,
+    explicit_assumptions,
+    next_best_question,
+    planning_confidence,
+)
 from app.services.extraction import (
     extract_travel_request,
     extract_travel_request_with_model,
@@ -71,7 +77,9 @@ def detect_request_ambiguities(state: PlannerState) -> PlannerState:
     request = TravelRequest.model_validate(state["parsed_request"])
     ambiguities = detect_ambiguities(request)
     questions = clarification_questions(ambiguities)
-    assumptions = explicit_assumptions(ambiguities) if not questions else []
+    assumptions = explicit_assumptions(ambiguities)
+    confidence = planning_confidence(ambiguities)
+    advisory_question = next_best_question(ambiguities)
     question_history = list(state.get("question_history", []))
     if questions and not any(
         item.get("request_id") == state.get("request_id") for item in question_history
@@ -86,6 +94,10 @@ def detect_request_ambiguities(state: PlannerState) -> PlannerState:
         "ambiguities": [item.model_dump(mode="json") for item in ambiguities],
         "questions": [item.model_dump(mode="json") for item in questions],
         "assumptions": assumptions,
+        "planning_confidence": confidence.model_dump(mode="json"),
+        "next_best_question": (
+            advisory_question.model_dump(mode="json") if advisory_question else None
+        ),
         "question_history": question_history[-50:],
     }
 
@@ -172,6 +184,8 @@ def build_planner_graph(
                         question["field"] for question in result.get("questions", [])
                     ],
                     "question_count": len(result.get("questions", [])),
+                    "planning_confidence": result.get("planning_confidence", {}).get("level"),
+                    "next_best_question": (result.get("next_best_question") or {}).get("field"),
                 }
             )
             return result
