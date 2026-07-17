@@ -97,12 +97,24 @@ function createChat() {
   };
 }
 
+function hydrateAdvisoryQuestion(chat) {
+  const question = chat.snapshot?.next_best_question;
+  if (!question) return;
+  const latestAssistant = [...(chat.messages || [])].reverse().find((message) => (
+    message.role === "assistant"
+  ));
+  if (!latestAssistant?.text || latestAssistant.advisoryQuestion) return;
+  if (latestAssistant.questions?.some((item) => !item.resolved)) return;
+  latestAssistant.advisoryQuestion = { ...question, resolved: false };
+}
+
 function loadStore() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved?.chats?.length) {
       saved.chats.forEach((chat) => {
         chat.destinationThreads = chat.destinationThreads || {};
+        hydrateAdvisoryQuestion(chat);
       });
       const activeExists = saved.chats.some((chat) => chat.id === saved.activeChatId);
       saved.activeChatId = activeExists ? saved.activeChatId : saved.chats[0].id;
