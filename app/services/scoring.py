@@ -6,10 +6,11 @@ import json
 from pathlib import Path
 
 from app.domain.models import DestinationCandidate, ScoredDestination, TravelRequest
-from app.services.destination_semantics import normalized_preference_tags
+from app.services.destination_semantics import normalized_avoided_tags, normalized_preference_tags
 from app.services.filtering import hard_filter_reasons
 
 SCORING_PATH = Path(__file__).resolve().parents[1] / "data" / "scoring.json"
+STRICT_BUDGET_FALLBACK = "Показаны ближайшие варианты выше строгого бюджета."
 
 
 def load_scoring_weights() -> dict[str, float]:
@@ -62,11 +63,13 @@ def _transport_convenience(candidate: DestinationCandidate) -> float | None:
 
 def _preference_fit(candidate: DestinationCandidate, request: TravelRequest) -> float | None:
     preferences = normalized_preference_tags(request)
-    if not preferences:
+    avoided = normalized_avoided_tags(request)
+    if not preferences and not avoided:
         return 60.0
     normalized = {tag.casefold() for tag in candidate.destination_tags}
     matches = sum(preference in normalized for preference in preferences)
-    return 100.0 * matches / len(preferences)
+    avoided_matches = sum(tag not in normalized for tag in avoided)
+    return 100.0 * (matches + avoided_matches) / (len(preferences) + len(avoided))
 
 
 def _evidence_quality(candidate: DestinationCandidate) -> float | None:
@@ -106,7 +109,11 @@ def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> 
         rejected_reasons=rejected_reasons,
         total_score=round(sum(contributions.values()), 2),
         score_breakdown=contributions,
-        pros=["Соответствует критическим фильтрам.", *matched][:4],
+        pros=(
+            ["Соответствует критическим фильтрам.", *matched][:4]
+            if not rejected_reasons
+            else matched[:4]
+        ),
         cons=[] if not rejected_reasons else rejected_reasons[:3],
         risks=risks,
         assumptions=["Расчёт использует локальные demo estimates."],
@@ -124,4 +131,18 @@ def rank_demo_candidates(request: TravelRequest, limit: int = 5) -> list[ScoredD
 
     scored = [score_candidate(candidate, request) for candidate in load_demo_candidates()]
     eligible = [item for item in scored if item.passed_hard_filters]
+    if not eligible:
+        eligible = [
+            item.model_copy(
+                update={
+                    "passed_hard_filters": True,
+                    "rejected_reasons": [],
+                    "cons": ["Строгий бюджет превышен."],
+                    "risks": [*item.risks, STRICT_BUDGET_FALLBACK],
+                    "assumptions": [*item.assumptions, STRICT_BUDGET_FALLBACK],
+                }
+            )
+            for item in scored
+            if item.rejected_reasons == ["strict_budget_exceeded"]
+        ]
     return sorted(eligible, key=lambda item: item.total_score, reverse=True)[:limit]

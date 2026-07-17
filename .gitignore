@@ -19,6 +19,8 @@ htmlcov/
 *.sqlite
 *.sqlite3
 logs/
+data/raw/*
+!data/raw/.gitkeep
 
 # Editors and operating systems
 .DS_Store

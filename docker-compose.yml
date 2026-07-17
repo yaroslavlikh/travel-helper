@@ -1,0 +1,20 @@
+services:
+  places-db:
+    build:
+      context: ./docker/postgres
+    environment:
+      POSTGRES_DB: travel_places
+      POSTGRES_USER: travel
+      POSTGRES_PASSWORD: travel
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U travel -d travel_places"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - places-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  places-postgres-data:

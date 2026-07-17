@@ -1,4 +1,4 @@
-"""Deterministic Aviasales handoff using origin and destination only."""
+"""Deterministic Aviasales handoff that uses dates only when they are exact."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from app.domain.models import ExternalTravelLink, ScoredDestination, TravelReque
 
 AVIASALES_BASE_URL = "https://www.aviasales.ru/"
 AVIASALES_ROUTES_URL = "https://www.aviasales.ru/routes"
+AVIASALES_SEARCH_URL = "https://www.aviasales.ru/search/"
 
 CITY_IATA = {
     "москва": "MOW",
@@ -42,12 +43,28 @@ def build_aviasales_url(
     destination_iata: str | None,
     marker: str | None = None,
 ) -> str:
-    """Build a route page and leave dates and passengers to the provider UI."""
+    """Build an exact search only for an explicit round trip or one-way date."""
 
     origin = _origin_iata(request.origin_city)
     if origin is None or not destination_iata:
         return _with_marker(AVIASALES_BASE_URL, marker)
     destination = destination_iata.upper()
+    if request.date_from and (request.date_to or request.flight_one_way):
+        params: dict[str, str | int] = {
+            "origin_iata": origin,
+            "destination_iata": destination,
+            "depart_date": request.date_from.isoformat(),
+            "oneway": int(bool(request.flight_one_way)),
+            "adults": request.adults or 1,
+            "children": request.children or 0,
+            "infants": request.infants or 0,
+            "trip_class": 0,
+        }
+        if request.date_to and not request.flight_one_way:
+            params["return_date"] = request.date_to.isoformat()
+        if marker:
+            params["marker"] = marker
+        return f"{AVIASALES_SEARCH_URL}?{urlencode(params)}"
     return _with_marker(
         f"{AVIASALES_ROUTES_URL}/{origin.casefold()}/{destination.casefold()}",
         marker,
@@ -72,7 +89,9 @@ def add_aviasales_links(
             marker=marker,
         )
         flight_link = ExternalTravelLink(
-            title="Выбрать даты",
+            title="Найти билеты"
+            if request.date_from and (request.date_to or request.flight_one_way)
+            else "Выбрать даты",
             provider="aviasales",
             category="flight",
             url=url,

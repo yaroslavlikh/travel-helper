@@ -6,9 +6,9 @@
 ## Context
 
 Карточка направления должна передавать пользователя в Aviasales, не превращая ориентировочный
-период поездки в выдуманную пару билетов. Проверка compact search path и query-string deeplink
-показала нестабильное заполнение дат в разных браузерных контекстах. Для MVP надёжно подтверждён
-только route page вида `/routes/mow/aer`, который передаёт маршрут и оставляет выбор дат Aviasales.
+период поездки в выдуманную пару билетов. Compact search path нестабилен в разных браузерных
+контекстах, но официально документированный `/search/` query-string поддерживает точные даты,
+пассажиров и маршрут. Route page остаётся безопасным вариантом для приблизительного периода.
 
 Route page Aviasales ожидает IATA-коды маршрута и, при наличии, партнёрский `marker`. Ссылка
 является navigation handoff и не подтверждает цену или наличие.
@@ -35,20 +35,20 @@ Aviasales URL собирается в backend routing-сервисе и пере
 категории `flight`. Frontend не знает provider parameters, не передаёт даты и не обещает
 предзаполненный поиск.
 
-Routing использует один контракт для любых дат и состава путешественников:
+Routing использует два контракта:
 
-- при известных origin и destination IATA: `/routes/{origin}/{destination}`;
-- optional `marker` из `AVIASALES_MARKER` остаётся query-параметром;
+- при точном `date_from` и точном `date_to` (или explicit `flight_one_way=true`):
+  `/search/?origin_iata=…&destination_iata=…&depart_date=YYYY-MM-DD&return_date=YYYY-MM-DD`;
+  в query также передаются adults, children, infants, trip_class, oneway и optional marker;
+- при месяце или departure window: `/routes/{origin}/{destination}` без выдуманных дат;
 - если хотя бы один IATA неизвестен, используется главная форма Aviasales без выдуманного маршрута.
 
-Даже подтверждённые точные даты полностью отсутствуют в deeplink. Пользователь выбирает их через
-нативный календарь Aviasales. Date extraction продолжает работать для рекомендаций и памяти чата,
-но временно не участвует во внешнем routing-контракте.
+Frontend получает URL только от backend и не знает provider parameters.
 
 ## Consequences
 
-- Точная поездка и гибкое окно открывают одну route page с корректными городами.
-- Карточка и Aviasales не расходятся из-за частично распознанных дат.
+- Точная поездка открывает сразу заполненный поиск, а гибкое окно — route page с календарём.
+- Карточка и Aviasales не расходятся: approximate период никогда не превращается в точные билеты.
 - Генерация ссылки стала детерминированной и покрывается unit tests вне browser UI.
 - Для расширения географии потребуется IATA resolver/provider вместо ограниченного словаря городов.
 - Для affiliate attribution достаточно настроить marker без изменения frontend.
@@ -56,7 +56,8 @@ Routing использует один контракт для любых дат 
 
 ## Rejected alternatives
 
-- Compact search URL: даты заполняются нестабильно в разных браузерных контекстах.
+- Compact search URL: даты заполняются нестабильно в разных браузерных контекстах; используется
+  документированный query-string contract `/search/`.
 - Вычислять случайную дату внутри месяца: создаёт неподтверждённую точность.
 - Считать конец departure window датой обратного билета: смешивает разные пользовательские intents.
 - Собирать URL в браузере: provider contract остаётся непроверяемой частью presentation layer.

@@ -6,7 +6,7 @@ APP ?= app.main:app
 HOST ?= 127.0.0.1
 PORT ?= 8000
 
-.PHONY: help bootstrap run dev format format-check lint typecheck test test-unit test-integration docs-check check clean
+.PHONY: help bootstrap run dev places-up places-down places-migrate places-import-istanbul places-eval-istanbul format format-check lint typecheck test test-unit test-integration docs-check check clean
 
 help: ## Show available development commands
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -19,6 +19,21 @@ run: ## Run the application without autoreload
 
 dev: ## Run the application with autoreload
 	$(UV) run uvicorn $(APP) --host $(HOST) --port $(PORT) --reload
+
+places-up: ## Start local PostgreSQL with PostGIS and pgvector
+	docker compose up --build -d places-db
+
+places-down: ## Stop the local places database
+	docker compose down
+
+places-migrate: ## Apply the places PostgreSQL migrations
+	$(UV) run python scripts/migrate_places.py
+
+places-import-istanbul: ## Fetch and import the bounded Istanbul OSM places scope
+	$(UV) run python scripts/import_istanbul_places.py --fetch
+
+places-eval-istanbul: ## Evaluate 30 fixed Istanbul retrieval queries against local storage
+	$(UV) run python scripts/evaluate_istanbul_places.py
 
 format: ## Apply code formatting and safe import fixes
 	$(UV) run ruff format app tests scripts

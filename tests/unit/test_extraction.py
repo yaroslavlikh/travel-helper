@@ -8,6 +8,7 @@ from app.services.extraction import (
     extract_travel_request,
     extract_travel_request_with_model,
     merge_travel_request_revision,
+    revise_travel_request_deterministically,
 )
 
 
@@ -110,6 +111,27 @@ def test_revision_changes_only_explicit_fields_and_can_clear_constraints() -> No
     assert updated.budget_total_rub == 160_000
     assert updated.sea_required is False
     assert updated.preferences == []
+
+
+def test_explicit_no_sea_refinement_overrides_existing_requirement() -> None:
+    base = TravelRequest(raw_query="На море", sea_required=True)
+
+    updated = revise_travel_request_deterministically(base, "Я не хочу море, нужна инфраструктура")
+
+    assert updated.sea_required is False
+
+
+def test_colloquial_not_really_want_sea_is_not_a_requirement() -> None:
+    request = extract_travel_request("Хочу отдых в Азии, не оч хочу на море")
+
+    assert request.sea_required is False
+    assert "море" in request.avoid
+
+
+def test_infrastructure_and_activities_become_preference_hints() -> None:
+    request = extract_travel_request("Нужна нормальная инфраструктура и куча активностей")
+
+    assert request.preferences == ["инфраструктура", "активности"]
 
 
 def test_flexible_departure_window_replaces_exact_trip_dates() -> None:

@@ -18,12 +18,15 @@ REGION_ALIASES = {
 PREFERENCE_TAG_ALIASES = {
     "spicy_food": ("остр", "spicy"),
     "food": ("ед", "кухн", "гастроном", "food"),
-    "nightlife": ("ночн", "тусов", "nightlife"),
+    "nightlife": ("ночн", "тусов", "активност", "развлечен", "движ", "nightlife"),
     "beach": ("пляж", "beach"),
     "nature": ("природ", "nature"),
     "family": ("семейн", "с детьми", "family"),
     "diving": ("дайв", "сноркл", "diving"),
+    "city": ("инфраструктур", "городск", "city"),
 }
+
+AVOIDED_TAG_ALIASES = {"sea": ("море", "пляж", "sea", "beach")}
 
 
 def requested_regions(request: TravelRequest) -> set[str]:
@@ -70,6 +73,17 @@ def normalized_preference_tags(request: TravelRequest) -> set[str]:
             if any(alias in text for alias in aliases):
                 normalized.add(tag)
     return normalized
+
+
+def normalized_avoided_tags(request: TravelRequest) -> set[str]:
+    """Map explicit non-geographic dislikes into candidate tags for scoring."""
+
+    text = " ".join(request.avoid).casefold()
+    return {
+        tag
+        for tag, aliases in AVOIDED_TAG_ALIASES.items()
+        if any(alias in text for alias in aliases)
+    }
 
 
 def _russian_stem(value: str) -> str:

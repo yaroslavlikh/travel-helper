@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     demo_mode: bool = True
     checkpoint_db_path: str = ".data/travel-helper.sqlite3"
+    places_database_url: str | None = None
+    places_embedding_version: str = "hash-v1"
     aviasales_marker: str | None = None
 
     llm_provider: str | None = None

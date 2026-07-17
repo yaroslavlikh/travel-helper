@@ -46,7 +46,7 @@ class TravelRequestPatch(DomainModel):
     budget_total_rub: int | None = Field(default=None, ge=1)
     budget_strict: bool | None = None
     trip_style: list[str] = Field(default_factory=list)
-    sea_required: bool = False
+    sea_required: bool | None = None
     heat_tolerance: HeatTolerance | None = None
     preferred_max_temperature_c: float | None = None
     visa_willingness: VisaWillingness | None = None
@@ -61,6 +61,7 @@ class TravelRequest(TravelRequestPatch):
     """Validated planning request with the immutable original user query."""
 
     raw_query: str = Field(min_length=1)
+    sea_required: bool = False
 
 
 class TravelRequestRevision(DomainModel):

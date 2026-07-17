@@ -29,12 +29,45 @@ from app.domain.models import (
     TravelRequest,
     TravelRequestPatch,
 )
+from app.places.models import PlaceEventInput, PlaceSearchQuery, PlaceSearchResponse
+from app.places.repository import PlacesUnavailableError
 from app.services.aviasales import add_aviasales_links
 from app.services.destination_chat import answer_destination_question
 from app.services.extraction import extract_answers_for_questions
-from app.services.scoring import rank_demo_candidates
+from app.services.scoring import STRICT_BUDGET_FALLBACK, rank_demo_candidates
 
 router = APIRouter(tags=["recommendations"])
+
+
+@router.post("/places/search", response_model=PlaceSearchResponse, tags=["places"])
+async def search_places(payload: PlaceSearchQuery, request: Request) -> PlaceSearchResponse:
+    """Search published places from the canonical data store, never from demo fixtures."""
+
+    resources = request.app.state.resources
+    if not isinstance(resources, AppResources):
+        raise RuntimeError("Application resources are unavailable")
+    try:
+        return await resources.places_repository.search(payload)
+    except PlacesUnavailableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
+        ) from error
+
+
+@router.post("/events/place", status_code=status.HTTP_204_NO_CONTENT, tags=["places"])
+async def record_place_event(payload: PlaceEventInput, request: Request) -> Response:
+    """Persist privacy-bounded place interaction telemetry for ranking evaluation."""
+
+    resources = request.app.state.resources
+    if not isinstance(resources, AppResources):
+        raise RuntimeError("Application resources are unavailable")
+    try:
+        await resources.places_repository.record_event(payload)
+    except PlacesUnavailableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
+        ) from error
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _state_to_request(state: PlannerState) -> TravelRequest:
@@ -253,6 +286,11 @@ async def _build_recommendation_response(
             recommendations=recommendations,
             warnings=[
                 *typed_state.get("warnings", []),
+                *(
+                    [STRICT_BUDGET_FALLBACK]
+                    if any(STRICT_BUDGET_FALLBACK in item.assumptions for item in recommendations)
+                    else []
+                ),
                 "Результаты используют локальный demo fixture, а не live search sources.",
             ],
             turn_kind=turn_kind,

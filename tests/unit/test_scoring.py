@@ -1,7 +1,12 @@
 from app.domain.models import TravelRequest
 from app.services.filtering import hard_filter_reasons
 from app.services.fixtures import load_demo_candidates
-from app.services.scoring import load_scoring_weights, rank_demo_candidates, score_candidate
+from app.services.scoring import (
+    STRICT_BUDGET_FALLBACK,
+    load_scoring_weights,
+    rank_demo_candidates,
+    score_candidate,
+)
 
 
 def _sample_request() -> TravelRequest:
@@ -74,6 +79,43 @@ def test_asian_spicy_food_request_surfaces_malaysia_and_excludes_georgia() -> No
     )
     assert any(item.candidate.country == "Малайзия" for item in ranked)
     assert all(item.candidate.country != "Грузия" for item in ranked)
+
+
+def test_strict_budget_only_fallback_keeps_matching_destinations_visible() -> None:
+    request = TravelRequest(
+        raw_query="Хочу в Азию за 150к",
+        origin_city="Москва",
+        adults=1,
+        budget_total_rub=150_000,
+        budget_strict=True,
+        destination_scope="international",
+        preferences=["Азия"],
+    )
+
+    ranked = rank_demo_candidates(request)
+
+    assert ranked
+    assert all(
+        item.candidate.country in {"Таиланд", "Малайзия", "Вьетнам", "Индонезия"} for item in ranked
+    )
+    assert all(STRICT_BUDGET_FALLBACK in item.assumptions for item in ranked)
+
+
+def test_no_sea_and_infrastructure_rank_a_city_above_beach_resorts() -> None:
+    request = TravelRequest(
+        raw_query="Азия, инфраструктура и активности, не хочу море",
+        destination_scope="international",
+        preferences=["Азия", "инфраструктура", "активности"],
+        avoid=["море"],
+    )
+    candidates = load_demo_candidates()
+    kuala_lumpur = next(item for item in candidates if item.destination_id == "kualalumpur")
+    phuket = next(item for item in candidates if item.destination_id == "phuket")
+
+    assert (
+        score_candidate(kuala_lumpur, request).total_score
+        > score_candidate(phuket, request).total_score
+    )
 
 
 def test_demo_candidates_include_credited_places_and_navigation_links() -> None:
