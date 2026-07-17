@@ -199,6 +199,11 @@ button { color: inherit; }
 
 .question-block { display: grid; gap: 13px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #dce8f3; }
 .question-items { display: grid; gap: 13px; }
+.advisory-block { margin-top: 14px; padding: 13px; border: 1px solid #9bc9ff; border-radius: 12px; background: #f6fbff; }
+.advisory-block .question-label { margin-top: 4px; }
+.advisory-block small { display: block; margin-top: 9px; color: #748aa3; font-size: 11px; }
+.advisory-block.resolved { color: #39735e; }
+.advisory-kicker { color: #0879e8; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .question-item { display: grid; gap: 6px; }
 .question-item.resolved { opacity: 0.72; }
 .question-label { color: #233f5e; font-size: 14px; font-weight: 750; }

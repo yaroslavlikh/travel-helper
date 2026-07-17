@@ -102,6 +102,39 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
     assert resumed.json()["turn_kind"] == "clarification"
     assert resumed.json()["parsed_request"]["origin_city"] == "Москва"
     assert len(resumed.json()["recommendations"]) >= 3
+    assert resumed.json()["next_best_question"] is not None
+    assert "Следующий вопрос" in resumed.json()["assistant_message"]
+
+
+@pytest.mark.asyncio
+async def test_advisory_answer_refines_a_completed_shortlist() -> None:
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            initial = await client.post(
+                "/recommend",
+                json={"query": "Хочу отдохнуть из Москвы"},
+            )
+            initial_body = initial.json()
+            refined = await client.post(
+                "/recommend",
+                json={
+                    "query": "География: за границу",
+                    "session_id": initial_body["session_id"],
+                    "answers": {"destination_scope": "international"},
+                },
+            )
+
+    assert initial.status_code == 200
+    assert initial_body["status"] == "completed"
+    assert refined.status_code == 200
+    assert refined.json()["status"] == "completed"
+    assert refined.json()["turn_kind"] == "refinement"
+    assert refined.json()["parsed_request"]["destination_scope"] == "international"
 
 
 @pytest.mark.asyncio

@@ -201,6 +201,22 @@ function questionsMarkup(message) {
   return `<form class="question-block" data-question-message="${escapeHtml(message.id)}"><div class="question-items">${message.questions.map((question) => questionMarkup(question, message.id)).join("")}</div>${hasOpen ? '<button class="question-submit" type="submit">Сохранить ответы <span>→</span></button>' : ""}</form>`;
 }
 
+function advisoryQuestionMarkup(message) {
+  const question = message.advisoryQuestion;
+  if (!question) return "";
+  if (question.resolved) {
+    return `<div class="advisory-block resolved"><span>Уточнение учтено: ${escapeHtml(question.answerDisplay || "ответ сохранён")}</span></div>`;
+  }
+  return `<form class="advisory-block" data-advisory-message="${escapeHtml(message.id)}">
+    <div class="advisory-kicker">Уточнить подборку</div>
+    <div class="question-label">${escapeHtml(question.question || question.field)}</div>
+    <p class="question-reason">${escapeHtml(question.reason || "Ответ обновит порядок и состав вариантов.")}</p>
+    ${controlFor(question, message.id)}
+    <button class="question-submit" type="submit">Обновить подборку <span>→</span></button>
+    <small>Можно пропустить и продолжить смотреть текущие варианты.</small>
+  </form>`;
+}
+
 function changesMarkup(fields = []) {
   if (!fields.length) return "";
   return `<div class="change-summary">${fields.map((field) => `<span>Обновлено: ${escapeHtml(FIELD_LABELS[field] || field)}</span>`).join("")}</div>`;
@@ -212,11 +228,14 @@ function renderMessages() {
     if (message.role === "user") {
       return `<article class="message user"><div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p></div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
     }
-    return `<article class="message assistant"><span class="avatar assistant-avatar" aria-hidden="true">✦</span><div class="message-content"><div class="message-name">Помощник</div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p>${changesMarkup(message.changedFields)}${questionsMarkup(message)}</div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
+    return `<article class="message assistant"><span class="avatar assistant-avatar" aria-hidden="true">✦</span><div class="message-content"><div class="message-name">Помощник</div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p>${changesMarkup(message.changedFields)}${questionsMarkup(message)}${advisoryQuestionMarkup(message)}</div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
   }).join("");
 
   document.querySelectorAll("[data-question-message]").forEach((form) => {
     if (form.querySelector(".question-submit")) form.addEventListener("submit", submitQuestionAnswers);
+  });
+  document.querySelectorAll("[data-advisory-message]").forEach((form) => {
+    form.addEventListener("submit", submitAdvisoryQuestion);
   });
   $("#starter-zone").classList.toggle("hidden", chat.messages.some((message) => message.role === "user"));
   requestAnimationFrame(() => { messageList.scrollTop = messageList.scrollHeight; });
@@ -258,6 +277,20 @@ async function submitQuestionAnswers(event) {
   await requestRecommendation(summary, answers, form.dataset.questionMessage);
 }
 
+async function submitAdvisoryQuestion(event) {
+  event.preventDefault();
+  if (busy) return;
+  const form = event.currentTarget;
+  const answers = collectAnswers(form);
+  if (!Object.keys(answers).length) return;
+  const summary = answerSummary(answers);
+  const chat = activeChat();
+  addMessage(chat, { role: "user", text: summary });
+  resolveAdvisoryQuestion(chat, form.dataset.advisoryMessage, answers);
+  renderAll();
+  await requestRecommendation(summary, answers);
+}
+
 function resolveQuestions(chat, messageId, answerText, answers) {
   const message = chat.messages.find((item) => item.id === messageId);
   if (!message) return;
@@ -269,6 +302,31 @@ function resolveQuestions(chat, messageId, answerText, answers) {
       : `ответ в сообщении: «${answerText}»`,
   }));
   if (chat.pendingQuestionMessageId === messageId) chat.pendingQuestionMessageId = null;
+}
+
+function resolveAdvisoryQuestion(chat, messageId, answers) {
+  const message = chat.messages.find((item) => item.id === messageId);
+  if (!message?.advisoryQuestion) return;
+  const field = message.advisoryQuestion.field;
+  message.advisoryQuestion = {
+    ...message.advisoryQuestion,
+    resolved: true,
+    answerDisplay: readableAnswer(field, answers[field]),
+  };
+}
+
+function resolveMatchingAdvisoryQuestion(chat, changedFields, answerText) {
+  const message = [...chat.messages].reverse().find((item) => (
+    item.advisoryQuestion
+    && !item.advisoryQuestion.resolved
+    && changedFields.includes(item.advisoryQuestion.field)
+  ));
+  if (!message?.advisoryQuestion) return;
+  message.advisoryQuestion = {
+    ...message.advisoryQuestion,
+    resolved: true,
+    answerDisplay: `ответ в сообщении: «${answerText}»`,
+  };
 }
 
 function formatMoney(value) {
@@ -315,6 +373,8 @@ async function requestRecommendation(query, answers = null, questionMessageId = 
     if (questionMessageId) resolveQuestions(targetChat, questionMessageId, query, answers);
     else if (targetChat.pendingQuestionMessageId) {
       resolveQuestions(targetChat, targetChat.pendingQuestionMessageId, query, null);
+    } else {
+      resolveMatchingAdvisoryQuestion(targetChat, payload.changed_fields || [], query);
     }
 
     const previousRecommendations = targetChat.recommendations || [];
@@ -329,6 +389,9 @@ async function requestRecommendation(query, answers = null, questionMessageId = 
       text: payload.assistant_message || "Условия поездки сохранены.",
       changedFields: payload.changed_fields || [],
       questions: (payload.questions || []).map((question) => ({ ...question, resolved: false })),
+      advisoryQuestion: payload.next_best_question
+        ? { ...payload.next_best_question, resolved: false }
+        : null,
     };
     addMessage(targetChat, assistantMessage);
     if (assistantMessage.questions.length) {

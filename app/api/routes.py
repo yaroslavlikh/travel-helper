@@ -107,22 +107,30 @@ def _turn_message(
     turn_kind: Literal["initial", "clarification", "refinement"],
     question_count: int = 0,
     recommendation_count: int = 0,
+    next_question: Ambiguity | None = None,
 ) -> str:
     if status_value == "needs_clarification":
         suffix = "вопрос" if question_count == 1 else "вопроса"
         return f"Я сохранил условия поездки. Осталось уточнить {question_count} {suffix}."
     if turn_kind == "refinement":
-        return (
+        message = (
             "Учёл уточнение и обновил ленту: сейчас в ней "
             f"{_recommendation_count_label(recommendation_count)}."
         )
-    if turn_kind == "clarification":
-        return (
+    elif turn_kind == "clarification":
+        message = (
             f"Спасибо, сохранил ответ и собрал {_recommendation_count_label(recommendation_count)}."
         )
+    else:
+        message = (
+            f"Я разобрал запрос и собрал {_recommendation_count_label(recommendation_count)} "
+            "для сравнения."
+        )
+    if next_question is None:
+        return message
     return (
-        f"Я разобрал запрос и собрал {_recommendation_count_label(recommendation_count)} "
-        "для сравнения."
+        f"{message}\n\nПодборка пока широкая. Следующий вопрос сильнее всего "
+        f"повлияет на варианты: {next_question.question}"
     )
 
 
@@ -143,7 +151,7 @@ def _classify_turn(
     graph_is_interrupted: bool,
     previous_request: TravelRequest | None,
 ) -> Literal["initial", "clarification", "refinement"]:
-    if payload.answers is not None or (existing_state is not None and graph_is_interrupted):
+    if existing_state is not None and graph_is_interrupted:
         return "clarification"
     if existing_state is not None and previous_request is not None:
         return "refinement"
@@ -162,8 +170,8 @@ async def _invoke_planner_turn(
     turn_kind: Literal["initial", "clarification", "refinement"],
     turn_index: int,
 ) -> dict[str, Any]:
-    if payload.answers is not None:
-        if existing_state is None or not graph_is_interrupted:
+    if payload.answers is not None and graph_is_interrupted:
+        if existing_state is None:
             raise HTTPException(status_code=404, detail="Unknown planning session")
         query_history = [*existing_state.get("query_history", []), payload.query.strip()][-20:]
         result = await resources.planner_graph.ainvoke(
@@ -207,7 +215,7 @@ async def _invoke_planner_turn(
             "request_id": str(uuid4()),
             "session_id": session_id,
             "raw_query": payload.query.strip(),
-            "answers": {},
+            "answers": payload.answers or {},
             "previous_request": previous_request.model_dump(mode="json"),
             "query_history": [
                 *existing_state.get("query_history", []),
@@ -312,6 +320,7 @@ async def _build_recommendation_response(
                 status_value="completed",
                 turn_kind=turn_kind,
                 recommendation_count=len(recommendations),
+                next_question=_state_to_next_best_question(typed_state),
             ),
             changed_fields=_changed_fields(previous_request, parsed_request),
         )
@@ -328,7 +337,11 @@ async def _build_recommendation_response(
             "Поиск и ранжирование направлений будут добавлены следующим этапом.",
         ],
         turn_kind=turn_kind,
-        assistant_message=_turn_message(status_value="partial", turn_kind=turn_kind),
+        assistant_message=_turn_message(
+            status_value="partial",
+            turn_kind=turn_kind,
+            next_question=_state_to_next_best_question(typed_state),
+        ),
         changed_fields=_changed_fields(previous_request, parsed_request),
     )
 
