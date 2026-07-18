@@ -353,8 +353,8 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
             recorded_clicks = list(app.state.resources.product_event_store.travel_link_events)
 
     assert page.status_code == 200
-    assert "Пора в путь" in page.text
-    assert "AI travel copilot" in page.text
+    assert "Тудавай" in page.text
+    assert "помощник в путешествиях" in page.text
     assert "Живая подборка" in page.text
     assert feedback.status_code == 204
     assert travel_link.status_code == 204

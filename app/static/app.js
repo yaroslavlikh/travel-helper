@@ -269,6 +269,23 @@ function setBusy(value) {
   messageInput.disabled = value;
   $("#typing").classList.toggle("hidden", !value);
   $("#chat-status").textContent = value ? "Обновляю подборку…" : chatStatus(activeChat());
+  renderWorkspaceState();
+}
+
+function workspaceState(chat = activeChat()) {
+  const hasPlanningContext = Boolean(chat.snapshot || chat.recommendations?.length || activeDestinationId);
+  if (hasPlanningContext) return "results";
+  if (busy) return "opening";
+  return "conversation";
+}
+
+function renderWorkspaceState() {
+  const state = workspaceState();
+  document.body.dataset.workspaceState = state;
+  const feedTab = document.querySelector('.mobile-tab[data-view="feed"]');
+  feedTab.disabled = state === "conversation";
+  feedTab.setAttribute("aria-disabled", String(feedTab.disabled));
+  if (feedTab.disabled && document.body.dataset.mobileView === "feed") setMobileView("chat");
 }
 
 async function requestRecommendation(query) {
@@ -386,7 +403,7 @@ function destinationCard(item, index, chat) {
   const sources = (candidate.sources || []).map((source) => `<a href="${safeUrl(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.title)}</a>`).join("");
   const flight = candidate.flight_duration_hours ? `${candidate.flight_duration_hours} ч · ${candidate.transfers_count || 0} перес.` : "Уточнить";
   const weather = candidate.expected_temperature_c != null ? `${candidate.expected_temperature_c}° · море ${candidate.expected_sea_temperature_c ?? "—"}°` : "Уточнить";
-  return `<article class="destination-card">
+  return `<article class="destination-card" style="--card-index: ${index}">
     <div class="card-image">
       ${image ? `<img src="${imageUrl}" alt="${escapeHtml(image.alt)}" loading="lazy" />` : ""}
       <div class="image-shade"></div><span class="rank-badge">#${index + 1} вариант</span><span class="demo-tag">DEMO</span>
@@ -668,6 +685,7 @@ function chatStatus(chat) {
 
 function renderAll() {
   const chat = activeChat();
+  renderWorkspaceState();
   $("#chat-title").textContent = chat.title;
   $("#chat-status").textContent = busy ? "Обновляю подборку…" : chatStatus(chat);
   renderChatList();
