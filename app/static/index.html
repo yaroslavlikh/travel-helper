@@ -7,7 +7,7 @@
     <title>Пора в путь — AI-помощник для путешествий</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
-  <body>
+  <body data-workspace-state="conversation">
     <div class="app-shell">
       <aside class="sidebar" aria-label="История чатов">
         <a class="brand" href="/" aria-label="Пора в путь">
@@ -27,6 +27,17 @@
           <div><strong>Демо-режим</strong><small>Цены и наличие не проверяются</small></div>
         </div>
       </aside>
+
+      <div class="workspace-atmosphere" aria-hidden="true">
+        <svg viewBox="0 0 900 620" preserveAspectRatio="xMidYMid slice">
+          <path class="atmosphere-contour atmosphere-contour-one" d="M-40 420C120 315 205 470 354 355S595 160 940 260" />
+          <path class="atmosphere-contour atmosphere-contour-two" d="M80 610C190 455 330 520 445 404S646 245 890 120" />
+          <path class="atmosphere-route" d="M80 470C222 360 300 455 430 326S655 198 824 238" />
+          <circle class="atmosphere-point point-one" cx="80" cy="470" r="7" />
+          <circle class="atmosphere-point point-two" cx="430" cy="326" r="5" />
+          <circle class="atmosphere-point point-three" cx="824" cy="238" r="8" />
+        </svg>
+      </div>
 
       <main class="conversation-panel">
         <header class="conversation-header">
@@ -83,13 +94,29 @@
           </header>
           <div id="criteria" class="criteria"></div>
           <div id="feed-empty" class="feed-empty">
-            <div class="empty-illustration"><span>✦</span><i>✈</i></div>
-            <h3>Здесь появятся места</h3>
-            <p>Обсудите поездку в чате — я покажу конкретные города, районы и идеи для отдыха.</p>
+            <span class="feed-empty-mark" aria-hidden="true">✦</span>
+            <div>
+              <h3>Маршрут ещё складывается</h3>
+              <p>Условия уже сохраняются в разговоре. Варианты появятся, когда данных будет достаточно.</p>
+            </div>
           </div>
           <div id="feed-update" class="feed-update hidden"></div>
           <div id="recommendation-list" class="recommendation-list"></div>
           <div id="feed-notices" class="feed-notices"></div>
+        </div>
+
+        <div id="feed-loading" class="feed-loading" aria-live="polite" aria-label="Собираю варианты поездки">
+          <div class="route-progress" aria-hidden="true">
+            <span></span><i></i><span></span><i></i><span></span>
+          </div>
+          <span class="feed-kicker">Собираю маршрут</span>
+          <strong>Превращаю пожелания в варианты</strong>
+          <p>Сначала условия, затем направления — без лишних экранов и анкет.</p>
+          <div class="loading-steps" aria-hidden="true">
+            <span>Разбираю запрос</span>
+            <span>Сверяю условия</span>
+            <span>Готовлю подборку</span>
+          </div>
         </div>
 
         <section id="destination-chat-view" class="destination-chat-view hidden" aria-label="Обсуждение направления">
