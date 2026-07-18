@@ -13,11 +13,13 @@ import psycopg
 from psycopg.rows import dict_row
 
 from app.places.models import (
+    PlaceDescription,
     PlaceEventInput,
     PlaceImage,
     PlaceSearchQuery,
     PlaceSearchResponse,
     PlaceSearchResult,
+    PlaceSource,
 )
 from app.places.semantics import deterministic_embedding, inferred_categories, vector_literal
 
@@ -73,6 +75,9 @@ class PostgresPlacesRepository:
         category_hints = inferred_categories(query.query)
         params: list[object] = [
             embedding,
+            self.embedding_version,
+            query.destination.casefold(),
+            max(query.limit * 8, 50),
             normalized_query,
             normalized_query,
             category_hints,
@@ -120,7 +125,38 @@ class PostgresPlacesRepository:
         # Retrieve a larger candidate set, then diversify in Python by category.
         params.append(max(query.limit * 4, 20))
         statement = f"""
-            WITH ranked AS (
+            WITH query_context AS (
+                SELECT %s::vector AS embedding
+            ),
+            description_candidates AS MATERIALIZED (
+                SELECT
+                    document.place_id,
+                    1 - (chunk.embedding <=> query_context.embedding) AS semantic_score
+                FROM place_description_chunks chunk
+                JOIN place_description_documents document ON document.id = chunk.document_id
+                JOIN places described_place ON described_place.id = document.place_id
+                JOIN destinations described_destination
+                    ON described_destination.id = described_place.destination_id
+                JOIN place_source_records description_record
+                    ON description_record.id = document.place_source_record_id
+                JOIN source_usage_policies policy ON policy.source_id = description_record.source_id
+                CROSS JOIN query_context
+                WHERE chunk.embedding_version = %s
+                  AND described_destination.slug = %s
+                  AND described_place.status = 'active'
+                  AND described_place.deleted_at IS NULL
+                  AND description_record.deleted_at IS NULL
+                  AND (document.valid_until IS NULL OR document.valid_until > now())
+                  AND policy.may_embed_text
+                ORDER BY chunk.embedding <=> query_context.embedding
+                LIMIT %s
+            ),
+            description_matches AS (
+                SELECT place_id, MAX(semantic_score) AS semantic_score
+                FROM description_candidates
+                GROUP BY place_id
+            ),
+            ranked AS (
                 SELECT
                     p.id,
                     p.canonical_name,
@@ -130,7 +166,12 @@ class PostgresPlacesRepository:
                     c.slug AS category,
                     COALESCE(pf.freshness, 0) AS freshness_score,
                     COALESCE(pf.tourist_relevance, 0) AS relevance_score,
-                    1 - (pe.embedding <=> %s::vector) AS semantic_score,
+                    1 - (pe.embedding <=> query_context.embedding) AS place_semantic_score,
+                    COALESCE(description_matches.semantic_score, 0) AS description_semantic_score,
+                    GREATEST(
+                        1 - (pe.embedding <=> query_context.embedding),
+                        COALESCE(description_matches.semantic_score, 0)
+                    ) AS semantic_score,
                     CASE
                         WHEN %s = '' THEN 0.5
                         WHEN p.normalized_name ILIKE '%%' || %s || '%%' THEN 1.0
@@ -146,12 +187,27 @@ class PostgresPlacesRepository:
                     image.image_url,
                     image.source_url AS image_source_url,
                     image.license AS image_license,
-                    image.attribution AS image_attribution
+                    image.attribution AS image_attribution,
+                    source.name AS source_name,
+                    source.source_url AS source_url,
+                    source.attribution AS source_attribution,
+                    source.license AS source_license,
+                    description.text_content AS description_text,
+                    description.language_code AS description_language_code,
+                    description.content_kind AS description_content_kind,
+                    description.observed_at AS description_observed_at,
+                    description.valid_until AS description_valid_until,
+                    description.source_name AS description_source_name,
+                    description.source_url AS description_source_url,
+                    description.source_attribution AS description_source_attribution,
+                    description.source_license AS description_source_license
                 FROM places p
+                CROSS JOIN query_context
                 JOIN destinations d ON d.id = p.destination_id
                 LEFT JOIN categories c ON c.id = p.category_id
                 JOIN place_embeddings pe ON pe.place_id = p.id
                 LEFT JOIN place_features pf ON pf.place_id = p.id
+                LEFT JOIN description_matches ON description_matches.place_id = p.id
                 LEFT JOIN LATERAL (
                     SELECT image_url, source_url, license, attribution
                     FROM place_images
@@ -159,6 +215,46 @@ class PostgresPlacesRepository:
                     ORDER BY is_primary DESC, created_at DESC
                     LIMIT 1
                 ) image ON TRUE
+                JOIN LATERAL (
+                    SELECT s.name, psr.source_url, s.attribution, s.license
+                    FROM place_source_records psr
+                    JOIN sources s ON s.id = psr.source_id
+                    WHERE psr.place_id = p.id AND psr.deleted_at IS NULL
+                    ORDER BY (s.slug = 'openstreetmap') DESC, psr.last_seen_at DESC
+                    LIMIT 1
+                ) source ON TRUE
+                LEFT JOIN LATERAL (
+                    SELECT
+                        document.text_content,
+                        document.language_code,
+                        document.content_kind,
+                        document.observed_at,
+                        document.valid_until,
+                        description_source.name AS source_name,
+                        description_record.source_url,
+                        description_source.attribution AS source_attribution,
+                        description_source.license AS source_license
+                    FROM place_description_documents document
+                    JOIN place_source_records description_record
+                        ON description_record.id = document.place_source_record_id
+                    JOIN sources description_source
+                        ON description_source.id = description_record.source_id
+                    JOIN source_usage_policies description_policy
+                        ON description_policy.source_id = description_source.id
+                    WHERE document.place_id = p.id
+                      AND description_record.deleted_at IS NULL
+                      AND (document.valid_until IS NULL OR document.valid_until > now())
+                      AND description_policy.may_display_excerpt
+                    ORDER BY
+                        (document.language_code = 'ru') DESC,
+                        CASE document.content_kind
+                            WHEN 'overview' THEN 0
+                            WHEN 'practical' THEN 1
+                            ELSE 2
+                        END,
+                        document.observed_at DESC
+                    LIMIT 1
+                ) description ON TRUE
                 WHERE {where_clause}
             )
             SELECT *, (
@@ -181,6 +277,8 @@ class PostgresPlacesRepository:
                 continue
             seen_categories[category] += 1
             scores = {
+                "semantic_place": round(float(row["place_semantic_score"]), 4),
+                "semantic_description": round(float(row["description_semantic_score"]), 4),
                 "semantic": round(float(row["semantic_score"]), 4),
                 "lexical": round(float(row["lexical_score"]), 4),
                 "features": round(float(row["feature_score"]), 4),
@@ -212,6 +310,29 @@ class PostgresPlacesRepository:
                     longitude=float(row["longitude"]),
                     category=row["category"],
                     tags=tags_by_place.get(row["id"], []),
+                    source=PlaceSource(
+                        name=row["source_name"],
+                        url=row["source_url"],
+                        attribution=row["source_attribution"],
+                        license=row["source_license"],
+                    ),
+                    description=(
+                        PlaceDescription(
+                            text=row["description_text"],
+                            language_code=row["description_language_code"],
+                            content_kind=row["description_content_kind"],
+                            observed_at=row["description_observed_at"],
+                            valid_until=row["description_valid_until"],
+                            source=PlaceSource(
+                                name=row["description_source_name"],
+                                url=row["description_source_url"],
+                                attribution=row["description_source_attribution"],
+                                license=row["description_source_license"],
+                            ),
+                        )
+                        if row["description_text"]
+                        else None
+                    ),
                     image=image,
                     scores=scores,
                     reasons=reasons,

@@ -61,7 +61,7 @@ Product analytics и Langfuse trace не заменяют друг друга: �
 
 При наличии `LANGFUSE_ENABLED=true`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` и `LANGFUSE_BASE_URL` приложение создаёт один Langfuse client на FastAPI lifespan. На startup выполняется `auth_check`; неверные credentials безопасно переводят adapter в no-op. При shutdown вызывается `shutdown()`.
 
-Root observation называется `recommendation_pipeline` и охватывает полный turn до API response, включая scoring. `propagate_attributes(session_id=...)` группирует traces одного chat в Langfuse session. Root output всегда содержит outcome, question/recommendation counts и changed fields; `clarification_requested` содержит question fields. Gemini generation хранит model, operation, validated schema и token usage, когда provider возвращает usage metadata.
+Root observation называется `recommendation_pipeline` и охватывает полный turn до API response, включая scoring. `propagate_attributes(session_id=...)` группирует traces одного chat в Langfuse session. Root output всегда содержит outcome, question/recommendation counts, changed fields и planning-confidence band; `ambiguity_detection` дополнительно пишет field одного advisory `next_best_question`, но не raw текст пользователя. `clarification_requested` содержит только blocking question fields. Gemini generation хранит model, operation, validated schema и token usage, когда provider возвращает usage metadata.
 
 `LANGFUSE_CAPTURE_CONTENT=false` по умолчанию скрывает raw query, answers, prompt и structured output. Для локальной отладки флаг можно явно включить; API keys и authorization headers не записываются в любом режиме. В development выполняется `flush()` после каждого root trace, поэтому ветка `needs_clarification` видна сразу.
 

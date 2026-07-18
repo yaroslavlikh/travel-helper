@@ -25,6 +25,7 @@ from app.domain.models import (
     Ambiguity,
     DestinationThreadMessage,
     PlannerState,
+    PlanningConfidence,
     ScoredDestination,
     TravelRequest,
     TravelRequestPatch,
@@ -33,6 +34,7 @@ from app.places.models import PlaceEventInput, PlaceSearchQuery, PlaceSearchResp
 from app.places.repository import PlacesUnavailableError
 from app.services.aviasales import add_aviasales_links
 from app.services.destination_chat import answer_destination_question
+from app.services.destination_pois import search_destination_pois
 from app.services.extraction import extract_answers_for_questions
 from app.services.scoring import STRICT_BUDGET_FALLBACK, rank_demo_candidates
 
@@ -78,6 +80,15 @@ def _state_to_questions(state: PlannerState) -> list[Ambiguity]:
     return [Ambiguity.model_validate(question) for question in state.get("questions", [])]
 
 
+def _state_to_planning_confidence(state: PlannerState) -> PlanningConfidence:
+    return PlanningConfidence.model_validate(state["planning_confidence"])
+
+
+def _state_to_next_best_question(state: PlannerState) -> Ambiguity | None:
+    payload = state.get("next_best_question")
+    return Ambiguity.model_validate(payload) if payload else None
+
+
 def _changed_fields(previous: TravelRequest | None, current: TravelRequest) -> list[str]:
     fields: list[str] = []
     for field in TravelRequestPatch.model_fields:
@@ -96,22 +107,35 @@ def _turn_message(
     turn_kind: Literal["initial", "clarification", "refinement"],
     question_count: int = 0,
     recommendation_count: int = 0,
+    next_question: Ambiguity | None = None,
 ) -> str:
     if status_value == "needs_clarification":
-        suffix = "вопрос" if question_count == 1 else "вопроса"
-        return f"Я сохранил условия поездки. Осталось уточнить {question_count} {suffix}."
-    if turn_kind == "refinement":
+        if next_question is None:
+            suffix = "вопрос" if question_count == 1 else "вопроса"
+            return f"Я сохранил условия поездки. Осталось уточнить {question_count} {suffix}."
         return (
+            "Чтобы собрать подборку с реальными маршрутами, уточню один момент: "
+            f"{next_question.question}\n\nОтветьте как удобно — можно одной короткой фразой."
+        )
+    if turn_kind == "refinement":
+        message = (
             "Учёл уточнение и обновил ленту: сейчас в ней "
             f"{_recommendation_count_label(recommendation_count)}."
         )
-    if turn_kind == "clarification":
-        return (
+    elif turn_kind == "clarification":
+        message = (
             f"Спасибо, сохранил ответ и собрал {_recommendation_count_label(recommendation_count)}."
         )
+    else:
+        message = (
+            f"Я разобрал запрос и собрал {_recommendation_count_label(recommendation_count)} "
+            "для сравнения."
+        )
+    if next_question is None:
+        return message
     return (
-        f"Я разобрал запрос и собрал {_recommendation_count_label(recommendation_count)} "
-        "для сравнения."
+        f"{message}\n\nПодборка пока широкая. Следующий вопрос сильнее всего "
+        f"повлияет на варианты: {next_question.question}"
     )
 
 
@@ -132,7 +156,7 @@ def _classify_turn(
     graph_is_interrupted: bool,
     previous_request: TravelRequest | None,
 ) -> Literal["initial", "clarification", "refinement"]:
-    if payload.answers is not None or (existing_state is not None and graph_is_interrupted):
+    if existing_state is not None and graph_is_interrupted:
         return "clarification"
     if existing_state is not None and previous_request is not None:
         return "refinement"
@@ -151,8 +175,8 @@ async def _invoke_planner_turn(
     turn_kind: Literal["initial", "clarification", "refinement"],
     turn_index: int,
 ) -> dict[str, Any]:
-    if payload.answers is not None:
-        if existing_state is None or not graph_is_interrupted:
+    if payload.answers is not None and graph_is_interrupted:
+        if existing_state is None:
             raise HTTPException(status_code=404, detail="Unknown planning session")
         query_history = [*existing_state.get("query_history", []), payload.query.strip()][-20:]
         result = await resources.planner_graph.ainvoke(
@@ -196,7 +220,7 @@ async def _invoke_planner_turn(
             "request_id": str(uuid4()),
             "session_id": session_id,
             "raw_query": payload.query.strip(),
-            "answers": {},
+            "answers": payload.answers or {},
             "previous_request": previous_request.model_dump(mode="json"),
             "query_history": [
                 *existing_state.get("query_history", []),
@@ -250,12 +274,14 @@ async def _build_recommendation_response(
             parsed_request=_state_to_request(typed_state),
             questions=questions,
             assumptions=typed_state.get("assumptions", []),
+            planning_confidence=_state_to_planning_confidence(typed_state),
             warnings=typed_state.get("warnings", []),
             turn_kind=turn_kind,
             assistant_message=_turn_message(
                 status_value="needs_clarification",
                 turn_kind=turn_kind,
                 question_count=len(questions),
+                next_question=questions[0] if questions else None,
             ),
             changed_fields=_changed_fields(previous_request, _state_to_request(typed_state)),
         )
@@ -283,6 +309,8 @@ async def _build_recommendation_response(
             session_id=session_id,
             parsed_request=parsed_request,
             assumptions=typed_state.get("assumptions", []),
+            planning_confidence=_state_to_planning_confidence(typed_state),
+            next_best_question=_state_to_next_best_question(typed_state),
             recommendations=recommendations,
             warnings=[
                 *typed_state.get("warnings", []),
@@ -298,6 +326,7 @@ async def _build_recommendation_response(
                 status_value="completed",
                 turn_kind=turn_kind,
                 recommendation_count=len(recommendations),
+                next_question=_state_to_next_best_question(typed_state),
             ),
             changed_fields=_changed_fields(previous_request, parsed_request),
         )
@@ -307,12 +336,18 @@ async def _build_recommendation_response(
         session_id=session_id,
         parsed_request=parsed_request,
         assumptions=typed_state.get("assumptions", []),
+        planning_confidence=_state_to_planning_confidence(typed_state),
+        next_best_question=_state_to_next_best_question(typed_state),
         warnings=[
             *typed_state.get("warnings", []),
             "Поиск и ранжирование направлений будут добавлены следующим этапом.",
         ],
         turn_kind=turn_kind,
-        assistant_message=_turn_message(status_value="partial", turn_kind=turn_kind),
+        assistant_message=_turn_message(
+            status_value="partial",
+            turn_kind=turn_kind,
+            next_question=_state_to_next_best_question(typed_state),
+        ),
         changed_fields=_changed_fields(previous_request, parsed_request),
     )
 
@@ -338,6 +373,7 @@ def _trace_output(
         "turn_kind": response.turn_kind,
         "request_id": response.request_id,
         "changed_fields": response.changed_fields,
+        "planning_confidence": response.planning_confidence.level,
     }
     if isinstance(response, NeedsClarificationResponse):
         result["question_count"] = len(response.questions)
@@ -486,6 +522,11 @@ async def destination_chat(
         },
         tags=["travel-chat", "destination-question"],
     ) as trace:
+        poi_search = await search_destination_pois(
+            destination_id=destination.destination_id,
+            query=payload.query.strip(),
+            repository=resources.places_repository,
+        )
         reply, warnings = await answer_destination_question(
             query=payload.query.strip(),
             trip_request=trip_request,
@@ -493,6 +534,7 @@ async def destination_chat(
             history=history,
             gateway=resources.model_gateway,
             demo_mode=resources.settings.demo_mode,
+            poi_places=poi_search.places,
         )
         updated_history = [
             *history,
@@ -516,10 +558,13 @@ async def destination_chat(
             destination_name=destination.city_or_region,
             assistant_message=reply.answer,
             quick_replies=reply.quick_replies,
+            places=poi_search.places,
+            place_retrieval_id=str(poi_search.retrieval_id) if poi_search.retrieval_id else None,
+            place_ranking_version=poi_search.ranking_version,
             proposed_trip_change=reply.proposed_trip_change,
             message_count=len(updated_history),
             turn_index=turn_index,
-            warnings=warnings,
+            warnings=[*poi_search.user_warnings, *warnings],
         )
         trace.update(
             output={
@@ -528,6 +573,9 @@ async def destination_chat(
                 "destination_id": destination.destination_id,
                 "message_count": response.message_count,
                 "proposed_trip_change": bool(response.proposed_trip_change),
+                "poi_count": len(response.places),
+                "poi_description_count": sum(bool(place.description) for place in response.places),
+                "poi_retrieval_id": response.place_retrieval_id,
             },
             metadata={"outcome": "completed"},
         )

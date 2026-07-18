@@ -79,7 +79,7 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
     app = create_app(
         Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
     )
-    query = "Из Москвы на море в августе на 7–10 дней, 150 тысяч на одного, без жары"
+    query = "Хочу на море в августе на 7–10 дней, 150 тысяч на одного, без жары"
 
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
@@ -89,19 +89,106 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
             resumed = await client.post(
                 "/recommend",
                 json={
-                    "query": "Давайте только за границу",
+                    "query": "Вылетаю из Москвы",
                     "session_id": initial_body["session_id"],
                 },
             )
 
     assert clarification.status_code == 200
     assert initial_body["status"] == "needs_clarification"
-    assert [question["field"] for question in initial_body["questions"]] == ["destination_scope"]
+    assert [question["field"] for question in initial_body["questions"]] == ["origin_city"]
     assert resumed.status_code == 200
     assert resumed.json()["status"] == "completed"
     assert resumed.json()["turn_kind"] == "clarification"
-    assert resumed.json()["parsed_request"]["destination_scope"] == "international"
+    assert resumed.json()["parsed_request"]["origin_city"] == "Москва"
     assert len(resumed.json()["recommendations"]) >= 3
+    assert resumed.json()["next_best_question"] is not None
+    assert "Следующий вопрос" in resumed.json()["assistant_message"]
+
+
+@pytest.mark.asyncio
+async def test_free_text_reply_can_answer_origin_and_exact_trip_dates_together() -> None:
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            initial = await client.post("/recommend", json={"query": "Хочу в отпуск"})
+            resumed = await client.post(
+                "/recommend",
+                json={
+                    "query": "Вылетаю из Москвы, хочу поехать с 20 августа по 3 сентября",
+                    "session_id": initial.json()["session_id"],
+                },
+            )
+
+    assert resumed.status_code == 200
+    body = resumed.json()
+    assert body["status"] == "completed"
+    assert body["parsed_request"]["origin_city"] == "Москва"
+    assert body["parsed_request"]["date_from"] == "2026-08-20"
+    assert body["parsed_request"]["date_to"] == "2026-09-03"
+
+
+@pytest.mark.asyncio
+async def test_advisory_answer_refines_a_completed_shortlist() -> None:
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            initial = await client.post(
+                "/recommend",
+                json={"query": "Хочу отдохнуть из Москвы"},
+            )
+            initial_body = initial.json()
+            refined = await client.post(
+                "/recommend",
+                json={
+                    "query": "География: за границу",
+                    "session_id": initial_body["session_id"],
+                    "answers": {"destination_scope": "international"},
+                },
+            )
+
+    assert initial.status_code == 200
+    assert initial_body["status"] == "completed"
+    assert refined.status_code == 200
+    assert refined.json()["status"] == "completed"
+    assert refined.json()["turn_kind"] == "refinement"
+    assert refined.json()["parsed_request"]["destination_scope"] == "international"
+
+
+@pytest.mark.asyncio
+async def test_invalid_legacy_structured_value_does_not_return_a_server_error() -> None:
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            initial = await client.post(
+                "/recommend",
+                json={"query": "Хочу поехать из Москвы"},
+            )
+            refined = await client.post(
+                "/recommend",
+                json={
+                    "query": "Виза: только шенген",
+                    "session_id": initial.json()["session_id"],
+                    "answers": {"visa_willingness": "тока шенген если"},
+                },
+            )
+
+    assert refined.status_code == 200
+    assert refined.json()["status"] == "completed"
+    assert refined.json()["parsed_request"]["visa_willingness"] == "visa_ok"
+    assert "шенгенская зона" in refined.json()["parsed_request"]["preferences"]
 
 
 @pytest.mark.asyncio
@@ -130,10 +217,10 @@ async def test_clarification_is_recorded_as_session_trace(
     assert root["name"] == "recommendation_pipeline"
     assert root["trace_name"] == "Turn 01 · initial request"
     assert root["updates"][-1]["output"]["status"] == "needs_clarification"
-    assert root["updates"][-1]["output"]["question_count"] == 3
+    assert root["updates"][-1]["output"]["question_count"] == 1
     assert clarification["updates"][-1]["output"] == {
         "status": "waiting_for_user",
-        "question_fields": ["origin_city", "month", "adults"],
+        "question_fields": ["origin_city"],
     }
 
 

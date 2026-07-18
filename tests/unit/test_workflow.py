@@ -34,7 +34,7 @@ async def test_graph_reaches_search_handoff_for_complete_request() -> None:
 
 
 @pytest.mark.asyncio
-async def test_graph_retains_answers_across_multiple_clarification_rounds() -> None:
+async def test_graph_continues_after_the_only_blocking_answer() -> None:
     graph = build_planner_graph(
         checkpointer=InMemorySaver(),
         observability=NoopObservability(),
@@ -55,16 +55,11 @@ async def test_graph_retains_answers_across_multiple_clarification_rounds() -> N
         Command(resume={"origin_city": "Москва", "month": 8, "adults": 2}),
         config,
     )
-    completed = await graph.ainvoke(
-        Command(resume={"budget_total_rub": 180_000, "destination_scope": "international"}),
-        config,
-    )
 
     assert "__interrupt__" in first
-    assert "__interrupt__" in second
-    assert completed["status"] == "ready_for_search"
-    assert completed["parsed_request"]["origin_city"] == "Москва"
-    assert completed["parsed_request"]["month"] == 8
-    assert completed["parsed_request"]["adults"] == 2
-    assert completed["parsed_request"]["budget_total_rub"] == 180_000
-    assert completed["parsed_request"]["destination_scope"] == "international"
+    assert second["status"] == "ready_for_search"
+    assert second["parsed_request"]["origin_city"] == "Москва"
+    assert second["parsed_request"]["month"] == 8
+    assert second["parsed_request"]["adults"] == 2
+    assert second["planning_confidence"]["level"] == "low"
+    assert second["next_best_question"]["field"] == "destination_scope"

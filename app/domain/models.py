@@ -11,6 +11,17 @@ DestinationScope = Literal["domestic", "international", "any"]
 HeatTolerance = Literal["low", "medium", "high"]
 VisaWillingness = Literal["no_visa", "evisa_ok", "visa_ok", "any"]
 AmbiguityPriority = Literal["P0", "P1", "P2"]
+ClarificationTopic = Literal[
+    "departure",
+    "timing",
+    "geography",
+    "party",
+    "budget",
+    "travel_friction",
+    "trip_style",
+]
+UncertaintyImpact = Literal["high", "medium", "low"]
+PlanningConfidenceLevel = Literal["high", "medium", "low"]
 
 
 class DomainModel(BaseModel):
@@ -72,15 +83,33 @@ class TravelRequestRevision(DomainModel):
 
 
 class Ambiguity(DomainModel):
-    """A missing or uncertain constraint with an explicit product policy."""
+    """A missing constraint, grouped for natural-language dialogue and policy."""
 
     field: str
+    topic: ClarificationTopic
     priority: AmbiguityPriority
     reason: str
     question: str | None = None
     options: list[str] = Field(default_factory=list)
     default_value: Any | None = None
     can_use_default: bool = False
+
+
+class PlanningUncertainty(DomainModel):
+    """An unresolved condition that changes the confidence of a usable shortlist."""
+
+    field: str
+    impact: UncertaintyImpact
+    effect: str
+
+
+class PlanningConfidence(DomainModel):
+    """Coverage of the travel plan, distinct from evidence freshness or source confidence."""
+
+    score: int = Field(ge=0, le=100)
+    level: PlanningConfidenceLevel
+    summary: str
+    uncertainties: list[PlanningUncertainty] = Field(default_factory=list)
 
 
 class SourceEvidence(DomainModel):
@@ -201,5 +230,7 @@ class PlannerState(TypedDict, total=False):
     ambiguities: list[dict[str, Any]]
     questions: list[dict[str, Any]]
     assumptions: list[str]
+    planning_confidence: dict[str, Any]
+    next_best_question: dict[str, Any] | None
     status: Literal["received", "needs_clarification", "ready_for_search"]
     warnings: list[str]

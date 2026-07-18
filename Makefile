@@ -6,7 +6,7 @@ APP ?= app.main:app
 HOST ?= 127.0.0.1
 PORT ?= 8000
 
-.PHONY: help bootstrap run dev places-up places-down places-migrate places-import-istanbul places-eval-istanbul format format-check lint typecheck test test-unit test-integration docs-check check clean
+.PHONY: help bootstrap run dev places-up places-down places-migrate places-import-istanbul places-import-descriptions places-eval-istanbul format format-check lint typecheck test test-unit test-integration docs-check check clean
 
 help: ## Show available development commands
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -31,6 +31,10 @@ places-migrate: ## Apply the places PostgreSQL migrations
 
 places-import-istanbul: ## Fetch and import the bounded Istanbul OSM places scope
 	$(UV) run python scripts/import_istanbul_places.py --fetch
+
+places-import-descriptions: ## Import a reviewed POI description manifest (DESCRIPTIONS_INPUT=path)
+	@test -n "$(DESCRIPTIONS_INPUT)" || (echo "Set DESCRIPTIONS_INPUT=path/to/manifest.json" && exit 2)
+	$(UV) run python scripts/import_place_descriptions.py --input "$(DESCRIPTIONS_INPUT)"
 
 places-eval-istanbul: ## Evaluate 30 fixed Istanbul retrieval queries against local storage
 	$(UV) run python scripts/evaluate_istanbul_places.py

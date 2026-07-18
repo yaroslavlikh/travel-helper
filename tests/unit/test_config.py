@@ -42,3 +42,16 @@ def test_gemini_api_key_environment_alias(monkeypatch: pytest.MonkeyPatch) -> No
     assert settings.model_is_configured is True
     assert settings.llm_api_key is not None
     assert settings.llm_api_key.get_secret_value() == "not-a-real-key"
+
+
+def test_complete_langfuse_credentials_enable_tracing_unless_explicitly_disabled() -> None:
+    settings = Settings(
+        langfuse_public_key="public",
+        langfuse_secret_key="secret",
+        langfuse_base_url="https://langfuse.example",
+        _env_file=None,
+    )
+    disabled = settings.model_copy(update={"langfuse_enabled": False})
+
+    assert settings.langfuse_is_configured is True
+    assert disabled.langfuse_is_configured is False

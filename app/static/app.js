@@ -97,12 +97,24 @@ function createChat() {
   };
 }
 
+function hydrateAdvisoryQuestion(chat) {
+  const question = chat.snapshot?.next_best_question;
+  if (!question) return;
+  const latestAssistant = [...(chat.messages || [])].reverse().find((message) => (
+    message.role === "assistant"
+  ));
+  if (!latestAssistant?.text || latestAssistant.advisoryQuestion) return;
+  if (latestAssistant.questions?.some((item) => !item.resolved)) return;
+  latestAssistant.advisoryQuestion = { ...question, resolved: false };
+}
+
 function loadStore() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved?.chats?.length) {
       saved.chats.forEach((chat) => {
         chat.destinationThreads = chat.destinationThreads || {};
+        hydrateAdvisoryQuestion(chat);
       });
       const activeExists = saved.chats.some((chat) => chat.id === saved.activeChatId);
       saved.activeChatId = activeExists ? saved.activeChatId : saved.chats[0].id;
@@ -201,6 +213,22 @@ function questionsMarkup(message) {
   return `<form class="question-block" data-question-message="${escapeHtml(message.id)}"><div class="question-items">${message.questions.map((question) => questionMarkup(question, message.id)).join("")}</div>${hasOpen ? '<button class="question-submit" type="submit">Сохранить ответы <span>→</span></button>' : ""}</form>`;
 }
 
+function advisoryQuestionMarkup(message) {
+  const question = message.advisoryQuestion;
+  if (!question) return "";
+  if (question.resolved) {
+    return `<div class="advisory-block resolved"><span>Уточнение учтено: ${escapeHtml(question.answerDisplay || "ответ сохранён")}</span></div>`;
+  }
+  return `<form class="advisory-block" data-advisory-message="${escapeHtml(message.id)}">
+    <div class="advisory-kicker">Уточнить подборку</div>
+    <div class="question-label">${escapeHtml(question.question || question.field)}</div>
+    <p class="question-reason">${escapeHtml(question.reason || "Ответ обновит порядок и состав вариантов.")}</p>
+    ${controlFor(question, message.id)}
+    <button class="question-submit" type="submit">Обновить подборку <span>→</span></button>
+    <small>Можно пропустить и продолжить смотреть текущие варианты.</small>
+  </form>`;
+}
+
 function changesMarkup(fields = []) {
   if (!fields.length) return "";
   return `<div class="change-summary">${fields.map((field) => `<span>Обновлено: ${escapeHtml(FIELD_LABELS[field] || field)}</span>`).join("")}</div>`;
@@ -212,11 +240,14 @@ function renderMessages() {
     if (message.role === "user") {
       return `<article class="message user"><div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p></div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
     }
-    return `<article class="message assistant"><span class="avatar assistant-avatar" aria-hidden="true">✦</span><div class="message-content"><div class="message-name">Помощник</div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p>${changesMarkup(message.changedFields)}${questionsMarkup(message)}</div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
+    return `<article class="message assistant"><span class="avatar assistant-avatar" aria-hidden="true">✦</span><div class="message-content"><div class="message-name">Помощник</div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p>${changesMarkup(message.changedFields)}${questionsMarkup(message)}${advisoryQuestionMarkup(message)}</div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
   }).join("");
 
   document.querySelectorAll("[data-question-message]").forEach((form) => {
     if (form.querySelector(".question-submit")) form.addEventListener("submit", submitQuestionAnswers);
+  });
+  document.querySelectorAll("[data-advisory-message]").forEach((form) => {
+    form.addEventListener("submit", submitAdvisoryQuestion);
   });
   $("#starter-zone").classList.toggle("hidden", chat.messages.some((message) => message.role === "user"));
   requestAnimationFrame(() => { messageList.scrollTop = messageList.scrollHeight; });
@@ -258,6 +289,20 @@ async function submitQuestionAnswers(event) {
   await requestRecommendation(summary, answers, form.dataset.questionMessage);
 }
 
+async function submitAdvisoryQuestion(event) {
+  event.preventDefault();
+  if (busy) return;
+  const form = event.currentTarget;
+  const answers = collectAnswers(form);
+  if (!Object.keys(answers).length) return;
+  const summary = answerSummary(answers);
+  const chat = activeChat();
+  addMessage(chat, { role: "user", text: summary });
+  resolveAdvisoryQuestion(chat, form.dataset.advisoryMessage, answers);
+  renderAll();
+  await requestRecommendation(summary, answers);
+}
+
 function resolveQuestions(chat, messageId, answerText, answers) {
   const message = chat.messages.find((item) => item.id === messageId);
   if (!message) return;
@@ -269,6 +314,31 @@ function resolveQuestions(chat, messageId, answerText, answers) {
       : `ответ в сообщении: «${answerText}»`,
   }));
   if (chat.pendingQuestionMessageId === messageId) chat.pendingQuestionMessageId = null;
+}
+
+function resolveAdvisoryQuestion(chat, messageId, answers) {
+  const message = chat.messages.find((item) => item.id === messageId);
+  if (!message?.advisoryQuestion) return;
+  const field = message.advisoryQuestion.field;
+  message.advisoryQuestion = {
+    ...message.advisoryQuestion,
+    resolved: true,
+    answerDisplay: readableAnswer(field, answers[field]),
+  };
+}
+
+function resolveMatchingAdvisoryQuestion(chat, changedFields, answerText) {
+  const message = [...chat.messages].reverse().find((item) => (
+    item.advisoryQuestion
+    && !item.advisoryQuestion.resolved
+    && changedFields.includes(item.advisoryQuestion.field)
+  ));
+  if (!message?.advisoryQuestion) return;
+  message.advisoryQuestion = {
+    ...message.advisoryQuestion,
+    resolved: true,
+    answerDisplay: `ответ в сообщении: «${answerText}»`,
+  };
 }
 
 function formatMoney(value) {
@@ -315,6 +385,8 @@ async function requestRecommendation(query, answers = null, questionMessageId = 
     if (questionMessageId) resolveQuestions(targetChat, questionMessageId, query, answers);
     else if (targetChat.pendingQuestionMessageId) {
       resolveQuestions(targetChat, targetChat.pendingQuestionMessageId, query, null);
+    } else {
+      resolveMatchingAdvisoryQuestion(targetChat, payload.changed_fields || [], query);
     }
 
     const previousRecommendations = targetChat.recommendations || [];
@@ -329,6 +401,9 @@ async function requestRecommendation(query, answers = null, questionMessageId = 
       text: payload.assistant_message || "Условия поездки сохранены.",
       changedFields: payload.changed_fields || [],
       questions: (payload.questions || []).map((question) => ({ ...question, resolved: false })),
+      advisoryQuestion: payload.next_best_question
+        ? { ...payload.next_best_question, resolved: false }
+        : null,
     };
     addMessage(targetChat, assistantMessage);
     if (assistantMessage.questions.length) {
@@ -444,6 +519,25 @@ function pluralOptions(count) {
   return `${count} вариантов`;
 }
 
+function planningContextMarkup(snapshot) {
+  const confidence = snapshot?.planning_confidence;
+  if (!confidence) return "";
+  const level = {
+    high: "уверенная основа",
+    medium: "есть условия для уточнения",
+    low: "широкий ориентир",
+  }[confidence.level] || "ориентир";
+  const next = snapshot?.next_best_question;
+  const question = next?.question
+    ? `<p>Если захочется сузить подборку: <strong>${escapeHtml(next.question)}</strong></p>`
+    : "";
+  return `<section class="planning-context ${escapeHtml(confidence.level || "low")}">
+    <div><span>Точность планирования</span><strong>${escapeHtml(level)}</strong></div>
+    <p>${escapeHtml(confidence.summary || "Подборка учитывает доступные условия.")}</p>
+    ${question}<small>На него можно не отвечать сейчас — текущая подборка уже рабочая.</small>
+  </section>`;
+}
+
 function renderFeed() {
   const chat = activeChat();
   const recommendations = chat.recommendations || [];
@@ -462,7 +556,10 @@ function renderFeed() {
   update.textContent = chat.feedUpdate || "";
   update.classList.toggle("hidden", !chat.feedUpdate);
   const notices = chat.snapshot?.warnings || [];
-  $("#feed-notices").innerHTML = notices.map((notice) => `<div class="notice">${escapeHtml(notice)}</div>`).join("");
+  $("#feed-notices").innerHTML = [
+    planningContextMarkup(chat.snapshot),
+    ...notices.map((notice) => `<div class="notice">${escapeHtml(notice)}</div>`),
+  ].join("");
 }
 
 function trackTravelLink(link) {
@@ -537,9 +634,15 @@ function destinationMessageMarkup(message) {
   const applyAction = message.proposedTripChange
     ? `<button class="apply-trip-change" type="button" data-apply-trip-change="${escapeHtml(message.proposedTripChange)}">Применить ко всей поездке <span>→</span></button>`
     : "";
+  const places = (message.places || []).map((place, index) => `
+    <a class="destination-poi" href="${safeUrl(place.description?.source?.url || place.source?.url)}" target="_blank" rel="noreferrer" data-place-id="${escapeHtml(place.place_id)}" data-place-position="${index + 1}" data-place-retrieval-id="${escapeHtml(message.placeRetrievalId || "")}" data-place-ranking-version="${escapeHtml(message.placeRankingVersion || "")}">
+      <strong>${escapeHtml(place.name)}</strong><span>${escapeHtml(place.category || "Место")} · ${escapeHtml((place.tags || []).slice(0, 3).join(" · "))}</span>${place.description ? `<em>${escapeHtml(place.description.text)}</em><small>Описание: ${escapeHtml(place.description.source?.name || "проверить")}</small>` : ""}<small>Источник: ${escapeHtml(place.source?.name || "проверить")}</small>
+    </a>`).join("");
+  const placesMarkup = places ? `<section class="destination-pois"><p>Места из каталога</p>${places}</section>` : "";
+  const warningsMarkup = (message.warnings || []).map((warning) => `<p class="destination-warning">${escapeHtml(warning)}</p>`).join("");
   return `<article class="destination-message ${message.role}">
     ${message.role === "assistant" ? '<span class="avatar assistant-avatar" aria-hidden="true">✦</span>' : ""}
-    <div><div class="destination-bubble">${escapeHtml(message.text).replaceAll("\n", "<br>")}${applyAction}</div><small>${shortTime(message.createdAt)}</small></div>
+    <div><div class="destination-bubble">${escapeHtml(message.text).replaceAll("\n", "<br>")}${applyAction}</div>${placesMarkup}${warningsMarkup}<small>${shortTime(message.createdAt)}</small></div>
   </article>`;
 }
 
@@ -571,6 +674,9 @@ function renderDestinationChat() {
   });
   document.querySelectorAll("[data-apply-trip-change]").forEach((button) => {
     button.addEventListener("click", () => applyTripChange(button.dataset.applyTripChange));
+  });
+  document.querySelectorAll("[data-place-id]").forEach((place) => {
+    place.addEventListener("click", () => trackDestinationPoi(place));
   });
   destinationInput.disabled = destinationBusy;
   $("#destination-send").disabled = destinationBusy;
@@ -606,6 +712,10 @@ async function sendDestinationMessage(text) {
       text: payload.assistant_message,
       quickReplies: payload.quick_replies || [],
       proposedTripChange: payload.proposed_trip_change || null,
+      places: payload.places || [],
+      placeRetrievalId: payload.place_retrieval_id || null,
+      placeRankingVersion: payload.place_ranking_version || null,
+      warnings: payload.warnings || [],
     });
   } catch (error) {
     const targetChat = store.chats.find((item) => item.id === chatId);
@@ -622,6 +732,25 @@ async function sendDestinationMessage(text) {
       renderDestinationChat();
     }
   }
+}
+
+function trackDestinationPoi(place) {
+  const chat = activeChat();
+  const retrievalId = place.dataset.placeRetrievalId;
+  if (!retrievalId) return;
+  fetch("/events/place", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      event_type: "place_opened",
+      session_id: chat.id,
+      place_id: place.dataset.placeId,
+      retrieval_id: retrievalId,
+      position: Number(place.dataset.placePosition),
+      ranking_version: place.dataset.placeRankingVersion || null,
+    }),
+    keepalive: true,
+  }).catch(() => undefined);
 }
 
 async function applyTripChange(change) {
