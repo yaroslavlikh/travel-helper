@@ -48,6 +48,31 @@ def test_extracts_user_supplied_travel_constraints() -> None:
     assert request.destination_scope is None
 
 
+def test_extracts_cross_month_trip_range_from_free_text() -> None:
+    request = extract_travel_request("Хочу поехать с 20 августа по 3 сентября")
+
+    assert request.date_from == date(2026, 8, 20)
+    assert request.date_to == date(2026, 9, 3)
+    assert request.month is None
+
+
+def test_ignores_invalid_legacy_structured_answer_instead_of_breaking_request() -> None:
+    request = extract_travel_request(
+        "Из Москвы хочу на море",
+        {"visa_willingness": "тока шенген если"},
+    )
+
+    assert request.origin_city == "Москва"
+    assert request.visa_willingness is None
+
+
+def test_preserves_schengen_only_as_a_visa_and_destination_preference() -> None:
+    request = extract_travel_request("Готов только на шенген, вылет из Москвы")
+
+    assert request.visa_willingness == "visa_ok"
+    assert "шенгенская зона" in request.preferences
+
+
 def test_answers_merge_without_rewriting_known_request_fields() -> None:
     request = extract_travel_request(
         "Из Москвы в августе на море, бюджет 150 тысяч на одного",

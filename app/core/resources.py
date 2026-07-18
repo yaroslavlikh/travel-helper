@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import httpx
+from langgraph.checkpoint.base import BaseCheckpointSaver
 
+from app.accounts.auth import AuthService
+from app.accounts.store import AccountStore
 from app.core.config import Settings
 from app.observability.port import ObservabilityPort
 from app.places.repository import PlacesRepository
@@ -24,6 +27,9 @@ class AppResources:
     model_gateway: ModelGateway
     observability: ObservabilityPort
     planner_graph: PlannerGraph
+    checkpointer: BaseCheckpointSaver[str]
     feedback_store: FeedbackStore
     product_event_store: ProductEventStore
     places_repository: PlacesRepository
+    account_store: AccountStore
+    auth_service: AuthService

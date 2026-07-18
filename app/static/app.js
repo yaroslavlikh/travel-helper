@@ -1,4 +1,5 @@
 const STORAGE_KEY = "travel-chat-state-v1";
+const ACCOUNT_CACHE_PREFIX = "travel-account-chat-state-v1:";
 const MONTHS = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
@@ -45,6 +46,14 @@ const destinationInput = $("#destination-input");
 let busy = false;
 let destinationBusy = false;
 let activeDestinationId = null;
+let accountReady = false;
+let accountState = {
+  authEnabled: false,
+  authenticated: false,
+  account: null,
+  csrfToken: null,
+};
+const syncTimers = new Map();
 
 function id() {
   return globalThis.crypto?.randomUUID?.() || `chat-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -78,7 +87,6 @@ function defaultGreeting() {
     role: "assistant",
     text: "Привет! Я помогу выбрать не просто страну, а конкретные места: где остановиться, что посмотреть и какие варианты сравнить. Расскажите о поездке — можно писать как другу.",
     createdAt: now(),
-    questions: [],
   };
 }
 
@@ -92,23 +100,19 @@ function createChat() {
     messages: [defaultGreeting()],
     snapshot: null,
     recommendations: [],
-    pendingQuestionMessageId: null,
     destinationThreads: {},
   };
 }
 
 function hydrateAdvisoryQuestion(chat) {
-  const question = chat.snapshot?.next_best_question;
-  if (!question) return;
-  const latestAssistant = [...(chat.messages || [])].reverse().find((message) => (
-    message.role === "assistant"
-  ));
-  if (!latestAssistant?.text || latestAssistant.advisoryQuestion) return;
-  if (latestAssistant.questions?.some((item) => !item.resolved)) return;
-  latestAssistant.advisoryQuestion = { ...question, resolved: false };
+  delete chat.pendingQuestionMessageId;
+  for (const message of chat.messages || []) {
+    delete message.questions;
+    delete message.advisoryQuestion;
+  }
 }
 
-function loadStore() {
+function loadGuestStore() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved?.chats?.length) {
@@ -127,10 +131,13 @@ function loadStore() {
   return { activeChatId: chat.id, chats: [chat] };
 }
 
-let store = loadStore();
+let store = loadGuestStore();
 
 function persist() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  const key = accountState.authenticated
+    ? `${ACCOUNT_CACHE_PREFIX}${accountState.account.id}`
+    : STORAGE_KEY;
+  localStorage.setItem(key, JSON.stringify(store));
 }
 
 function activeChat() {
@@ -140,6 +147,44 @@ function activeChat() {
 function touch(chat) {
   chat.updatedAt = now();
   persist();
+  scheduleChatSync(chat);
+}
+
+function accountHeaders({ json = true, csrf = false } = {}) {
+  const headers = {};
+  if (json) headers["Content-Type"] = "application/json";
+  if (csrf && accountState.csrfToken) headers["X-CSRF-Token"] = accountState.csrfToken;
+  return headers;
+}
+
+function serverRecordToChat(record) {
+  const chat = { ...record.payload, id: record.id, title: record.title };
+  chat.createdAt = chat.createdAt || record.created_at;
+  chat.updatedAt = record.updated_at || chat.updatedAt || now();
+  chat.messages = chat.messages?.length ? chat.messages : [defaultGreeting()];
+  chat.recommendations = chat.recommendations || [];
+  chat.destinationThreads = chat.destinationThreads || {};
+  hydrateAdvisoryQuestion(chat);
+  return chat;
+}
+
+async function saveAccountChat(chat) {
+  if (!accountState.authenticated) return;
+  const response = await fetch(`/account/chats/${encodeURIComponent(chat.id)}`, {
+    method: "PUT",
+    headers: accountHeaders({ csrf: true }),
+    body: JSON.stringify({ title: chat.title, payload: chat }),
+  });
+  if (!response.ok) throw new Error("Не удалось синхронизировать чат");
+}
+
+function scheduleChatSync(chat) {
+  if (!accountState.authenticated) return;
+  clearTimeout(syncTimers.get(chat.id));
+  syncTimers.set(chat.id, setTimeout(() => {
+    syncTimers.delete(chat.id);
+    saveAccountChat(chat).catch((error) => console.warn(error.message));
+  }, 450));
 }
 
 function shortTime(dateValue) {
@@ -159,7 +204,7 @@ function titleFromQuery(query) {
 }
 
 function addMessage(chat, message) {
-  chat.messages.push({ id: id(), createdAt: now(), questions: [], ...message });
+  chat.messages.push({ id: id(), createdAt: now(), ...message });
   if (message.role === "user" && chat.title === "Новая поездка") chat.title = titleFromQuery(message.text);
   touch(chat);
 }
@@ -167,66 +212,20 @@ function addMessage(chat, message) {
 function renderChatList() {
   const chats = [...store.chats].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   $("#chat-list").innerHTML = chats.map((chat) => `
-    <button class="chat-item ${chat.id === store.activeChatId ? "active" : ""}" type="button" data-chat-id="${escapeHtml(chat.id)}">
-      <strong>${escapeHtml(chat.title)}</strong>
-      <small>${relativeDate(chat.updatedAt)} · ${Math.max(0, chat.messages.length - 1)} сообщ.</small>
-      <span class="chat-icon" aria-hidden="true">›</span>
-    </button>
+    <div class="chat-row">
+      <button class="chat-item ${chat.id === store.activeChatId ? "active" : ""}" type="button" data-chat-id="${escapeHtml(chat.id)}">
+        <strong>${escapeHtml(chat.title)}</strong>
+        <small>${relativeDate(chat.updatedAt)} · ${Math.max(0, chat.messages.length - 1)} сообщ.</small>
+      </button>
+      <button class="chat-delete" type="button" data-delete-chat="${escapeHtml(chat.id)}" aria-label="Удалить чат">×</button>
+    </div>
   `).join("");
   document.querySelectorAll("[data-chat-id]").forEach((button) => {
     button.addEventListener("click", () => switchChat(button.dataset.chatId));
   });
-}
-
-function controlFor(question, messageId) {
-  const field = question.field;
-  const fieldName = `${messageId}-${field}`;
-  if (field === "adults") {
-    return `<select class="answer-input" data-field="${field}" required><option value="">Выберите</option><option value="1">1 взрослый</option><option value="2">2 взрослых</option><option value="3">3 взрослых</option><option value="4">4 взрослых</option></select>`;
-  }
-  if (field === "budget_total_rub") {
-    return `<input class="answer-input" data-field="${field}" type="number" min="10000" step="5000" placeholder="Например, 150000" required />`;
-  }
-  if (field === "month") {
-    return `<select class="answer-input" data-field="month" required><option value="">Выберите месяц</option>${MONTHS.map((month, index) => `<option value="${index + 1}">${month}</option>`).join("")}</select>`;
-  }
-  if (field === "destination_scope") {
-    const values = [["domestic", "По России"], ["international", "За границу"], ["any", "Оба варианта"]];
-    return `<div class="answer-options">${values.map(([value, label]) => `<label class="answer-option"><input type="radio" name="${fieldName}" data-field="${field}" value="${value}" required /><span>${label}</span></label>`).join("")}</div>`;
-  }
-  if (field === "origin_city" && question.options?.length) {
-    return `<input class="answer-input" data-field="${field}" type="text" list="${fieldName}-options" placeholder="Например, Москва" required /><datalist id="${fieldName}-options">${question.options.slice(0, 2).map((value) => `<option value="${escapeHtml(value)}"></option>`).join("")}</datalist>`;
-  }
-  return `<input class="answer-input" data-field="${field}" type="text" placeholder="Ваш ответ" required />`;
-}
-
-function questionMarkup(question, messageId) {
-  if (question.resolved) {
-    return `<div class="question-item resolved"><div class="question-label">${escapeHtml(question.question || question.field)}</div><div class="resolved-answer">✓ ${escapeHtml(question.answerDisplay || "Ответ сохранён")}</div></div>`;
-  }
-  return `<div class="question-item"><div class="question-label">${escapeHtml(question.question || question.field)}</div><p class="question-reason">${escapeHtml(question.reason || "")}</p>${controlFor(question, messageId)}</div>`;
-}
-
-function questionsMarkup(message) {
-  if (!message.questions?.length) return "";
-  const hasOpen = message.questions.some((question) => !question.resolved);
-  return `<form class="question-block" data-question-message="${escapeHtml(message.id)}"><div class="question-items">${message.questions.map((question) => questionMarkup(question, message.id)).join("")}</div>${hasOpen ? '<button class="question-submit" type="submit">Сохранить ответы <span>→</span></button>' : ""}</form>`;
-}
-
-function advisoryQuestionMarkup(message) {
-  const question = message.advisoryQuestion;
-  if (!question) return "";
-  if (question.resolved) {
-    return `<div class="advisory-block resolved"><span>Уточнение учтено: ${escapeHtml(question.answerDisplay || "ответ сохранён")}</span></div>`;
-  }
-  return `<form class="advisory-block" data-advisory-message="${escapeHtml(message.id)}">
-    <div class="advisory-kicker">Уточнить подборку</div>
-    <div class="question-label">${escapeHtml(question.question || question.field)}</div>
-    <p class="question-reason">${escapeHtml(question.reason || "Ответ обновит порядок и состав вариантов.")}</p>
-    ${controlFor(question, message.id)}
-    <button class="question-submit" type="submit">Обновить подборку <span>→</span></button>
-    <small>Можно пропустить и продолжить смотреть текущие варианты.</small>
-  </form>`;
+  document.querySelectorAll("[data-delete-chat]").forEach((button) => {
+    button.addEventListener("click", () => deleteChat(button.dataset.deleteChat));
+  });
 }
 
 function changesMarkup(fields = []) {
@@ -240,105 +239,10 @@ function renderMessages() {
     if (message.role === "user") {
       return `<article class="message user"><div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p></div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
     }
-    return `<article class="message assistant"><span class="avatar assistant-avatar" aria-hidden="true">✦</span><div class="message-content"><div class="message-name">Помощник</div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p>${changesMarkup(message.changedFields)}${questionsMarkup(message)}${advisoryQuestionMarkup(message)}</div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
+    return `<article class="message assistant"><span class="avatar assistant-avatar" aria-hidden="true">✦</span><div class="message-content"><div class="message-name">Помощник</div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p>${changesMarkup(message.changedFields)}</div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
   }).join("");
-
-  document.querySelectorAll("[data-question-message]").forEach((form) => {
-    if (form.querySelector(".question-submit")) form.addEventListener("submit", submitQuestionAnswers);
-  });
-  document.querySelectorAll("[data-advisory-message]").forEach((form) => {
-    form.addEventListener("submit", submitAdvisoryQuestion);
-  });
   $("#starter-zone").classList.toggle("hidden", chat.messages.some((message) => message.role === "user"));
   requestAnimationFrame(() => { messageList.scrollTop = messageList.scrollHeight; });
-}
-
-function readableAnswer(field, value) {
-  if (field === "month") return MONTHS[Number(value) - 1] || value;
-  if (field === "budget_total_rub") return `${formatMoney(Number(value))}`;
-  if (field === "adults") return `${value} взросл.`;
-  if (field === "destination_scope") return { domestic: "по России", international: "за границу", any: "Россия и зарубежье" }[value] || value;
-  return String(value);
-}
-
-function collectAnswers(form) {
-  const answers = {};
-  form.querySelectorAll("[data-field]").forEach((input) => {
-    if (input.type === "radio" && !input.checked) return;
-    if (!input.value) return;
-    const numeric = ["adults", "budget_total_rub", "month"].includes(input.dataset.field);
-    answers[input.dataset.field] = numeric ? Number(input.value) : input.value;
-  });
-  return answers;
-}
-
-function answerSummary(answers) {
-  return Object.entries(answers).map(([field, value]) => `${FIELD_LABELS[field] || field}: ${readableAnswer(field, value)}`).join("; ");
-}
-
-async function submitQuestionAnswers(event) {
-  event.preventDefault();
-  if (busy) return;
-  const form = event.currentTarget;
-  const answers = collectAnswers(form);
-  if (!Object.keys(answers).length) return;
-  const summary = answerSummary(answers);
-  const chat = activeChat();
-  addMessage(chat, { role: "user", text: summary });
-  renderAll();
-  await requestRecommendation(summary, answers, form.dataset.questionMessage);
-}
-
-async function submitAdvisoryQuestion(event) {
-  event.preventDefault();
-  if (busy) return;
-  const form = event.currentTarget;
-  const answers = collectAnswers(form);
-  if (!Object.keys(answers).length) return;
-  const summary = answerSummary(answers);
-  const chat = activeChat();
-  addMessage(chat, { role: "user", text: summary });
-  resolveAdvisoryQuestion(chat, form.dataset.advisoryMessage, answers);
-  renderAll();
-  await requestRecommendation(summary, answers);
-}
-
-function resolveQuestions(chat, messageId, answerText, answers) {
-  const message = chat.messages.find((item) => item.id === messageId);
-  if (!message) return;
-  message.questions = message.questions.map((question) => ({
-    ...question,
-    resolved: true,
-    answerDisplay: answers?.[question.field] !== undefined
-      ? readableAnswer(question.field, answers[question.field])
-      : `ответ в сообщении: «${answerText}»`,
-  }));
-  if (chat.pendingQuestionMessageId === messageId) chat.pendingQuestionMessageId = null;
-}
-
-function resolveAdvisoryQuestion(chat, messageId, answers) {
-  const message = chat.messages.find((item) => item.id === messageId);
-  if (!message?.advisoryQuestion) return;
-  const field = message.advisoryQuestion.field;
-  message.advisoryQuestion = {
-    ...message.advisoryQuestion,
-    resolved: true,
-    answerDisplay: readableAnswer(field, answers[field]),
-  };
-}
-
-function resolveMatchingAdvisoryQuestion(chat, changedFields, answerText) {
-  const message = [...chat.messages].reverse().find((item) => (
-    item.advisoryQuestion
-    && !item.advisoryQuestion.resolved
-    && changedFields.includes(item.advisoryQuestion.field)
-  ));
-  if (!message?.advisoryQuestion) return;
-  message.advisoryQuestion = {
-    ...message.advisoryQuestion,
-    resolved: true,
-    answerDisplay: `ответ в сообщении: «${answerText}»`,
-  };
 }
 
 function formatMoney(value) {
@@ -384,28 +288,29 @@ function renderWorkspaceState() {
   if (feedTab.disabled && document.body.dataset.mobileView === "feed") setMobileView("chat");
 }
 
-async function requestRecommendation(query, answers = null, questionMessageId = null) {
+async function requestRecommendation(query) {
   const chat = activeChat();
   const chatId = chat.id;
   setBusy(true);
   try {
     const response = await fetch("/recommend", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, session_id: chat.id, answers }),
+      headers: accountState.authenticated
+        ? accountHeaders({ csrf: true })
+        : { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, session_id: chat.id }),
     });
-    const payload = await response.json();
+    const rawPayload = await response.text();
+    let payload;
+    try {
+      payload = JSON.parse(rawPayload);
+    } catch {
+      throw new Error(response.ok ? "Сервис вернул некорректный ответ" : "Сервис временно недоступен");
+    }
     if (!response.ok) throw new Error(payload.detail || "Не удалось получить рекомендации");
 
     const targetChat = store.chats.find((item) => item.id === chatId);
     if (!targetChat) return;
-    if (questionMessageId) resolveQuestions(targetChat, questionMessageId, query, answers);
-    else if (targetChat.pendingQuestionMessageId) {
-      resolveQuestions(targetChat, targetChat.pendingQuestionMessageId, query, null);
-    } else {
-      resolveMatchingAdvisoryQuestion(targetChat, payload.changed_fields || [], query);
-    }
-
     const previousRecommendations = targetChat.recommendations || [];
     targetChat.snapshot = payload;
     targetChat.recommendations = payload.recommendations || previousRecommendations;
@@ -417,15 +322,8 @@ async function requestRecommendation(query, answers = null, questionMessageId = 
       role: "assistant",
       text: payload.assistant_message || "Условия поездки сохранены.",
       changedFields: payload.changed_fields || [],
-      questions: (payload.questions || []).map((question) => ({ ...question, resolved: false })),
-      advisoryQuestion: payload.next_best_question
-        ? { ...payload.next_best_question, resolved: false }
-        : null,
     };
     addMessage(targetChat, assistantMessage);
-    if (assistantMessage.questions.length) {
-      targetChat.pendingQuestionMessageId = targetChat.messages.at(-1).id;
-    }
     touch(targetChat);
     if (store.activeChatId === chatId) renderAll();
   } catch (error) {
@@ -705,7 +603,7 @@ function renderDestinationChat() {
 }
 
 async function sendDestinationMessage(text) {
-  if (busy || destinationBusy || !text?.trim() || !activeDestinationId) return;
+  if (!accountReady || busy || destinationBusy || !text?.trim() || !activeDestinationId) return;
   const chat = activeChat();
   const chatId = chat.id;
   const destinationId = activeDestinationId;
@@ -717,7 +615,9 @@ async function sendDestinationMessage(text) {
   try {
     const response = await fetch("/destination-chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: accountState.authenticated
+        ? accountHeaders({ csrf: true })
+        : { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: chatId, destination_id: destinationId, query }),
     });
     const payload = await response.json();
@@ -779,7 +679,6 @@ async function applyTripChange(change) {
 
 function chatStatus(chat) {
   const count = chat.recommendations?.length || 0;
-  if (chat.pendingQuestionMessageId) return "Жду ваши уточнения · память включена";
   if (count) return `${pluralOptions(count)} · можно уточнять дальше`;
   return "Расскажите, куда хочется · память включена";
 }
@@ -804,10 +703,22 @@ function switchChat(chatId) {
   setMobileView("chat");
 }
 
-function openNewChat() {
-  if (busy || destinationBusy) return;
+async function openNewChat() {
+  if (!accountReady || busy || destinationBusy) return;
   activeDestinationId = null;
-  const chat = createChat();
+  let chat = createChat();
+  if (accountState.authenticated) {
+    const response = await fetch("/account/chats", {
+      method: "POST",
+      headers: accountHeaders({ csrf: true }),
+      body: JSON.stringify({ title: chat.title, payload: chat }),
+    });
+    if (!response.ok) {
+      window.alert("Не удалось создать синхронизируемый чат. Попробуйте ещё раз.");
+      return;
+    }
+    chat = serverRecordToChat(await response.json());
+  }
   store.chats.push(chat);
   store.activeChatId = chat.id;
   persist();
@@ -816,8 +727,167 @@ function openNewChat() {
   messageInput.focus();
 }
 
+async function deleteChat(chatId) {
+  if (!accountReady || busy || destinationBusy || !window.confirm("Удалить этот чат и его рекомендации?")) return;
+  if (accountState.authenticated) {
+    const response = await fetch(`/account/chats/${encodeURIComponent(chatId)}`, {
+      method: "DELETE",
+      headers: accountHeaders({ json: false, csrf: true }),
+    });
+    if (!response.ok) {
+      window.alert("Не удалось удалить чат.");
+      return;
+    }
+  }
+  store.chats = store.chats.filter((chat) => chat.id !== chatId);
+  if (!store.chats.length) {
+    await openNewChat();
+    return;
+  }
+  if (store.activeChatId === chatId) store.activeChatId = store.chats[0].id;
+  persist();
+  renderAll();
+}
+
+function renderAccountPanel() {
+  const loggedIn = accountState.authenticated;
+  $("#login-button").classList.toggle("hidden", loggedIn || !accountState.authEnabled);
+  $("#account-profile").classList.toggle("hidden", !loggedIn);
+  $("#auth-unavailable").classList.toggle("hidden", loggedIn || accountState.authEnabled);
+  $("#account-name").textContent = accountState.account?.display_name
+    || accountState.account?.email
+    || "Аккаунт";
+  $("#mobile-login-button").textContent = loggedIn ? "Аккаунт" : "Войти";
+  $("#mobile-login-button").disabled = !loggedIn && !accountState.authEnabled;
+}
+
+function beginLogin() {
+  if (accountState.authenticated) return;
+  window.location.assign("/auth/login?return_to=/");
+}
+
+async function logoutAccount() {
+  if (!accountState.authenticated) return;
+  const response = await fetch("/auth/logout", {
+    method: "POST",
+    headers: accountHeaders({ json: false, csrf: true }),
+  });
+  if (!response.ok) {
+    window.alert("Не удалось завершить сессию.");
+    return;
+  }
+  accountState = { authEnabled: true, authenticated: false, account: null, csrfToken: null };
+  store = loadGuestStore();
+  persist();
+  renderAccountPanel();
+  renderAll();
+}
+
+async function deleteAccountData() {
+  if (!accountState.authenticated) return;
+  const warning = "Удалить аккаунт, все переписки и сохранённые рекомендации без возможности восстановления?";
+  if (!window.confirm(warning)) return;
+  const response = await fetch("/account", {
+    method: "DELETE",
+    headers: accountHeaders({ csrf: true }),
+    body: JSON.stringify({ confirmation: "DELETE" }),
+  });
+  if (!response.ok) {
+    window.alert("Не удалось удалить данные аккаунта.");
+    return;
+  }
+  localStorage.removeItem(`${ACCOUNT_CACHE_PREFIX}${accountState.account.id}`);
+  accountState = { authEnabled: true, authenticated: false, account: null, csrfToken: null };
+  store = loadGuestStore();
+  renderAccountPanel();
+  renderAll();
+}
+
+function meaningfulGuestChats(guestStore, accountId) {
+  const markerKey = `travel-account-imported-v1:${accountId}`;
+  let imported = [];
+  try {
+    imported = JSON.parse(localStorage.getItem(markerKey)) || [];
+  } catch {
+    imported = [];
+  }
+  return guestStore.chats.filter((chat) => (
+    !imported.includes(chat.id)
+    && (chat.messages || []).some((message) => message.role === "user")
+  ));
+}
+
+async function importGuestChats(chats) {
+  const importedIds = [];
+  for (const chat of chats) {
+    const response = await fetch("/account/chats/import", {
+      method: "POST",
+      headers: accountHeaders({ csrf: true }),
+      body: JSON.stringify({
+        client_import_id: `local-v1:${chat.id}`,
+        title: chat.title,
+        payload: chat,
+      }),
+    });
+    if (!response.ok) throw new Error(`Не удалось перенести «${chat.title}»`);
+    importedIds.push(chat.id);
+  }
+  const markerKey = `travel-account-imported-v1:${accountState.account.id}`;
+  const previous = JSON.parse(localStorage.getItem(markerKey) || "[]");
+  localStorage.setItem(markerKey, JSON.stringify([...new Set([...previous, ...importedIds])]));
+}
+
+async function loadAccountChats() {
+  const response = await fetch("/account/chats");
+  if (!response.ok) throw new Error("Не удалось загрузить историю аккаунта");
+  let chats = (await response.json()).map(serverRecordToChat);
+  if (!chats.length) {
+    const fresh = createChat();
+    const created = await fetch("/account/chats", {
+      method: "POST",
+      headers: accountHeaders({ csrf: true }),
+      body: JSON.stringify({ title: fresh.title, payload: fresh }),
+    });
+    if (!created.ok) throw new Error("Не удалось создать первый чат аккаунта");
+    chats = [serverRecordToChat(await created.json())];
+  }
+  store = { activeChatId: chats[0].id, chats };
+  persist();
+}
+
+async function initializeAccount() {
+  try {
+    const response = await fetch("/account/me");
+    if (!response.ok) throw new Error("Не удалось проверить сессию");
+    const status = await response.json();
+    accountState = {
+      authEnabled: status.auth_enabled,
+      authenticated: status.authenticated,
+      account: status.account,
+      csrfToken: status.csrf_token,
+    };
+    renderAccountPanel();
+    if (!accountState.authenticated) return true;
+    const guestStore = loadGuestStore();
+    const candidates = meaningfulGuestChats(guestStore, accountState.account.id);
+    if (candidates.length) {
+      const label = candidates.length === 1 ? "одну локальную поездку" : `${candidates.length} локальных поездки`;
+      if (window.confirm(`Сохранить ${label} в аккаунте? Локальные копии останутся в браузере.`)) {
+        await importGuestChats(candidates);
+      }
+    }
+    await loadAccountChats();
+    renderAll();
+    return true;
+  } catch (error) {
+    console.warn(error.message);
+    renderAccountPanel();
+    return false;
+  }
+}
+
 async function sendCurrentMessage(text) {
-  if (busy || !text.trim()) return;
+  if (!accountReady || busy || !text.trim()) return;
   const chat = activeChat();
   const query = text.trim();
   addMessage(chat, { role: "user", text: query });
@@ -865,6 +935,16 @@ document.querySelectorAll("[data-starter]").forEach((button) => {
 });
 $("#new-chat").addEventListener("click", openNewChat);
 $("#mobile-new-chat").addEventListener("click", openNewChat);
+$("#login-button").addEventListener("click", beginLogin);
+$("#mobile-login-button").addEventListener("click", () => {
+  if (accountState.authenticated) {
+    if (window.confirm("Выйти из аккаунта? Сохранённая история останется на сервере.")) logoutAccount();
+  } else {
+    beginLogin();
+  }
+});
+$("#logout-button").addEventListener("click", logoutAccount);
+$("#delete-account-button").addEventListener("click", deleteAccountData);
 document.querySelectorAll(".mobile-tab").forEach((button) => {
   button.addEventListener("click", () => setMobileView(button.dataset.view));
 });
@@ -872,3 +952,8 @@ document.querySelectorAll(".mobile-tab").forEach((button) => {
 persist();
 setMobileView("chat");
 renderAll();
+renderAccountPanel();
+initializeAccount().then((ready) => {
+  accountReady = ready;
+  if (!ready) $("#chat-status").textContent = "Не удалось загрузить состояние сервиса";
+});

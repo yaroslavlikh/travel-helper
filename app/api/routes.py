@@ -110,8 +110,13 @@ def _turn_message(
     next_question: Ambiguity | None = None,
 ) -> str:
     if status_value == "needs_clarification":
-        suffix = "вопрос" if question_count == 1 else "вопроса"
-        return f"Я сохранил условия поездки. Осталось уточнить {question_count} {suffix}."
+        if next_question is None:
+            suffix = "вопрос" if question_count == 1 else "вопроса"
+            return f"Я сохранил условия поездки. Осталось уточнить {question_count} {suffix}."
+        return (
+            "Чтобы собрать подборку с реальными маршрутами, уточню один момент: "
+            f"{next_question.question}\n\nОтветьте как удобно — можно одной короткой фразой."
+        )
     if turn_kind == "refinement":
         message = (
             "Учёл уточнение и обновил ленту: сейчас в ней "
@@ -276,6 +281,7 @@ async def _build_recommendation_response(
                 status_value="needs_clarification",
                 turn_kind=turn_kind,
                 question_count=len(questions),
+                next_question=questions[0] if questions else None,
             ),
             changed_fields=_changed_fields(previous_request, _state_to_request(typed_state)),
         )
@@ -464,6 +470,13 @@ async def destination_chat(
     resources = request.app.state.resources
     if not isinstance(resources, AppResources):
         raise RuntimeError("Application resources are unavailable")
+    account_session = resources.auth_service.current_session(request)
+    if account_session is not None:
+        resources.auth_service.require_session(request, csrf=True)
+        if not resources.account_store.owns_chat(
+            owner_id=account_session.account.id, chat_id=payload.session_id
+        ):
+            raise HTTPException(status_code=404, detail="Unknown planning session")
     config: RunnableConfig = {"configurable": {"thread_id": payload.session_id}}
     snapshot = await resources.planner_graph.aget_state(config)
     if not snapshot.values:
@@ -584,10 +597,63 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
     if not isinstance(resources, AppResources):
         raise RuntimeError("Application resources are unavailable")
 
-    session_id = payload.session_id or str(uuid4())
+    account_session = resources.auth_service.current_session(request)
+    if account_session is not None:
+        resources.auth_service.require_session(request, csrf=True)
+        if payload.session_id is None:
+            account_chat = resources.account_store.create_chat(
+                owner_id=account_session.account.id,
+                title="Новая поездка",
+                payload={},
+            )
+            session_id = account_chat.id
+        elif resources.account_store.owns_chat(
+            owner_id=account_session.account.id, chat_id=payload.session_id
+        ):
+            session_id = payload.session_id
+        else:
+            raise HTTPException(status_code=404, detail="Unknown planning session")
+    else:
+        session_id = payload.session_id or str(uuid4())
     config: RunnableConfig = {"configurable": {"thread_id": session_id}}
     snapshot = await resources.planner_graph.aget_state(config)
     existing_state = cast(PlannerState, snapshot.values) if snapshot.values else None
+    if existing_state is None and account_session is not None:
+        restored_chat = resources.account_store.get_chat(
+            owner_id=account_session.account.id, chat_id=session_id
+        )
+        stored_payload = restored_chat.payload if restored_chat else {}
+        stored_snapshot = stored_payload.get("snapshot")
+        parsed_payload = (
+            stored_snapshot.get("parsed_request") if isinstance(stored_snapshot, dict) else None
+        )
+        if isinstance(stored_snapshot, dict) and isinstance(parsed_payload, dict):
+            try:
+                restored_request = TravelRequest.model_validate(parsed_payload)
+            except ValueError:
+                restored_request = None
+            if restored_request is not None:
+                raw_messages = stored_payload.get("messages", [])
+                query_history = [
+                    str(message.get("text", ""))
+                    for message in raw_messages
+                    if isinstance(message, dict)
+                    and message.get("role") == "user"
+                    and message.get("text")
+                ][-20:]
+                raw_threads = stored_payload.get("destinationThreads", {})
+                restored_state: PlannerState = {
+                    "request_id": str(stored_snapshot.get("request_id", uuid4())),
+                    "session_id": session_id,
+                    "parsed_request": restored_request.model_dump(mode="json"),
+                    "query_history": query_history,
+                    "question_history": [],
+                    "destination_threads": raw_threads if isinstance(raw_threads, dict) else {},
+                    "turn_count": len(query_history),
+                    "warnings": [],
+                    "status": "ready_for_search",
+                }
+                existing_state = restored_state
     previous_request = (
         _state_to_request(existing_state)
         if existing_state is not None and existing_state.get("parsed_request")

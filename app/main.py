@@ -16,6 +16,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from pydantic import BaseModel
 
+from app.accounts.auth import AuthService
+from app.accounts.routes import router as account_router
+from app.accounts.store import AccountStore
 from app.api.routes import router as recommendation_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
@@ -83,16 +86,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     model_gateway=model_gateway,
                     demo_mode=resolved_settings.demo_mode,
                 ),
+                checkpointer=checkpointer,
                 feedback_store=FeedbackStore(),
                 product_event_store=ProductEventStore(),
                 places_repository=create_places_repository(
                     resolved_settings.places_database_url,
                     resolved_settings.places_embedding_version,
                 ),
+                account_store=(
+                    account_store := AccountStore(
+                        ":memory:"
+                        if resolved_settings.app_env == "test"
+                        else resolved_settings.account_db_path
+                    )
+                ),
+                auth_service=AuthService(
+                    settings=resolved_settings,
+                    store=account_store,
+                    http_client=http_client,
+                ),
             )
             try:
                 yield
             finally:
+                account_store.close()
                 await model_gateway.aclose()
                 observability.shutdown()
                 await http_client.aclose()
@@ -105,6 +122,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     static_directory = Path(__file__).resolve().parent / "static"
     app.mount("/static", StaticFiles(directory=static_directory), name="static")
     app.include_router(recommendation_router)
+    app.include_router(account_router)
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:

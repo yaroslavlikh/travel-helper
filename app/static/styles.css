@@ -110,6 +110,7 @@ body[data-workspace-state="results"] .workspace-atmosphere {
 .new-chat-button span { font-size: 20px; font-weight: 400; line-height: 1; }
 .history-heading { margin: 0 9px 10px; color: #99a5b4; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
 .chat-list { display: grid; gap: 5px; min-height: 0; overflow-y: auto; }
+.chat-row { position: relative; }
 .chat-item {
   position: relative;
   display: block;
@@ -128,6 +129,40 @@ body[data-workspace-state="results"] .workspace-atmosphere {
 .chat-item strong { display: block; overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 .chat-item small { display: block; margin-top: 4px; color: #94a2b3; font-size: 11px; }
 .chat-item .chat-icon { position: absolute; top: 12px; right: 12px; opacity: 0.55; }
+.chat-delete {
+  position: absolute;
+  top: 8px;
+  right: 7px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  color: #93a1b2;
+  background: transparent;
+  cursor: pointer;
+}
+.chat-delete:hover { color: #c73c4c; background: #fff0f2; }
+.account-panel { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.account-primary {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cdddeb;
+  border-radius: 10px;
+  color: #1769b0;
+  background: white;
+  cursor: pointer;
+  font-weight: 750;
+}
+.account-primary:disabled, .mobile-account-button:disabled { cursor: default; opacity: 0.55; }
+.account-profile strong, .account-profile small { display: block; overflow: hidden; text-overflow: ellipsis; }
+.account-profile small { margin-top: 3px; color: var(--muted); font-size: 11px; }
+.account-profile div { display: flex; gap: 10px; margin-top: 8px; }
+.account-profile button { padding: 0; border: 0; color: #66778c; background: transparent; cursor: pointer; font-size: 11px; }
+.account-profile .danger-link { color: #b33b49; }
+.auth-unavailable { margin: 0; color: var(--muted); font-size: 11px; text-align: center; }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.mobile-account-button { display: none; border: 0; color: var(--blue-dark); background: transparent; font-weight: 750; }
 .sidebar-note {
   display: flex;
   align-items: center;
@@ -448,6 +483,7 @@ body[data-workspace-state="opening"] .feed-loading {
   .conversation-panel,
   body[data-workspace-state="opening"] .conversation-panel,
   body[data-workspace-state="results"] .conversation-panel { width: 100%; height: 100%; border: 0; }
+  .mobile-account-button { display: block; }
   .conversation-header { min-height: 68px; padding: 12px 16px; }
   .conversation-header > div { display: grid; grid-template-columns: 34px 1fr; column-gap: 10px; align-items: center; }
   .conversation-header h1, .conversation-header p { grid-column: 2; }

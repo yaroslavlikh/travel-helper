@@ -12,7 +12,8 @@
 | Validation/config | Pydantic v2 + pydantic-settings | Один типизированный контракт на границах и env configuration |
 | Workflow | LangGraph `StateGraph` | Явное состояние, conditional edges, checkpoint/resume и interrupt |
 | HTTP client | httpx | Async client, timeouts, transport mocking |
-| Persistence | SQLite local/dev; PostgreSQL production | Простота локально, durable concurrent checkpointer публично |
+| Persistence | SQLite local/dev; PostgreSQL production | Простота локально, durable concurrent checkpointer и account storage публично |
+| Optional identity | OpenID Connect authorization code + PKCE | Внешняя identity verification без хранения паролей в продукте |
 | Frontend | HTML/CSS/vanilla JS | Достаточно для одной страницы без отдельной frontend platform |
 | Tests | pytest, pytest-asyncio | Unit и network-independent in-process integration tests |
 | Quality | Ruff + mypy | Форматирование/lint и строгая проверка типов без тяжёлого toolchain |
@@ -57,6 +58,7 @@ LangChain `init_chat_model` может быть внутренним механ�
 - Local development: Async SQLite checkpointer.
 - Public deployment: Async PostgreSQL checkpointer.
 - Anonymous `session_id` маппится на LangGraph `thread_id`, но наружу не выдаются checkpoint IDs.
+- Authenticated chat snapshots имеют server-side owner index; внешний OIDC token не хранится.
 - Product events/feedback могут жить в той же PostgreSQL инсталляции, но в собственных таблицах.
 - LangGraph не хранит long-term semantic memory. Bounded POI documents, chunks и их embeddings
   живут только в отдельном canonical places PostgreSQL с provenance, лицензией и freshness.

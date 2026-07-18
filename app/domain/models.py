@@ -11,6 +11,15 @@ DestinationScope = Literal["domestic", "international", "any"]
 HeatTolerance = Literal["low", "medium", "high"]
 VisaWillingness = Literal["no_visa", "evisa_ok", "visa_ok", "any"]
 AmbiguityPriority = Literal["P0", "P1", "P2"]
+ClarificationTopic = Literal[
+    "departure",
+    "timing",
+    "geography",
+    "party",
+    "budget",
+    "travel_friction",
+    "trip_style",
+]
 UncertaintyImpact = Literal["high", "medium", "low"]
 PlanningConfidenceLevel = Literal["high", "medium", "low"]
 
@@ -74,9 +83,10 @@ class TravelRequestRevision(DomainModel):
 
 
 class Ambiguity(DomainModel):
-    """A missing or uncertain constraint with an explicit product policy."""
+    """A missing constraint, grouped for natural-language dialogue and policy."""
 
     field: str
+    topic: ClarificationTopic
     priority: AmbiguityPriority
     reason: str
     question: str | None = None
