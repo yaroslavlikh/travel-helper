@@ -6,7 +6,8 @@ from app.services.aviasales import add_aviasales_links, build_aviasales_url
 from app.services.scoring import rank_demo_candidates
 
 
-def query_params(url: str) -> dict[str, list[str]]:
+def query_params(url: str | None) -> dict[str, list[str]]:
+    assert url is not None
     return parse_qs(urlparse(url).query)
 
 
@@ -41,7 +42,8 @@ def test_confirmed_round_trip_dates_and_passengers_are_sent_to_aviasales() -> No
         destination_iata="bus",
         marker="partner.subid",
     )
-    assert urlparse(url).path == "/search/"
+    assert url is not None
+    assert urlparse(url).path == "/search"
     assert query_params(url) == {
         "origin_iata": ["MOW"],
         "destination_iata": ["BUS"],
@@ -95,7 +97,15 @@ def test_unknown_origin_never_falls_back_to_moscow_route() -> None:
 
     url = build_aviasales_url(request, destination_iata="AER")
 
-    assert url == "https://www.aviasales.ru/"
+    assert url is None
+
+
+def test_explicit_iata_origin_is_supported_without_a_city_dictionary_entry() -> None:
+    request = TravelRequest(raw_query="Вылет из KHV", origin_city="KHV", adults=1)
+
+    url = build_aviasales_url(request, destination_iata="AER")
+
+    assert url == "https://www.aviasales.ru/routes/khv/aer"
 
 
 def test_family_request_sends_exact_dates_and_all_passengers() -> None:
@@ -136,3 +146,20 @@ def test_recommendations_receive_one_backend_generated_flight_link() -> None:
     assert flight_links[0].provider == "aviasales"
     assert flight_links[0].url.startswith("https://www.aviasales.ru/routes/mow/")
     assert flight_links[0].title == "Выбрать даты"
+
+
+def test_unknown_origin_does_not_add_a_misleading_homepage_link() -> None:
+    request = TravelRequest(
+        raw_query="Из Тулы в августе",
+        origin_city="Тула",
+        month=8,
+        adults=1,
+        budget_total_rub=200_000,
+        destination_scope="any",
+    )
+
+    recommendations = add_aviasales_links(rank_demo_candidates(request, limit=1), request)
+
+    assert not [
+        link for link in recommendations[0].candidate.external_links if link.category == "flight"
+    ]

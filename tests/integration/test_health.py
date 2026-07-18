@@ -329,6 +329,7 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             page = await client.get("/")
+            login_page = await client.get("/login")
             feedback = await client.post(
                 "/feedback",
                 json={
@@ -354,8 +355,11 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
 
     assert page.status_code == 200
     assert "Тудавай" in page.text
-    assert "помощник в путешествиях" in page.text
+    assert "Опишите поездку своими словами" in page.text
     assert "Живая подборка" in page.text
+    assert login_page.status_code == 200
+    assert "Продолжайте планировать с любого устройства" in login_page.text
+    assert "Без новых паролей" in login_page.text
     assert feedback.status_code == 204
     assert travel_link.status_code == 204
     assert len(recorded_clicks) == 1
@@ -382,3 +386,27 @@ async def test_card_flight_link_keeps_month_only_request_flexible() -> None:
     assert flight_link["title"] == "Выбрать даты"
     assert urlparse(flight_link["url"]).path.startswith("/routes/mow/")
     assert parse_qs(urlparse(flight_link["url"]).query) == {}
+
+
+@pytest.mark.asyncio
+async def test_card_flight_link_sends_exact_dates_and_passengers() -> None:
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+    query = "Из Москвы за границу с 20 августа по 3 сентября, нас двое"
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/recommend", json={"query": query})
+
+    body = response.json()
+    links = body["recommendations"][0]["candidate"]["external_links"]
+    flight_link = next(link for link in links if link["category"] == "flight")
+    parsed = urlparse(flight_link["url"])
+    params = parse_qs(parsed.query)
+
+    assert parsed.path == "/search"
+    assert params["depart_date"] == ["2026-08-20"]
+    assert params["return_date"] == ["2026-09-03"]
+    assert params["adults"] == ["2"]

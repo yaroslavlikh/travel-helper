@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f2f6fb" />
+    <title>Вход — Тудавай</title>
+    <link rel="stylesheet" href="/static/auth.css" />
+  </head>
+  <body>
+    <main class="auth-shell">
+      <a class="auth-brand" href="/" aria-label="Тудавай — на главную">
+        <span class="auth-brand-mark" aria-hidden="true">✈</span>
+        <span><strong>Тудавай</strong><small>соберём поездку</small></span>
+      </a>
+
+      <section class="auth-story" aria-labelledby="auth-title">
+        <span class="auth-kicker">Один аккаунт · все поездки</span>
+        <h1 id="auth-title">Продолжайте планировать с любого устройства</h1>
+        <p class="auth-lead">Вход нужен только для синхронизации. Без него Тудавай работает полностью — история останется в этом браузере.</p>
+
+        <div class="auth-benefits">
+          <article><span aria-hidden="true">↻</span><div><strong>Диалоги не теряются</strong><p>Условия, подборки и обсуждения направлений сохраняются вместе.</p></div></article>
+          <article><span aria-hidden="true">◇</span><div><strong>Без новых паролей</strong><p>Безопасный вход через настроенного провайдера; пароль Тудавай не видит и не хранит.</p></div></article>
+          <article><span aria-hidden="true">⌁</span><div><strong>Гость — полноценный режим</strong><p>Можно вернуться к поездке сейчас и решить вопрос со входом позже.</p></div></article>
+        </div>
+
+        <div class="auth-route" aria-hidden="true"><i></i><span></span><i></i><span></span><i></i></div>
+      </section>
+
+      <section class="auth-card" aria-live="polite">
+        <div class="auth-card-head">
+          <span class="auth-card-icon" aria-hidden="true">✦</span>
+          <div><span>Личное пространство</span><h2 id="auth-card-title">Проверяем доступ…</h2></div>
+        </div>
+
+        <div id="auth-loading" class="auth-state">
+          <div class="auth-skeleton"><i></i><i></i><i></i></div>
+        </div>
+
+        <div id="auth-ready" class="auth-state hidden">
+          <p id="auth-description">После входа мы предложим перенести ваши локальные поездки — только с вашего согласия.</p>
+          <button id="provider-login" class="auth-primary" type="button"><span aria-hidden="true">→</span> Продолжить через аккаунт</button>
+          <button id="guest-continue" class="auth-secondary" type="button">Продолжить без входа</button>
+        </div>
+
+        <div id="auth-signed-in" class="auth-state hidden">
+          <div class="signed-profile"><span id="profile-initial" aria-hidden="true">Т</span><div><strong id="profile-name">Аккаунт</strong><small>История синхронизируется</small></div></div>
+          <button id="signed-continue" class="auth-primary" type="button">Вернуться к поездкам <span aria-hidden="true">→</span></button>
+          <button id="auth-logout" class="auth-secondary" type="button">Выйти из аккаунта</button>
+        </div>
+
+        <div id="auth-unavailable-state" class="auth-state hidden">
+          <div class="auth-notice"><span aria-hidden="true">i</span><p><strong>Вход пока не подключён</strong>В этой среде можно пользоваться гостевым режимом. Поездки сохраняются локально в браузере.</p></div>
+          <button id="unavailable-continue" class="auth-primary" type="button">Вернуться к поездке <span aria-hidden="true">→</span></button>
+        </div>
+
+        <p id="auth-error" class="auth-error hidden" role="alert"></p>
+        <p class="auth-privacy">Содержимое чатов не попадает в cookies входа. Сессия хранится в защищённой HttpOnly cookie.</p>
+      </section>
+    </main>
+    <script src="/static/auth.js" defer></script>
+  </body>
+</html>

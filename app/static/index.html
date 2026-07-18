@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0b84ff" />
+    <meta name="theme-color" content="#f4f8fc" />
     <title>Тудавай — помощник в путешествиях</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
@@ -12,7 +12,7 @@
       <aside class="sidebar" aria-label="История чатов">
         <a class="brand" href="/" aria-label="Тудавай">
           <span class="brand-mark" aria-hidden="true">✈</span>
-          <span><strong>Тудавай</strong><small>помощник в путешествиях</small></span>
+          <span><strong>Тудавай</strong><small>соберём поездку</small></span>
         </a>
 
         <button id="new-chat" class="new-chat-button" type="button">
@@ -23,16 +23,16 @@
         <nav id="chat-list" class="chat-list"></nav>
 
         <section id="account-panel" class="account-panel" aria-live="polite">
-          <button id="login-button" class="account-primary" type="button">Войти и сохранять</button>
+          <button id="login-button" class="account-primary" type="button"><span aria-hidden="true">↗</span> Войти и синхронизировать</button>
           <div id="account-profile" class="account-profile hidden">
             <strong id="account-name">Аккаунт</strong>
-            <small>История синхронизируется</small>
+            <small id="sync-status" data-state="idle">История синхронизируется</small>
             <div>
               <button id="logout-button" type="button">Выйти</button>
               <button id="delete-account-button" class="danger-link" type="button">Удалить данные</button>
             </div>
           </div>
-          <p id="auth-unavailable" class="auth-unavailable hidden">Вход пока не настроен</p>
+          <p id="auth-unavailable" class="auth-unavailable hidden">Поездки пока сохраняются в этом браузере</p>
         </section>
 
         <div class="sidebar-note">
@@ -57,7 +57,7 @@
           <div>
             <span class="mobile-logo">✈</span>
             <h1 id="chat-title">Новая поездка</h1>
-            <p id="chat-status">Расскажите, куда хочется</p>
+            <p id="chat-status">Расскажите, куда хочется · память включена</p>
           </div>
           <div class="header-actions">
             <button id="mobile-login-button" class="mobile-account-button" type="button">Войти</button>
@@ -80,12 +80,17 @@
           </div>
 
           <div class="starter-zone" id="starter-zone">
-            <p>Можно начать с примера</p>
-            <div class="starter-chips">
-              <button type="button" data-starter="Из Москвы на море в августе на 7–10 дней, бюджет 150 тысяч на одного, без сильной жары, за границу">Море без жары</button>
-              <button type="button" data-starter="Из Санкт-Петербурга на море в сентябре, нас двое, без визы, максимум четыре часа перелёта, бюджет 180 тысяч">Без визы на двоих</button>
-              <button type="button" data-starter="Из Москвы по России на море в августе, на неделю, бюджет 100 тысяч на одного">По России</button>
+            <div class="starter-copy">
+              <span class="starter-kicker">Можно без анкеты</span>
+              <h2>Опишите поездку своими словами</h2>
+              <p>Достаточно города вылета и пары ориентиров. Остальное уточним только если это действительно меняет подборку.</p>
             </div>
+            <div class="starter-chips">
+              <button type="button" data-starter="Из Москвы на море в августе на 7–10 дней, бюджет 150 тысяч на одного, без сильной жары, за границу"><span aria-hidden="true">≈</span><strong>Море без жары</strong><small>Москва · август · 150 000 ₽</small></button>
+              <button type="button" data-starter="Из Санкт-Петербурга на море в сентябре, нас двое, без визы, максимум четыре часа перелёта, бюджет 180 тысяч"><span aria-hidden="true">◇</span><strong>Без визы на двоих</strong><small>Петербург · сентябрь · до 4 ч</small></button>
+              <button type="button" data-starter="Из Москвы по России на море в августе, на неделю, бюджет 100 тысяч на одного"><span aria-hidden="true">⌁</span><strong>По России</strong><small>Море · неделя · 100 000 ₽</small></button>
+            </div>
+            <div class="starter-hints" aria-hidden="true"><span>откуда</span><i></i><span>когда</span><i></i><span>что важно</span></div>
           </div>
 
           <form id="composer" class="composer">
@@ -95,7 +100,7 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 9-18 9 3.7-9L3 3Zm3.2 8h8.3L7.4 7.5 6.2 11Zm1.2 5.5 7.1-3.5H6.2l1.2 3.5Z"/></svg>
             </button>
           </form>
-          <p class="composer-note">Ответы сохраняются в этом чате · Enter — отправить, Shift+Enter — новая строка</p>
+          <p id="composer-note" class="composer-note">Сохраняем в этом браузере · Enter — отправить, Shift+Enter — новая строка</p>
         </section>
       </main>
 
@@ -104,7 +109,7 @@
           <header class="feed-header">
             <div>
               <span class="feed-kicker">Живая подборка</span>
-              <h2>Куда можно поехать</h2>
+              <h2>Подходящие направления</h2>
             </div>
             <span id="result-count" class="result-count">0 вариантов</span>
           </header>

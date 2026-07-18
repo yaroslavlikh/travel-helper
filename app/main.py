@@ -128,6 +128,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def index() -> FileResponse:
         return FileResponse(static_directory / "index.html")
 
+    @app.get("/login", include_in_schema=False)
+    async def login_page() -> FileResponse:
+        return FileResponse(static_directory / "login.html")
+
     @app.get("/health", response_model=HealthResponse, tags=["system"])
     async def health(request: Request) -> HealthResponse:
         resources = cast(AppResources, request.app.state.resources)

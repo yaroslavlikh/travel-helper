@@ -54,6 +54,7 @@ let accountState = {
   csrfToken: null,
 };
 const syncTimers = new Map();
+let syncState = "idle";
 
 function id() {
   return globalThis.crypto?.randomUUID?.() || `chat-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -85,7 +86,7 @@ function defaultGreeting() {
   return {
     id: id(),
     role: "assistant",
-    text: "Привет! Я помогу выбрать не просто страну, а конкретные места: где остановиться, что посмотреть и какие варианты сравнить. Расскажите о поездке — можно писать как другу.",
+    text: "Привет! Подберу конкретные направления, места и районы для проживания. Можно писать как другу — начните с того, куда хочется.",
     createdAt: now(),
   };
 }
@@ -168,14 +169,40 @@ function serverRecordToChat(record) {
   return chat;
 }
 
-async function saveAccountChat(chat) {
+function setSyncState(state, label) {
+  syncState = state;
+  const indicator = $("#sync-status");
+  if (indicator) {
+    indicator.dataset.state = state;
+    indicator.textContent = label || {
+      idle: "История синхронизируется",
+      saving: "Сохраняю изменения…",
+      saved: "Все изменения сохранены",
+      error: "Не удалось синхронизировать",
+    }[state];
+  }
+  if (accountState.authenticated && $("#composer-note")) {
+    $("#composer-note").textContent = state === "error"
+      ? "Локальная копия сохранена · синхронизация не удалась"
+      : `${state === "saving" ? "Сохраняю в аккаунт…" : "Синхронизировано с аккаунтом"} · Enter — отправить, Shift+Enter — новая строка`;
+  }
+}
+
+async function saveAccountChat(chat, { keepalive = false } = {}) {
   if (!accountState.authenticated) return;
+  setSyncState("saving");
+  const body = JSON.stringify({ title: chat.title, payload: chat });
   const response = await fetch(`/account/chats/${encodeURIComponent(chat.id)}`, {
     method: "PUT",
     headers: accountHeaders({ csrf: true }),
-    body: JSON.stringify({ title: chat.title, payload: chat }),
+    body,
+    keepalive: keepalive && body.length < 60_000,
   });
-  if (!response.ok) throw new Error("Не удалось синхронизировать чат");
+  if (!response.ok) {
+    setSyncState("error");
+    throw new Error("Не удалось синхронизировать чат");
+  }
+  setSyncState("saved");
 }
 
 function scheduleChatSync(chat) {
@@ -184,7 +211,18 @@ function scheduleChatSync(chat) {
   syncTimers.set(chat.id, setTimeout(() => {
     syncTimers.delete(chat.id);
     saveAccountChat(chat).catch((error) => console.warn(error.message));
-  }, 450));
+  }, 350));
+}
+
+function flushPendingSyncs() {
+  if (!accountState.authenticated || !syncTimers.size) return;
+  const pendingIds = [...syncTimers.keys()];
+  pendingIds.forEach((chatId) => {
+    clearTimeout(syncTimers.get(chatId));
+    syncTimers.delete(chatId);
+    const chat = store.chats.find((item) => item.id === chatId);
+    if (chat) saveAccountChat(chat, { keepalive: true }).catch((error) => console.warn(error.message));
+  });
 }
 
 function shortTime(dateValue) {
@@ -291,6 +329,7 @@ function renderWorkspaceState() {
 async function requestRecommendation(query) {
   const chat = activeChat();
   const chatId = chat.id;
+  const openingStartedAt = Date.now();
   setBusy(true);
   try {
     const response = await fetch("/recommend", {
@@ -308,6 +347,8 @@ async function requestRecommendation(query) {
       throw new Error(response.ok ? "Сервис вернул некорректный ответ" : "Сервис временно недоступен");
     }
     if (!response.ok) throw new Error(payload.detail || "Не удалось получить рекомендации");
+    const remainingOpeningTime = Math.max(0, 520 - (Date.now() - openingStartedAt));
+    if (remainingOpeningTime) await new Promise((resolve) => setTimeout(resolve, remainingOpeningTime));
 
     const targetChat = store.chats.find((item) => item.id === chatId);
     if (!targetChat) return;
@@ -378,10 +419,15 @@ function providerActions(candidate, snapshot, index) {
   const stayLink = (candidate.external_links || []).find((link) => link.category === "stay");
   const requestId = snapshot?.request_id || "unknown-request";
   const shared = `data-destination-id="${escapeHtml(candidate.destination_id)}" data-rank="${index + 1}" data-request-id="${escapeHtml(requestId)}"`;
-  return `<div class="card-actions">
-    <a class="travel-link aviasales-link" href="${safeUrl(flightLink?.url || "https://www.aviasales.ru/")}" target="_blank" rel="noreferrer" ${shared} data-provider="aviasales" data-link-kind="flight"><span aria-hidden="true">✈</span> ${escapeHtml(flightLink?.title || "Найти билеты")} <small>Aviasales</small></a>
-    <a class="travel-link yandex-link" href="${safeUrl(stayLink?.url || "https://travel.yandex.ru/")}" target="_blank" rel="noreferrer" ${shared} data-provider="yandex_travel" data-link-kind="stay"><span aria-hidden="true">⌂</span> Найти жильё <small>Яндекс Путешествия</small></a>
-  </div>`;
+  const actions = [];
+  if (flightLink?.url) {
+    actions.push(`<a class="travel-link aviasales-link" href="${safeUrl(flightLink.url)}" target="_blank" rel="noreferrer" ${shared} data-provider="aviasales" data-link-kind="flight"><span aria-hidden="true">✈</span> ${escapeHtml(flightLink.title || "Найти билеты")} <small>Aviasales</small></a>`);
+  }
+  if (stayLink?.url) {
+    actions.push(`<a class="travel-link yandex-link" href="${safeUrl(stayLink.url)}" target="_blank" rel="noreferrer" ${shared} data-provider="yandex_travel" data-link-kind="stay"><span aria-hidden="true">⌂</span> Найти жильё <small>Яндекс Путешествия</small></a>`);
+  }
+  if (!actions.length) return "";
+  return `<div class="card-actions${actions.length === 1 ? " single" : ""}">${actions.join("")}</div>`;
 }
 
 function destinationDiscussionAction(candidate, chat) {
@@ -403,6 +449,7 @@ function destinationCard(item, index, chat) {
   const sources = (candidate.sources || []).map((source) => `<a href="${safeUrl(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.title)}</a>`).join("");
   const flight = candidate.flight_duration_hours ? `${candidate.flight_duration_hours} ч · ${candidate.transfers_count || 0} перес.` : "Уточнить";
   const weather = candidate.expected_temperature_c != null ? `${candidate.expected_temperature_c}° · море ${candidate.expected_sea_temperature_c ?? "—"}°` : "Уточнить";
+  const actions = providerActions(candidate, chat.snapshot, index);
   return `<article class="destination-card" style="--card-index: ${index}">
     <div class="card-image">
       ${image ? `<img src="${imageUrl}" alt="${escapeHtml(image.alt)}" loading="lazy" />` : ""}
@@ -419,8 +466,8 @@ function destinationCard(item, index, chat) {
       ${highlights ? `<div class="card-section"><h4>Конкретные места</h4><div class="place-list">${highlights}</div></div>` : ""}
       ${stayAreas ? `<div class="card-section"><h4>Районы для проживания</h4><div class="stay-areas">${stayAreas}</div></div>` : ""}
       ${destinationDiscussionAction(candidate, chat)}
-      ${providerActions(candidate, chat.snapshot, index)}
-      <p class="external-note">Внешний поиск · цены и наличие не подтверждены</p>
+      ${actions}
+      ${actions ? '<p class="external-note">Внешний поиск · цены и наличие не подтверждены</p>' : ""}
       <details class="card-details"><summary>Почему подходит, риски и источники</summary><p class="detail-copy">${escapeHtml(item.explanation)} ${item.risks?.length ? `Риски: ${escapeHtml(item.risks.join("; "))}.` : ""} Въезд: ${escapeHtml(candidate.entry_requirements || "нужно проверить")}.</p><div class="source-links">${sources}</div></details>
     </div>
   </article>`;
@@ -751,19 +798,23 @@ async function deleteChat(chatId) {
 
 function renderAccountPanel() {
   const loggedIn = accountState.authenticated;
-  $("#login-button").classList.toggle("hidden", loggedIn || !accountState.authEnabled);
+  $("#login-button").classList.toggle("hidden", loggedIn);
   $("#account-profile").classList.toggle("hidden", !loggedIn);
   $("#auth-unavailable").classList.toggle("hidden", loggedIn || accountState.authEnabled);
   $("#account-name").textContent = accountState.account?.display_name
     || accountState.account?.email
     || "Аккаунт";
   $("#mobile-login-button").textContent = loggedIn ? "Аккаунт" : "Войти";
-  $("#mobile-login-button").disabled = !loggedIn && !accountState.authEnabled;
+  $("#mobile-login-button").disabled = false;
+  $("#composer-note").textContent = loggedIn
+    ? `${syncState === "error" ? "Локальная копия сохранена · синхронизация не удалась" : "Синхронизируем с аккаунтом"} · Enter — отправить, Shift+Enter — новая строка`
+    : "Сохраняем в этом браузере · Enter — отправить, Shift+Enter — новая строка";
+  if (loggedIn && syncState === "idle") setSyncState("saved");
 }
 
 function beginLogin() {
   if (accountState.authenticated) return;
-  window.location.assign("/auth/login?return_to=/");
+  window.location.assign("/login?return_to=/");
 }
 
 async function logoutAccount() {
@@ -777,6 +828,7 @@ async function logoutAccount() {
     return;
   }
   accountState = { authEnabled: true, authenticated: false, account: null, csrfToken: null };
+  syncState = "idle";
   store = loadGuestStore();
   persist();
   renderAccountPanel();
@@ -798,6 +850,7 @@ async function deleteAccountData() {
   }
   localStorage.removeItem(`${ACCOUNT_CACHE_PREFIX}${accountState.account.id}`);
   accountState = { authEnabled: true, authenticated: false, account: null, csrfToken: null };
+  syncState = "idle";
   store = loadGuestStore();
   renderAccountPanel();
   renderAll();
@@ -937,16 +990,15 @@ $("#new-chat").addEventListener("click", openNewChat);
 $("#mobile-new-chat").addEventListener("click", openNewChat);
 $("#login-button").addEventListener("click", beginLogin);
 $("#mobile-login-button").addEventListener("click", () => {
-  if (accountState.authenticated) {
-    if (window.confirm("Выйти из аккаунта? Сохранённая история останется на сервере.")) logoutAccount();
-  } else {
-    beginLogin();
-  }
+  window.location.assign("/login?return_to=/");
 });
 $("#logout-button").addEventListener("click", logoutAccount);
 $("#delete-account-button").addEventListener("click", deleteAccountData);
 document.querySelectorAll(".mobile-tab").forEach((button) => {
   button.addEventListener("click", () => setMobileView(button.dataset.view));
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushPendingSyncs();
 });
 
 persist();
