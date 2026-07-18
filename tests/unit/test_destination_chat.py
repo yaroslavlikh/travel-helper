@@ -112,6 +112,22 @@ async def test_destination_fallback_answers_a_visa_question_from_the_card() -> N
     assert warnings and "Локальный режим" in warnings[0]
 
 
+async def test_destination_fallback_adapts_quick_replies_to_the_topic() -> None:
+    request = trip_request()
+    recommendation = rank_demo_candidates(request)[0]
+
+    reply, _ = await answer_destination_question(
+        query="Где лучше жить?",
+        trip_request=request,
+        recommendation=recommendation,
+        history=[],
+        gateway=DisabledModelGateway("not configured"),
+        demo_mode=True,
+    )
+
+    assert reply.quick_replies[0] == "Какой район потише?"
+
+
 async def test_destination_answer_passes_canonical_pois_as_evidence_context() -> None:
     request = trip_request()
     recommendation = rank_demo_candidates(request)[0]

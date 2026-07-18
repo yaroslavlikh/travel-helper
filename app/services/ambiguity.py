@@ -59,7 +59,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 topic="departure",
                 priority="P0",
                 reason=_EFFECT_BY_FIELD["origin_city"],
-                question="Из какого города вылетаете? Можно просто: «из Москвы».",
+                question="Откуда будете вылетать? Достаточно назвать город.",
                 options=["Москва", "Санкт-Петербург", "Другой город"],
             )
         )
@@ -70,7 +70,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 topic="geography",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["destination_scope"],
-                question="Что рассматриваете: Россию, зарубежье или оба варианта?",
+                question="Вам интереснее Россия, зарубежье или можно смотреть всё?",
                 options=["По России", "За границу", "Оба варианта"],
                 default_value="any",
                 can_use_default=True,
@@ -88,10 +88,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 topic="timing",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["month"],
-                question=(
-                    "Когда хотите поехать? Подойдут месяц, точные даты или диапазон — "
-                    "например, «20 августа — 3 сентября»."
-                ),
+                question="Когда примерно хотите поехать? Можно назвать месяц или точные даты.",
                 options=["Ближайший месяц", "Укажу месяц", "Укажу точные даты"],
                 can_use_default=True,
             )
@@ -103,7 +100,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 topic="budget",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["budget_total_rub"],
-                question="Какой общий бюджет на поездку будет комфортным?",
+                question="На какой бюджет для всей поездки хотите ориентироваться?",
                 options=["До 100 000 ₽", "100–200 000 ₽", "Более 200 000 ₽"],
                 can_use_default=True,
             )
@@ -115,7 +112,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 topic="party",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["adults"],
-                question="Кто едет и сколько вас будет?",
+                question="Едете один или с кем-то?",
                 options=["1", "2", "3+"],
                 can_use_default=True,
             )
@@ -127,7 +124,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 topic="travel_friction",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["visa_willingness"],
-                question="Виза допустима или лучше смотреть безвизовые направления?",
+                question="Визовые направления готовы рассматривать или лучше без визы?",
                 options=["Только без визы", "Подойдёт eVisa", "Виза возможна"],
                 default_value="any",
                 can_use_default=True,
@@ -140,7 +137,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 topic="travel_friction",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["max_flight_duration_hours"],
-                question="Есть предел по длительности перелёта или пересадкам?",
+                question="Долгий перелёт и пересадки вам подходят или хочется добраться быстрее?",
                 options=["До 4 часов", "До 7 часов", "Неважно"],
                 can_use_default=True,
             )
@@ -163,7 +160,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
                 topic="trip_style",
                 priority="P2",
                 reason=_EFFECT_BY_FIELD["trip_style"],
-                question="Какой ритм отдыха ближе: спокойно, активно или универсально?",
+                question="Как вам ближе: спокойный отдых, побольше активности или понемногу всего?",
                 options=["Спокойно", "Активно", "Универсально"],
                 default_value="универсальный отдых",
                 can_use_default=True,

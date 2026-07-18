@@ -103,7 +103,7 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
     assert resumed.json()["parsed_request"]["origin_city"] == "Москва"
     assert len(resumed.json()["recommendations"]) >= 3
     assert resumed.json()["next_best_question"] is not None
-    assert "Следующий вопрос" in resumed.json()["assistant_message"]
+    assert "Хотите сузить выбор" in resumed.json()["assistant_message"]
 
 
 @pytest.mark.asyncio

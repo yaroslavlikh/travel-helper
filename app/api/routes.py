@@ -114,8 +114,8 @@ def _turn_message(
             suffix = "вопрос" if question_count == 1 else "вопроса"
             return f"Я сохранил условия поездки. Осталось уточнить {question_count} {suffix}."
         return (
-            "Чтобы собрать подборку с реальными маршрутами, уточню один момент: "
-            f"{next_question.question}\n\nОтветьте как удобно — можно одной короткой фразой."
+            f"Чтобы подобрать маршруты, подскажите: {next_question.question}\n\n"
+            "Можно ответить как удобно, одной фразой."
         )
     if turn_kind == "refinement":
         message = (
@@ -133,10 +133,7 @@ def _turn_message(
         )
     if next_question is None:
         return message
-    return (
-        f"{message}\n\nПодборка пока широкая. Следующий вопрос сильнее всего "
-        f"повлияет на варианты: {next_question.question}"
-    )
+    return f"{message}\n\nХотите сузить выбор — подскажите: {next_question.question}"
 
 
 def _recommendation_count_label(count: int) -> str:
