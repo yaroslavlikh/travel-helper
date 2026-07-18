@@ -28,6 +28,12 @@ Import creates new owned thread IDs and uses a per-account client import ID for 
 anonymous checkpointer threads are not claimed because old clients have no possession secret that can
 prove ownership. Local data is retained until every selected import succeeds.
 
+Authentication starts on a dedicated `/login` page that explains what is stored, keeps guest use as
+an equal choice, and only then starts the provider-neutral OIDC redirect. The page never renders or
+collects a password. The main workspace exposes an explicit sync state; authenticated presentation
+snapshots are cached immediately in the browser and flushed to the owned server record on a short
+debounce and when the document becomes hidden.
+
 The browser keeps a local cache for responsive rendering, but authenticated server storage is canonical.
 Deleting a chat removes its account snapshot and associated LangGraph thread state where the configured
 checkpointer supports deletion. Account deletion removes all owned snapshots and application sessions;

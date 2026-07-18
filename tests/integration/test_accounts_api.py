@@ -91,6 +91,35 @@ async def test_account_chat_import_sync_and_delete_are_owner_scoped() -> None:
 
 
 @pytest.mark.asyncio
+async def test_full_chat_presentation_snapshot_round_trips_through_account_storage() -> None:
+    app = create_app(configured_settings())
+    payload = {
+        "messages": [{"role": "user", "text": "Из Москвы с 20 августа"}],
+        "snapshot": {"request_id": "request-1", "parsed_request": {"origin_city": "Москва"}},
+        "recommendations": [{"candidate": {"destination_id": "sochi"}, "total_score": 84}],
+        "destinationThreads": {"sochi": {"messages": [{"role": "user", "text": "Где жить?"}]}},
+    }
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            _account_id, csrf = login(app.state.resources, client, "snapshot-owner")
+            created = await client.post(
+                "/account/chats",
+                headers={"X-CSRF-Token": csrf},
+                json={"title": "Летняя поездка", "payload": payload},
+            )
+            listed = await client.get("/account/chats")
+
+    assert created.status_code == 201
+    stored = listed.json()[0]
+    assert stored["title"] == "Летняя поездка"
+    assert stored["payload"]["snapshot"] == payload["snapshot"]
+    assert stored["payload"]["recommendations"] == payload["recommendations"]
+    assert stored["payload"]["destinationThreads"] == payload["destinationThreads"]
+
+
+@pytest.mark.asyncio
 async def test_authenticated_recommendation_rejects_another_users_chat() -> None:
     app = create_app(configured_settings())
     async with app.router.lifespan_context(app):

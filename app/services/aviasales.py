@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from urllib.parse import urlencode
 
 from app.domain.models import ExternalTravelLink, ScoredDestination, TravelRequest
 
-AVIASALES_BASE_URL = "https://www.aviasales.ru/"
 AVIASALES_ROUTES_URL = "https://www.aviasales.ru/routes"
-AVIASALES_SEARCH_URL = "https://www.aviasales.ru/search/"
+AVIASALES_SEARCH_URL = "https://www.aviasales.ru/search"
 
 CITY_IATA = {
     "москва": "MOW",
@@ -22,13 +22,32 @@ CITY_IATA = {
     "казань": "KZN",
     "новосибирск": "OVB",
     "сочи": "AER",
+    "самара": "KUF",
+    "уфа": "UFA",
+    "пермь": "PEE",
+    "омск": "OMS",
+    "красноярск": "KJA",
+    "иркутск": "IKT",
+    "владивосток": "VVO",
+    "калининград": "KGD",
+    "минеральные воды": "MRV",
+    "нижний новгород": "GOJ",
+    "тюмень": "TJM",
+    "сургут": "SGC",
+    "челябинск": "CEK",
+    "волгоград": "VOG",
+    "мурманск": "MMK",
+    "архангельск": "ARH",
 }
 
 
 def _origin_iata(origin_city: str | None) -> str | None:
     if origin_city is None:
         return None
-    return CITY_IATA.get(origin_city.strip().casefold())
+    normalized = origin_city.strip()
+    if re.fullmatch(r"[A-Za-z]{3}", normalized):
+        return normalized.upper()
+    return CITY_IATA.get(normalized.casefold())
 
 
 def _with_marker(url: str, marker: str | None) -> str:
@@ -42,12 +61,12 @@ def build_aviasales_url(
     *,
     destination_iata: str | None,
     marker: str | None = None,
-) -> str:
+) -> str | None:
     """Build an exact search only for an explicit round trip or one-way date."""
 
     origin = _origin_iata(request.origin_city)
     if origin is None or not destination_iata:
-        return _with_marker(AVIASALES_BASE_URL, marker)
+        return None
     destination = destination_iata.upper()
     if request.date_from and (request.date_to or request.flight_one_way):
         params: dict[str, str | int] = {
@@ -88,16 +107,20 @@ def add_aviasales_links(
             destination_iata=candidate.nearest_airport,
             marker=marker,
         )
-        flight_link = ExternalTravelLink(
-            title="Найти билеты"
-            if request.date_from and (request.date_to or request.flight_one_way)
-            else "Выбрать даты",
-            provider="aviasales",
-            category="flight",
-            url=url,
+        flight_link = (
+            ExternalTravelLink(
+                title="Найти билеты"
+                if request.date_from and (request.date_to or request.flight_one_way)
+                else "Выбрать даты",
+                provider="aviasales",
+                category="flight",
+                url=url,
+            )
+            if url
+            else None
         )
         enriched_candidate = candidate.model_copy(
-            update={"external_links": [flight_link, *other_links]}
+            update={"external_links": [flight_link, *other_links] if flight_link else other_links}
         )
         enriched.append(recommendation.model_copy(update={"candidate": enriched_candidate}))
     return enriched

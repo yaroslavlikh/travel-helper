@@ -26,8 +26,9 @@ Travel Choice Assistant принимает естественный запрос
 7. Оставшиеся варианты получают детерминированный score.
 8. UI показывает 3–5 карточек конкретных городов/регионов с фотографиями, местами, assumptions,
    warnings, раскрываемыми sources и CTA поиска билетов в Aviasales и жилья в Яндекс Путешествиях.
-   В Aviasales передаётся только маршрут origin/destination; пользователь выбирает даты в
-   календаре провайдера.
+   Для точных дат Aviasales получает маршрут, даты и состав путешественников; для месяца или окна
+   вылета открывается route page без выдуманной даты. Если маршрут нельзя собрать, UI не маскирует
+   это переходом на главную страницу провайдера.
 9. Пользователь может открыть вложенный subthread карточки и обсуждать конкретное направление, не
    меняя условия всей поездки без отдельного подтверждения.
 10. Пользователь уточняет условия в основном chat; система обновляет TravelRequest и живую ленту,
@@ -49,7 +50,7 @@ Travel Choice Assistant принимает естественный запрос
 
 ## Границы MVP
 
-В MVP входят: anonymous sessions, optional OIDC account sync, natural-language input, clarification loop, search-based candidate generation, evidence normalization, hard filters, deterministic scoring, responsive web UI, sources, warnings, feedback и operational tracing.
+В MVP входят: anonymous sessions, отдельная optional OIDC login page и account sync, natural-language input, clarification loop, search-based candidate generation, evidence normalization, hard filters, deterministic scoring, responsive web UI, sources, warnings, feedback и operational tracing.
 
 В MVP не входят: обязательная регистрация, собственное хранение паролей, оплата, бронирование,
 полноценный личный кабинет, мобильное приложение, multi-agent orchestration, универсальная vector/RAG
