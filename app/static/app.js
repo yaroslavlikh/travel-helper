@@ -268,7 +268,7 @@ function renderChatList() {
 
 function changesMarkup(fields = []) {
   if (!fields.length) return "";
-  return `<div class="change-summary">${fields.map((field) => `<span>Обновлено: ${escapeHtml(FIELD_LABELS[field] || field)}</span>`).join("")}</div>`;
+  return `<details class="change-summary"><summary>Что изменилось</summary><ul>${fields.map((field) => `<li>${escapeHtml(FIELD_LABELS[field] || field)}</li>`).join("")}</ul></details>`;
 }
 
 function renderMessages() {

@@ -255,8 +255,12 @@ body[data-workspace-state="results"] .conversation-panel {
 .bubble p { margin: 0; }
 .bubble p + p { margin-top: 8px; }
 .message-meta { margin-top: 5px; color: #a0adbb; font-size: 11px; }
-.change-summary { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
-.change-summary span { padding: 5px 8px; border-radius: 7px; color: #3973aa; background: white; font-size: 12px; }
+.change-summary { margin-top: 9px; }
+.change-summary summary { display: inline-flex; padding: 5px 8px; border-radius: 7px; color: #3973aa; background: white; cursor: pointer; font-size: 12px; list-style: none; }
+.change-summary summary::-webkit-details-marker { display: none; }
+.change-summary summary::after { margin-left: 6px; content: "⌄"; }
+.change-summary[open] summary::after { transform: rotate(180deg); }
+.change-summary ul { display: grid; gap: 3px; margin: 7px 0 0; padding-left: 18px; color: #3973aa; font-size: 12px; }
 
 .typing { display: flex; position: absolute; bottom: 135px; left: 27px; align-items: center; gap: 10px; }
 .typing-bubble { display: flex; gap: 4px; padding: 12px 14px; border-radius: 5px 15px 15px; background: #f0f6fc; }
