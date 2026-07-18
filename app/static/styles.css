@@ -120,6 +120,7 @@ button { color: inherit; }
   cursor: pointer;
   font-weight: 750;
 }
+.account-primary:disabled, .mobile-account-button:disabled { cursor: default; opacity: 0.55; }
 .account-profile strong, .account-profile small { display: block; overflow: hidden; text-overflow: ellipsis; }
 .account-profile small { margin-top: 3px; color: var(--muted); font-size: 11px; }
 .account-profile div { display: flex; gap: 10px; margin-top: 8px; }

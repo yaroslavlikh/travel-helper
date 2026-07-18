@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     demo_mode: bool = True
     checkpoint_db_path: str = ".data/travel-helper.sqlite3"
+    account_db_path: str = ".data/travel-accounts.sqlite3"
     places_database_url: str | None = None
     places_embedding_version: str = "hash-v1"
     aviasales_marker: str | None = None
@@ -50,6 +51,16 @@ class Settings(BaseSettings):
     )
     langfuse_capture_content: bool = False
 
+    oidc_issuer: str | None = None
+    oidc_authorization_url: str | None = None
+    oidc_token_url: str | None = None
+    oidc_userinfo_url: str | None = None
+    oidc_client_id: str | None = None
+    oidc_client_secret: SecretStr | None = None
+    oidc_redirect_uri: str = "http://127.0.0.1:8000/auth/callback"
+    auth_session_secret: SecretStr | None = None
+    auth_cookie_secure_override: bool | None = None
+
     @property
     def model_is_configured(self) -> bool:
         """Whether provider selection and credentials are all present."""
@@ -67,12 +78,43 @@ class Settings(BaseSettings):
             and self.langfuse_base_url
         )
 
+    @property
+    def auth_is_configured(self) -> bool:
+        return bool(
+            self.oidc_issuer
+            and self.oidc_authorization_url
+            and self.oidc_token_url
+            and self.oidc_userinfo_url
+            and self.oidc_client_id
+            and self.oidc_client_secret
+            and self.auth_session_secret
+        )
+
+    @property
+    def auth_cookie_secure(self) -> bool:
+        if self.auth_cookie_secure_override is not None:
+            return self.auth_cookie_secure_override
+        return self.app_env == "production"
+
+    @property
+    def oidc_client_secret_value(self) -> str:
+        return self.oidc_client_secret.get_secret_value() if self.oidc_client_secret else ""
+
+    @property
+    def auth_session_secret_value(self) -> str:
+        return self.auth_session_secret.get_secret_value() if self.auth_session_secret else ""
+
     @model_validator(mode="after")
     def validate_production_mode(self) -> Settings:
         """Production must never silently serve fixture-only recommendations."""
 
         if self.app_env == "production" and self.demo_mode:
             raise ValueError("DEMO_MODE must be false in production")
+        if self.app_env == "production" and self.auth_is_configured:
+            if not self.auth_cookie_secure:
+                raise ValueError("Secure account cookies are required in production")
+            if len(self.auth_session_secret_value) < 32:
+                raise ValueError("AUTH_SESSION_SECRET must contain at least 32 characters")
         return self
 
 

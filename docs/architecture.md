@@ -10,7 +10,9 @@
 flowchart LR
     UI["Chat + live feed UI"] --> API["FastAPI API"]
     UI --> LOCAL["Local chat presentation cache"]
+    UI --> AUTH["Optional OIDC login"]
     API --> GRAPH["LangGraph workflow"]
+    API --> ACCOUNTS["Account chat repository"]
     GRAPH --> DOMAIN["Deterministic domain services"]
     GRAPH --> AI["ModelGateway"]
     GRAPH --> PROVIDERS["Search and travel provider ports"]
@@ -21,6 +23,7 @@ flowchart LR
     AI --> LLM["Gemini 3.1 Flash-Lite"]
     PROVIDERS --> WEB["External APIs and web sources"]
     CP --> DB["SQLite local / PostgreSQL prod"]
+    ACCOUNTS --> ADB["SQLite local / PostgreSQL prod"]
     PLACES --> PG["PostgreSQL + PostGIS + pgvector"]
     OBS -. later .-> LF["Langfuse"]
 ```
@@ -93,9 +96,9 @@ flowchart TD
 `origin_city` — единственный P0 для текущего flight-aware shortlist. Остальные отсутствующие поля
 остаются в state как typed ambiguities с impact level и не вызывают `interrupt`. Узел ambiguity
 detection вычисляет `planning_confidence` и выбирает один `next_best_question`; оба значения
-детерминированы, сериализуемы и попадают в trace без raw user text. Клиент показывает вопрос как
-необязательное уточнение: результат уже доступен, а игнорирование вопроса не запускает повторный
-опрос.
+детерминированы, сериализуемы и попадают в trace без raw user text. Клиент показывает вопрос только
+текстом в чате. Ответ рассматривается как patch всей поездки: он может заполнить несколько typed
+полей, включая точный межмесячный интервал, а не только поле заданного вопроса.
 
 Scoring не заполняет неизвестные поля дефолтными числами. Как и прежде, unavailable component
 исключается из опубликованной формулы с нормализацией оставшихся весов; planning confidence делает
@@ -148,13 +151,21 @@ Scoring получает только normalized candidate + TravelRequest + wei
 - `POST /events/place`: privacy-bounded impression/open/save/hide/select для последующей оценки
   ранжирования; raw текст запроса в это событие не записывается.
 - `POST /feedback`: anonymous up/down и optional comment.
+- `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`: optional OIDC login and opaque
+  application session lifecycle.
+- `/account/*`: current identity, owned chat list/create/import/update/delete and complete account-data
+  deletion. Authenticated mutations require a session-bound CSRF token.
 - Dev-only parse endpoint допускается только под config flag.
 
 API schema не должен раскрывать внутренние LangGraph checkpoint payloads. Идемпотентность повторного resume обеспечивается request/operation ID.
 
 ## Security and privacy
 
-- Anonymous random session IDs; никакой регистрации.
+- Anonymous random session IDs remain the default; optional accounts never block the guest flow.
+- Account access uses an opaque HTTP-only application session and explicit chat ownership checks;
+  `session_id` alone is not authorization.
+- Existing anonymous chats are imported into new owned IDs only after explicit consent. Old anonymous
+  checkpoints are not claimed by identifier.
 - Raw query может содержать персональные данные, поэтому retention ограничивается и документируется до public beta.
 - Secrets только в environment/secret manager, никогда в state, logs, prompts metadata или API responses.
 - SSRF-safe URL fetching: allow only http/https, block private/link-local ranges, enforce size/time limits.
