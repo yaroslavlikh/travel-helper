@@ -56,9 +56,10 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
         items.append(
             Ambiguity(
                 field="origin_city",
+                topic="departure",
                 priority="P0",
                 reason=_EFFECT_BY_FIELD["origin_city"],
-                question="Из какого города планируете вылет?",
+                question="Из какого города вылетаете? Можно просто: «из Москвы».",
                 options=["Москва", "Санкт-Петербург", "Другой город"],
             )
         )
@@ -66,9 +67,10 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
         items.append(
             Ambiguity(
                 field="destination_scope",
+                topic="geography",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["destination_scope"],
-                question="Рассматривать Россию, зарубежные направления или оба варианта?",
+                question="Что рассматриваете: Россию, зарубежье или оба варианта?",
                 options=["По России", "За границу", "Оба варианта"],
                 default_value="any",
                 can_use_default=True,
@@ -83,9 +85,13 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
         items.append(
             Ambiguity(
                 field="month",
+                topic="timing",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["month"],
-                question="В каком месяце или в какие даты хотите поехать?",
+                question=(
+                    "Когда хотите поехать? Подойдут месяц, точные даты или диапазон — "
+                    "например, «20 августа — 3 сентября»."
+                ),
                 options=["Ближайший месяц", "Укажу месяц", "Укажу точные даты"],
                 can_use_default=True,
             )
@@ -94,9 +100,10 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
         items.append(
             Ambiguity(
                 field="budget_total_rub",
+                topic="budget",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["budget_total_rub"],
-                question="Какой комфортный общий бюджет на поездку?",
+                question="Какой общий бюджет на поездку будет комфортным?",
                 options=["До 100 000 ₽", "100–200 000 ₽", "Более 200 000 ₽"],
                 can_use_default=True,
             )
@@ -105,9 +112,10 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
         items.append(
             Ambiguity(
                 field="adults",
+                topic="party",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["adults"],
-                question="Сколько взрослых поедет?",
+                question="Кто едет и сколько вас будет?",
                 options=["1", "2", "3+"],
                 can_use_default=True,
             )
@@ -116,9 +124,10 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
         items.append(
             Ambiguity(
                 field="visa_willingness",
+                topic="travel_friction",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["visa_willingness"],
-                question="Готовы рассматривать страны с визой или лучше без неё?",
+                question="Виза допустима или лучше смотреть безвизовые направления?",
                 options=["Только без визы", "Подойдёт eVisa", "Виза возможна"],
                 default_value="any",
                 can_use_default=True,
@@ -128,9 +137,10 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
         items.append(
             Ambiguity(
                 field="max_flight_duration_hours",
+                topic="travel_friction",
                 priority="P1",
                 reason=_EFFECT_BY_FIELD["max_flight_duration_hours"],
-                question="Есть предел по длительности перелёта?",
+                question="Есть предел по длительности перелёта или пересадкам?",
                 options=["До 4 часов", "До 7 часов", "Неважно"],
                 can_use_default=True,
             )
@@ -139,6 +149,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
         items.append(
             Ambiguity(
                 field="baggage_required",
+                topic="travel_friction",
                 priority="P2",
                 reason=_EFFECT_BY_FIELD["baggage_required"],
                 default_value=True,
@@ -149,6 +160,7 @@ def detect_ambiguities(request: TravelRequest) -> list[Ambiguity]:
         items.append(
             Ambiguity(
                 field="trip_style",
+                topic="trip_style",
                 priority="P2",
                 reason=_EFFECT_BY_FIELD["trip_style"],
                 question="Какой ритм отдыха ближе: спокойно, активно или универсально?",

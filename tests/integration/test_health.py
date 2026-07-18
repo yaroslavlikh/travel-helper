@@ -107,6 +107,32 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
 
 
 @pytest.mark.asyncio
+async def test_free_text_reply_can_answer_origin_and_exact_trip_dates_together() -> None:
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            initial = await client.post("/recommend", json={"query": "Хочу в отпуск"})
+            resumed = await client.post(
+                "/recommend",
+                json={
+                    "query": "Вылетаю из Москвы, хочу поехать с 20 августа по 3 сентября",
+                    "session_id": initial.json()["session_id"],
+                },
+            )
+
+    assert resumed.status_code == 200
+    body = resumed.json()
+    assert body["status"] == "completed"
+    assert body["parsed_request"]["origin_city"] == "Москва"
+    assert body["parsed_request"]["date_from"] == "2026-08-20"
+    assert body["parsed_request"]["date_to"] == "2026-09-03"
+
+
+@pytest.mark.asyncio
 async def test_advisory_answer_refines_a_completed_shortlist() -> None:
     app = create_app(
         Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
@@ -135,6 +161,34 @@ async def test_advisory_answer_refines_a_completed_shortlist() -> None:
     assert refined.json()["status"] == "completed"
     assert refined.json()["turn_kind"] == "refinement"
     assert refined.json()["parsed_request"]["destination_scope"] == "international"
+
+
+@pytest.mark.asyncio
+async def test_invalid_legacy_structured_value_does_not_return_a_server_error() -> None:
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            initial = await client.post(
+                "/recommend",
+                json={"query": "Хочу поехать из Москвы"},
+            )
+            refined = await client.post(
+                "/recommend",
+                json={
+                    "query": "Виза: только шенген",
+                    "session_id": initial.json()["session_id"],
+                    "answers": {"visa_willingness": "тока шенген если"},
+                },
+            )
+
+    assert refined.status_code == 200
+    assert refined.json()["status"] == "completed"
+    assert refined.json()["parsed_request"]["visa_willingness"] == "visa_ok"
+    assert "шенгенская зона" in refined.json()["parsed_request"]["preferences"]
 
 
 @pytest.mark.asyncio

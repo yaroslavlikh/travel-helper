@@ -110,8 +110,13 @@ def _turn_message(
     next_question: Ambiguity | None = None,
 ) -> str:
     if status_value == "needs_clarification":
-        suffix = "вопрос" if question_count == 1 else "вопроса"
-        return f"Я сохранил условия поездки. Осталось уточнить {question_count} {suffix}."
+        if next_question is None:
+            suffix = "вопрос" if question_count == 1 else "вопроса"
+            return f"Я сохранил условия поездки. Осталось уточнить {question_count} {suffix}."
+        return (
+            "Чтобы собрать подборку с реальными маршрутами, уточню один момент: "
+            f"{next_question.question}\n\nОтветьте как удобно — можно одной короткой фразой."
+        )
     if turn_kind == "refinement":
         message = (
             "Учёл уточнение и обновил ленту: сейчас в ней "
@@ -276,6 +281,7 @@ async def _build_recommendation_response(
                 status_value="needs_clarification",
                 turn_kind=turn_kind,
                 question_count=len(questions),
+                next_question=questions[0] if questions else None,
             ),
             changed_fields=_changed_fields(previous_request, _state_to_request(typed_state)),
         )
