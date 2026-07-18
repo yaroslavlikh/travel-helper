@@ -22,6 +22,19 @@
         <div class="history-heading">Недавние поездки</div>
         <nav id="chat-list" class="chat-list"></nav>
 
+        <section id="account-panel" class="account-panel" aria-live="polite">
+          <button id="login-button" class="account-primary" type="button">Войти и сохранять</button>
+          <div id="account-profile" class="account-profile hidden">
+            <strong id="account-name">Аккаунт</strong>
+            <small>История синхронизируется</small>
+            <div>
+              <button id="logout-button" type="button">Выйти</button>
+              <button id="delete-account-button" class="danger-link" type="button">Удалить данные</button>
+            </div>
+          </div>
+          <p id="auth-unavailable" class="auth-unavailable hidden">Вход пока не настроен</p>
+        </section>
+
         <div class="sidebar-note">
           <span class="status-dot"></span>
           <div><strong>Демо-режим</strong><small>Цены и наличие не проверяются</small></div>
@@ -35,7 +48,10 @@
             <h1 id="chat-title">Новая поездка</h1>
             <p id="chat-status">Расскажите, куда хочется</p>
           </div>
-          <button id="mobile-new-chat" class="icon-button" type="button" aria-label="Новый чат">＋</button>
+          <div class="header-actions">
+            <button id="mobile-login-button" class="mobile-account-button" type="button">Войти</button>
+            <button id="mobile-new-chat" class="icon-button" type="button" aria-label="Новый чат">＋</button>
+          </div>
         </header>
 
         <div class="mobile-switch" role="tablist" aria-label="Разделы">
