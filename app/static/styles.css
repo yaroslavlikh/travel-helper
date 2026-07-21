@@ -431,6 +431,8 @@ body[data-workspace-state="opening"] .feed-loading {
 .quick-metric { min-width: 0; padding: 10px; border: 1px solid #e8eff5; border-radius: 11px; background: #f7fafc; }
 .quick-metric span { display: block; margin-bottom: 4px; color: #8a9aad; font-size: 11px; }
 .quick-metric strong { display: block; overflow: hidden; color: #38536f; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.ranking-note { margin: 10px 0 0; padding: 8px 10px; border: 1px solid #f0d696; border-radius: 9px; color: #7d5a10; background: #fff8e7; font-size: 12px; line-height: 1.4; }
+.ranking-note.fallback { border-color: #f2c9af; color: #904200; background: #fff2ea; }
 .card-section { margin-top: 14px; }
 .card-section h4 { margin: 0 0 8px; color: #8091a4; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
 .place-list { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }

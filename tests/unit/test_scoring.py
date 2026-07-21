@@ -1,3 +1,5 @@
+import pytest
+
 from app.domain.models import TravelRequest
 from app.services.filtering import hard_filter_reasons
 from app.services.fixtures import load_demo_candidates
@@ -48,6 +50,133 @@ def test_strict_budget_uses_safe_total_not_the_lowest_estimate() -> None:
     assert scored.state == "EXCLUDED"
 
 
+@pytest.mark.parametrize(
+    ("minimum", "maximum", "expected"),
+    [
+        (160_000, 180_000, "FAIL"),
+        (100_000, 160_000, "FAIL"),
+        (100_000, 150_000, "PASS"),
+        (None, 150_000, "PASS"),
+        (100_000, None, "UNKNOWN"),
+    ],
+)
+def test_strict_budget_hard_check_is_tristate(
+    minimum: int | None, maximum: int | None, expected: str
+) -> None:
+    candidate = next(
+        item for item in load_demo_candidates() if item.destination_id == "antalya"
+    ).model_copy(
+        update={"estimated_total_cost_rub_min": minimum, "estimated_total_cost_rub_max": maximum}
+    )
+
+    scored = score_candidate(
+        candidate,
+        TravelRequest(
+            raw_query="Строго до 150 тысяч", budget_total_rub=150_000, budget_strict=True
+        ),
+    )
+
+    assert scored.hard_checks["strict_budget"] == expected
+
+
+@pytest.mark.parametrize(
+    ("visa_willingness", "visa_complexity", "expected"),
+    [
+        ("no_visa", "none", "PASS"),
+        ("no_visa", "evisa", "FAIL"),
+        ("no_visa", "unknown", "UNKNOWN"),
+        ("evisa_ok", "none", "PASS"),
+        ("evisa_ok", "evisa", "PASS"),
+        ("evisa_ok", "visa", "FAIL"),
+        ("evisa_ok", "unknown", "UNKNOWN"),
+        ("visa_ok", "visa", "PASS"),
+        ("any", "unknown", "NOT_APPLICABLE"),
+    ],
+)
+def test_visa_hard_check_semantics(
+    visa_willingness: str, visa_complexity: str, expected: str
+) -> None:
+    candidate = next(
+        item for item in load_demo_candidates() if item.destination_id == "antalya"
+    ).model_copy(update={"visa_complexity": visa_complexity})
+
+    scored = score_candidate(
+        candidate,
+        TravelRequest(raw_query="Виза", visa_willingness=visa_willingness),  # type: ignore[arg-type]
+    )
+
+    assert scored.hard_checks["visa"] == expected
+
+
+@pytest.mark.parametrize(
+    ("field", "update", "travel_request", "check"),
+    [
+        (
+            "flight",
+            {"flight_duration_hours": None},
+            TravelRequest(raw_query="Не дольше 5 часов", max_flight_duration_hours=5),
+            "max_flight_duration",
+        ),
+        (
+            "temperature",
+            {"expected_temperature_c": None},
+            TravelRequest(raw_query="Не жарче 28", preferred_max_temperature_c=28),
+            "temperature_limit",
+        ),
+    ],
+)
+def test_missing_hard_evidence_is_conditional(
+    field: str, update: dict[str, object], travel_request: TravelRequest, check: str
+) -> None:
+    candidate = next(
+        item for item in load_demo_candidates() if item.destination_id == "antalya"
+    ).model_copy(update=update)
+
+    scored = score_candidate(candidate, travel_request)
+
+    assert field
+    assert scored.hard_checks[check] == "UNKNOWN"
+    assert scored.state == "CONDITIONAL"
+    assert "Соответствует подтверждённым условиям." not in scored.pros
+
+
+@pytest.mark.parametrize(
+    ("field", "update", "travel_request", "check"),
+    [
+        (
+            "flight",
+            {"flight_duration_hours": 6},
+            TravelRequest(raw_query="Не дольше 5 часов", max_flight_duration_hours=5),
+            "max_flight_duration",
+        ),
+        (
+            "temperature",
+            {"expected_temperature_c": 29},
+            TravelRequest(raw_query="Не жарче 28", preferred_max_temperature_c=28),
+            "temperature_limit",
+        ),
+    ],
+)
+def test_known_hard_evidence_above_limit_fails(
+    field: str, update: dict[str, object], travel_request: TravelRequest, check: str
+) -> None:
+    candidate = next(
+        item for item in load_demo_candidates() if item.destination_id == "antalya"
+    ).model_copy(update=update)
+
+    scored = score_candidate(candidate, travel_request)
+
+    assert field
+    assert scored.hard_checks[check] == "FAIL"
+    assert scored.state == "EXCLUDED"
+
+
+def test_absent_user_constraints_create_no_unknown_hard_checks() -> None:
+    candidate = next(item for item in load_demo_candidates() if item.destination_id == "antalya")
+
+    assert score_candidate(candidate, TravelRequest(raw_query="Хочу отдохнуть")).hard_checks == {}
+
+
 def test_missing_dimension_keeps_its_weight_and_conservative_prior() -> None:
     candidate = next(
         item for item in load_demo_candidates() if item.destination_id == "antalya"
@@ -76,6 +205,7 @@ def test_fallback_is_labeled_and_never_claims_passed_hard_filters() -> None:
     assert all(item.state == "FALLBACK" for item in ranked)
     assert all(not item.passed_hard_filters for item in ranked)
     assert all(item.rank_before_diversity and item.rank_after_diversity for item in ranked)
+    assert all(STRICT_BUDGET_FALLBACK in item.cons for item in ranked)
 
 
 def test_unknown_visa_does_not_pass_a_no_visa_hard_requirement() -> None:
@@ -88,6 +218,35 @@ def test_unknown_visa_does_not_pass_a_no_visa_hard_requirement() -> None:
     assert scored.hard_checks["visa"] == "UNKNOWN"
     assert scored.state == "EXCLUDED"
     assert not scored.passed_hard_filters
+
+
+@pytest.mark.parametrize(
+    ("travel_request", "better_id", "worse_id"),
+    [
+        (TravelRequest(raw_query="Не хочу море", avoid=["море"]), "kualalumpur", "phuket"),
+        (
+            TravelRequest(raw_query="Нужна инфраструктура", preferences=["инфраструктура"]),
+            "kualalumpur",
+            "phuket",
+        ),
+        (
+            TravelRequest(raw_query="Приоритет — инфраструктура", priorities=["инфраструктура"]),
+            "kualalumpur",
+            "phuket",
+        ),
+    ],
+)
+def test_experience_fit_normalizes_preferences_avoids_and_priorities(
+    travel_request: TravelRequest, better_id: str, worse_id: str
+) -> None:
+    candidates = load_demo_candidates()
+    better = next(item for item in candidates if item.destination_id == better_id)
+    worse = next(item for item in candidates if item.destination_id == worse_id)
+
+    assert (
+        score_candidate(better, travel_request).score_breakdown["experience"]
+        > score_candidate(worse, travel_request).score_breakdown["experience"]
+    )
 
 
 def test_affiliate_navigation_links_do_not_change_relevance_score() -> None:
@@ -115,6 +274,22 @@ def test_region_and_country_exclusions_are_hard_filters() -> None:
         "explicitly_avoided",
     ]
     assert hard_filter_reasons(langkawi, request) == []
+
+
+@pytest.mark.parametrize(
+    ("region", "allowed_countries"),
+    [
+        ("Азия", {"Таиланд", "Малайзия", "Вьетнам", "Индонезия"}),
+        ("Европа", {"Испания", "Греция", "Италия", "Черногория"}),
+        ("Ближний Восток", {"ОАЭ", "Египет", "Турция"}),
+        ("Россия", {"Россия"}),
+    ],
+)
+def test_controlled_regions_are_hard_filters(region: str, allowed_countries: set[str]) -> None:
+    ranked = rank_demo_candidates(TravelRequest(raw_query=f"Хочу {region}", preferences=[region]))
+
+    assert ranked
+    assert all(item.candidate.country in allowed_countries for item in ranked)
 
 
 def test_scoring_is_deterministic_and_retains_sources() -> None:
@@ -166,6 +341,40 @@ def test_strict_budget_only_fallback_keeps_matching_destinations_visible() -> No
         item.candidate.country in {"Таиланд", "Малайзия", "Вьетнам", "Индонезия"} for item in ranked
     )
     assert all(STRICT_BUDGET_FALLBACK in item.assumptions for item in ranked)
+
+
+def test_fallback_never_relaxes_unknown_visa_or_other_hard_constraints() -> None:
+    ranked = rank_demo_candidates(
+        TravelRequest(
+            raw_query="Азия, только без визы, строго до 150к",
+            budget_total_rub=150_000,
+            budget_strict=True,
+            preferences=["Азия"],
+            visa_willingness="no_visa",
+        )
+    )
+
+    assert all(item.candidate.visa_complexity == "none" for item in ranked)
+
+
+def test_ordering_and_diversity_are_deterministic_and_bounded() -> None:
+    request = TravelRequest(raw_query="Море", destination_scope="international", sea_required=True)
+
+    first = rank_demo_candidates(request)
+    second = rank_demo_candidates(request)
+
+    assert [item.candidate.destination_id for item in first] == [
+        item.candidate.destination_id for item in second
+    ]
+    assert [item.rank_after_diversity for item in first] == [
+        item.rank_after_diversity for item in second
+    ]
+    assert first[0].rank_before_diversity == 1
+    assert all(item.final_score >= first[0].final_score - 12 for item in first)
+    assert all(
+        sum(other.candidate.country == item.candidate.country for other in first) <= 2
+        for item in first
+    )
 
 
 def test_no_sea_and_infrastructure_rank_a_city_above_beach_resorts() -> None:

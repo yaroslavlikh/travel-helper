@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, cast
 
 from app.domain.models import DestinationCandidate, ScoredDestination, TravelRequest
 from app.services.destination_semantics import normalized_avoided_tags, normalized_preference_tags
-from app.services.filtering import hard_filter_reasons
+from app.services.filtering import evaluate_hard_checks, hard_filter_reasons
 
 SCORING_PATH = Path(__file__).resolve().parents[1] / "data" / "scoring.json"
 STRICT_BUDGET_FALLBACK = "Показаны ближайшие варианты выше строгого бюджета."
-PRIORS = {
+DIMENSIONS = {
     "budget": 30.0,
     "experience": 50.0,
     "logistics": 40.0,
@@ -24,14 +25,23 @@ STATE_ORDER = {"ELIGIBLE": 0, "CONDITIONAL": 1, "FALLBACK": 2, "EXCLUDED": 3}
 CandidateState = Literal["ELIGIBLE", "CONDITIONAL", "EXCLUDED", "FALLBACK"]
 
 
+@lru_cache
+def load_scoring_config() -> dict[str, Any]:
+    """Load the versioned, deterministic ranking parameters."""
+
+    return cast(dict[str, Any], json.loads(SCORING_PATH.read_text(encoding="utf-8")))
+
+
 def load_scoring_weights() -> dict[str, float]:
-    payload = json.loads(SCORING_PATH.read_text(encoding="utf-8"))
-    return {name: float(weight) for name, weight in payload["weights"].items()}
+    return {name: float(weight) for name, weight in load_scoring_config()["weights"].items()}
 
 
 def validate_scoring_weights(weights: dict[str, float]) -> None:
-    if set(weights) != set(PRIORS) or round(sum(weights.values()), 6) != 100:
+    config = load_scoring_config()
+    if set(weights) != set(DIMENSIONS) or round(sum(weights.values()), 6) != 100:
         raise ValueError("ranking-v1 weights must cover six dimensions and sum to 100")
+    if set(config["priors"]) != set(DIMENSIONS):
+        raise ValueError("ranking-v1 priors must cover six dimensions")
 
 
 def _clamp(value: float, minimum: float = 0, maximum: float = 100) -> float:
@@ -60,9 +70,9 @@ def _experience_fit(candidate: DestinationCandidate, request: TravelRequest) -> 
     if not preferences and not avoided:
         return 50.0
     tags = {tag.casefold() for tag in candidate.destination_tags}
-    positive = sum(tag in tags for tag in preferences) / max(len(preferences), 1)
-    negative = sum(tag in tags for tag in avoided) / max(len(avoided), 1)
-    return 100 * _clamp(positive - 0.8 * negative, 0, 1)
+    matched = sum(tag in tags for tag in preferences)
+    avoided_non_matches = sum(tag not in tags for tag in avoided)
+    return 100 * (matched + avoided_non_matches) / (len(preferences) + len(avoided))
 
 
 def _logistics_fit(candidate: DestinationCandidate) -> float | None:
@@ -117,33 +127,13 @@ def _confidence(candidate: DestinationCandidate, observed: float | None) -> floa
     return candidate.data_confidence if candidate.data_confidence is not None else 0.6
 
 
-def _hard_checks(
-    candidate: DestinationCandidate, request: TravelRequest, reasons: list[str]
-) -> dict[str, str]:
-    checks = {reason: "FAIL" for reason in reasons}
-    if request.budget_strict and request.budget_total_rub is not None:
-        if candidate.estimated_total_cost_rub_max is None:
-            checks["strict_budget"] = "UNKNOWN"
-        elif candidate.estimated_total_cost_rub_max <= request.budget_total_rub:
-            checks["strict_budget"] = "PASS"
-        else:
-            checks["strict_budget"] = "FAIL"
-    if request.visa_willingness == "no_visa":
-        checks["visa"] = (
-            "PASS"
-            if candidate.visa_complexity == "none"
-            else "UNKNOWN"
-            if candidate.visa_complexity == "unknown"
-            else "FAIL"
-        )
-    return checks
-
-
 def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> ScoredDestination:
     """Score one candidate with fixed weights, per-axis shrinkage and explicit state."""
 
     weights = load_scoring_weights()
     validate_scoring_weights(weights)
+    config = load_scoring_config()
+    priors = {name: float(value) for name, value in config["priors"].items()}
     observed = {
         "budget": _budget_fit(candidate, request),
         "experience": _experience_fit(candidate, request),
@@ -154,60 +144,73 @@ def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> 
     }
     confidences = {name: _confidence(candidate, value) for name, value in observed.items()}
     effective = {
-        name: confidences[name] * (value if value is not None else PRIORS[name])
-        + (1 - confidences[name]) * PRIORS[name]
+        name: confidences[name] * (value if value is not None else priors[name])
+        + (1 - confidences[name]) * priors[name]
         for name, value in observed.items()
     }
     contributions = {name: round(effective[name] * weights[name] / 100, 2) for name in weights}
+    uncertainty_settings = config["uncertainty"]
     uncertainty = min(
-        15.0, 10 * sum(weights[name] / 100 * (1 - confidences[name]) for name in weights)
+        float(uncertainty_settings["cap"]),
+        float(uncertainty_settings["multiplier"])
+        * sum(weights[name] / 100 * (1 - confidences[name]) for name in weights),
     )
+    checks = evaluate_hard_checks(candidate, request)
     reasons = hard_filter_reasons(candidate, request)
-    checks = _hard_checks(candidate, request, reasons)
     unknown = [name for name, result in checks.items() if result == "UNKNOWN"]
-    legal_hard_unknown = request.visa_willingness == "no_visa" and "visa" in unknown
+    blocking_unknown = {"strict_budget", "visa"} & set(unknown)
     state: CandidateState = (
-        "EXCLUDED"
-        if reasons or "FAIL" in checks.values() or legal_hard_unknown
-        else "CONDITIONAL"
-        if unknown
-        else "ELIGIBLE"
+        "EXCLUDED" if reasons or blocking_unknown else "CONDITIONAL" if unknown else "ELIGIBLE"
     )
     pre_cap = sum(contributions.values()) - uncertainty
     caps: list[str] = []
+    cap_settings = config["caps"]
     if request.budget_total_rub is not None and (observed["budget"] or 0) < 25:
-        pre_cap, caps = min(pre_cap, 55), ["budget_below_25"]
+        pre_cap, caps = min(pre_cap, float(cap_settings["budget_below_25"])), ["budget_below_25"]
     if (observed["entry"] or 0) < 25:
-        pre_cap, caps = min(pre_cap, 60), [*caps, "entry_below_25"]
+        pre_cap, caps = (
+            min(pre_cap, float(cap_settings["entry_below_25"])),
+            [*caps, "entry_below_25"],
+        )
     if request.max_flight_duration_hours is not None and (observed["logistics"] or 0) < 20:
-        pre_cap, caps = min(pre_cap, 55), [*caps, "logistics_below_20"]
+        pre_cap, caps = (
+            min(pre_cap, float(cap_settings["logistics_below_20"])),
+            [*caps, "logistics_below_20"],
+        )
     total = round(_clamp(pre_cap))
+    candidate_tags = {tag.casefold() for tag in candidate.destination_tags}
     matched = [
-        pref for pref in request.preferences if pref.casefold() in candidate.destination_tags
+        label
+        for label in [*request.preferences, *request.trip_style, *request.priorities]
+        if label.casefold() in candidate_tags
     ]
     return ScoredDestination(
         candidate=candidate,
-        passed_hard_filters=state in {"ELIGIBLE", "CONDITIONAL"},
+        passed_hard_filters=state == "ELIGIBLE",
         rejected_reasons=reasons,
         total_score=total,
         final_score=total,
-        preliminary_score=total,
         state=state,
         ranking_version="ranking-v1",
         score_breakdown=contributions,
-        hard_checks=checks,  # type: ignore[arg-type]
+        hard_checks=checks,
         uncertainty_penalty=round(uncertainty, 2),
         caps_applied=caps,
-        pros=["Соответствует подтверждённым условиям.", *matched][:3],
+        pros=(
+            ["Соответствует подтверждённым условиям.", *matched][:3]
+            if state == "ELIGIBLE"
+            else matched[:3]
+        ),
         cons=[
-            *reasons,
-            *(["Не удалось подтвердить безвизовый въезд."] if legal_hard_unknown else []),
+            *[_failure_message(reason) for reason in reasons],
+            *[_unknown_message(name) for name in unknown],
         ][:3],
         risks=["Оценки demo fixture не являются актуальными фактами."],
-        assumptions=["Цена — modelled estimate; для строгого бюджета используется safe total."],
-        explanation=(
-            "Детерминированный ranking-v1: fit, uncertainty и hard checks рассчитаны без LLM."
-        ),
+        assumptions=[
+            "Цена — modelled estimate; для строгого бюджета используется safe total.",
+            *[_unknown_message(name) for name in unknown],
+        ],
+        explanation=_explanation(state, unknown),
     )
 
 
@@ -218,6 +221,38 @@ def _sort_key(item: ScoredDestination) -> tuple[int, int, float, str]:
         -(item.candidate.data_confidence or 0),
         item.candidate.destination_id,
     )
+
+
+def _unknown_message(name: str) -> str:
+    return {
+        "strict_budget": "Не удалось подтвердить безопасную верхнюю границу стоимости.",
+        "visa": "Не удалось подтвердить применимый визовый режим.",
+        "max_flight_duration": "Не удалось подтвердить длительность перелёта.",
+        "temperature_limit": "Не удалось подтвердить температуру для заданного лимита.",
+    }.get(name, "Не удалось подтвердить одно из заданных условий.")
+
+
+def _failure_message(reason: str) -> str:
+    return {
+        "destination_scope_mismatch": "Не соответствует выбранной географии поездки.",
+        "sea_required": "Не подтверждено обязательное море.",
+        "preferred_region_mismatch": "Не относится к выбранному региону.",
+        "explicitly_avoided": "Направление явно исключено из запроса.",
+        "strict_budget_exceeded": "Безопасная верхняя оценка цены выше строгого бюджета.",
+        "max_flight_duration_exceeded": "Перелёт дольше заданного лимита.",
+        "temperature_limit_exceeded": "Температура выше заданного лимита.",
+        "visa_requirement_incompatible": "Визовый режим не соответствует условию.",
+    }[reason]
+
+
+def _explanation(state: CandidateState, unknown: list[str]) -> str:
+    if state == "ELIGIBLE":
+        return "Все заданные hard-условия подтверждены; рейтинг рассчитан детерминированно без LLM."
+    if state == "CONDITIONAL":
+        return f"Нужно проверить: {'; '.join(_unknown_message(name) for name in unknown)}"
+    if state == "FALLBACK":
+        return "Вариант показан только как ближайший выше строгого бюджета."
+    return "Вариант не проходит одно или несколько заданных условий."
 
 
 def _similarity(left: ScoredDestination, right: ScoredDestination) -> float:
@@ -243,19 +278,38 @@ def _similarity(left: ScoredDestination, right: ScoredDestination) -> float:
 def _diversify(items: list[ScoredDestination], limit: int) -> list[ScoredDestination]:
     if not items:
         return []
-    selected = [items[0]]
-    for item in items[1:]:
-        if len(selected) >= limit:
-            break
-        comparable = item.final_score >= selected[0].final_score - 12
-        same_country = sum(x.candidate.country == item.candidate.country for x in selected) >= 2
-        if comparable and not same_country:
-            selected.append(item)
-    for item in items:
-        if len(selected) >= limit:
-            break
-        if item not in selected:
-            selected.append(item)
+    settings = load_scoring_config()["diversity"]
+    comparable = [
+        item
+        for item in items
+        if item.final_score >= items[0].final_score - float(settings["score_gap"])
+    ]
+    selected = [comparable.pop(0)]
+    while comparable and len(selected) < limit:
+        choices = [
+            item
+            for item in comparable
+            if sum(other.candidate.country == item.candidate.country for other in selected)
+            < int(settings["country_cap"])
+            or not any(
+                sum(other.candidate.country == other_item.candidate.country for other in selected)
+                < int(settings["country_cap"])
+                for other_item in comparable
+            )
+        ]
+        best = min(
+            choices,
+            key=lambda item: (
+                -(
+                    item.final_score
+                    - float(settings["similarity_penalty"])
+                    * max(_similarity(item, chosen) for chosen in selected)
+                ),
+                _sort_key(item),
+            ),
+        )
+        selected.append(best)
+        comparable.remove(best)
     return [
         item.model_copy(update={"rank_after_diversity": index + 1})
         for index, item in enumerate(selected)
@@ -276,13 +330,19 @@ def rank_demo_candidates(request: TravelRequest, limit: int = 5) -> list[ScoredD
                 update={
                     "state": "FALLBACK",
                     "passed_hard_filters": False,
-                    "cons": ["Превышает строгий бюджет."],
+                    "cons": [*item.cons, STRICT_BUDGET_FALLBACK],
                     "risks": [*item.risks, STRICT_BUDGET_FALLBACK],
                     "assumptions": [*item.assumptions, STRICT_BUDGET_FALLBACK],
+                    "explanation": _explanation("FALLBACK", []),
                 }
             )
             for item in scored
-            if item.rejected_reasons == ["strict_budget_exceeded"]
+            if item.hard_checks.get("strict_budget") == "FAIL"
+            and all(
+                result in {"PASS", "NOT_APPLICABLE"}
+                for name, result in item.hard_checks.items()
+                if name != "strict_budget"
+            )
         ]
     ordered = [
         item.model_copy(update={"rank_before_diversity": index + 1})

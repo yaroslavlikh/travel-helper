@@ -456,6 +456,9 @@ function destinationCard(item, index, chat) {
     FALLBACK: "Ближайший вариант",
   };
   const stateLabel = stateLabels[item.state] || "Вариант";
+  const stateReason = ["CONDITIONAL", "FALLBACK"].includes(item.state)
+    ? (item.cons || [])[0] || (item.assumptions || [])[0] || "Требуется дополнительная проверка."
+    : "";
   return `<article class="destination-card" style="--card-index: ${index}">
     <div class="card-image">
       ${image ? `<img src="${imageUrl}" alt="${escapeHtml(image.alt)}" loading="lazy" />` : ""}
@@ -469,6 +472,7 @@ function destinationCard(item, index, chat) {
         <div class="quick-metric"><span>Перелёт</span><strong>${escapeHtml(flight)}</strong></div>
         <div class="quick-metric"><span>Погода</span><strong>${escapeHtml(weather)}</strong></div>
       </div>
+      ${stateReason ? `<p class="ranking-note ${escapeHtml(item.state.toLowerCase())}">${escapeHtml(stateReason)}</p>` : ""}
       ${highlights ? `<div class="card-section"><h4>Конкретные места</h4><div class="place-list">${highlights}</div></div>` : ""}
       ${stayAreas ? `<div class="card-section"><h4>Районы для проживания</h4><div class="stay-areas">${stayAreas}</div></div>` : ""}
       ${destinationDiscussionAction(candidate, chat)}

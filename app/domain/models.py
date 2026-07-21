@@ -199,10 +199,8 @@ class ScoredDestination(DomainModel):
     explanation: str
     state: Literal["ELIGIBLE", "CONDITIONAL", "EXCLUDED", "FALLBACK"] = "ELIGIBLE"
     final_score: int = Field(default=0, ge=0, le=100)
-    preliminary_score: int | None = Field(default=None, ge=0, le=100)
     ranking_version: str = "ranking-v1"
     uncertainty_penalty: float = Field(default=0, ge=0, le=15)
-    risk_penalty: float = Field(default=0, ge=0, le=25)
     caps_applied: list[str] = Field(default_factory=list)
     hard_checks: dict[str, Literal["PASS", "FAIL", "UNKNOWN", "NOT_APPLICABLE"]] = Field(
         default_factory=dict

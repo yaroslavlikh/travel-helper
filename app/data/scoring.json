@@ -6,5 +6,27 @@
     "weather": 14,
     "entry": 8,
     "practical": 10
+  },
+  "priors": {
+    "budget": 30,
+    "experience": 50,
+    "logistics": 40,
+    "weather": 45,
+    "entry": 30,
+    "practical": 50
+  },
+  "uncertainty": {
+    "multiplier": 10,
+    "cap": 15
+  },
+  "caps": {
+    "budget_below_25": 55,
+    "entry_below_25": 60,
+    "logistics_below_20": 55
+  },
+  "diversity": {
+    "score_gap": 12,
+    "similarity_penalty": 8,
+    "country_cap": 2
   }
 }

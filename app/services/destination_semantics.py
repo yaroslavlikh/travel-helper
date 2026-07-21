@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from app.domain.models import DestinationCandidate, TravelRequest
 
-ASIA_COUNTRIES = {
-    "Вьетнам",
-    "Индонезия",
-    "Малайзия",
-    "Таиланд",
+REGION_COUNTRIES = {
+    "asia": {"Вьетнам", "Индонезия", "Малайзия", "Таиланд"},
+    "europe": {"Испания", "Греция", "Италия", "Черногория"},
+    "middle_east": {"ОАЭ", "Египет", "Турция"},
+    "russia": {"Россия"},
 }
 
 REGION_ALIASES = {
     "asia": ("ази", "asia"),
+    "europe": ("европ", "europe"),
+    "middle_east": ("ближн", "middle east"),
+    "russia": ("росси", "внутренн", "domestic"),
 }
 
 PREFERENCE_TAG_ALIASES = {
@@ -47,9 +50,8 @@ def matches_requested_regions(candidate: DestinationCandidate, request: TravelRe
     regions = requested_regions(request)
     if not regions:
         return True
-    if "asia" in regions and candidate.country not in ASIA_COUNTRIES:
-        return False
-    return True
+    allowed_countries = set().union(*(REGION_COUNTRIES[region] for region in regions))
+    return candidate.country in allowed_countries
 
 
 def matches_explicit_avoid(candidate: DestinationCandidate, request: TravelRequest) -> bool:
@@ -65,7 +67,7 @@ def matches_explicit_avoid(candidate: DestinationCandidate, request: TravelReque
 def normalized_preference_tags(request: TravelRequest) -> set[str]:
     """Map natural-language preferences to the controlled destination tag vocabulary."""
 
-    values = [*request.preferences, *request.trip_style]
+    values = [*request.preferences, *request.trip_style, *request.priorities]
     normalized: set[str] = set()
     for value in values:
         text = value.casefold()
