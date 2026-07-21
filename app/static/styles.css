@@ -422,6 +422,9 @@ body[data-workspace-state="opening"] .feed-loading {
 .image-caption h3 { margin: 0; font-size: 26px; letter-spacing: -0.045em; text-shadow: 0 2px 10px rgb(0 0 0 / 28%); }
 .image-caption p { margin: 3px 0 0; color: rgb(255 255 255 / 82%); font-size: 12px; }
 .score-pill { padding: 7px 9px; border-radius: 9px; color: #0759a7; background: white; font-size: 13px; font-weight: 850; white-space: nowrap; }
+.ranking-state { position: absolute; top: 58px; left: 18px; padding: 6px 9px; border-radius: 999px; color: #0759a7; background: #eef7ff; font-size: 12px; font-weight: 800; }
+.ranking-state.conditional { color: #855b00; background: #fff4d6; }
+.ranking-state.fallback { color: #9b3c00; background: #fff0e7; }
 .image-credit { position: absolute; right: 6px; bottom: 4px; color: rgb(255 255 255 / 72%); font-size: 10px; text-decoration: none; }
 .card-body { padding: 17px; }
 .quick-metrics { display: grid; grid-template-columns: 1.25fr 0.85fr 0.9fr; gap: 6px; }

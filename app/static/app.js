@@ -450,10 +450,16 @@ function destinationCard(item, index, chat) {
   const flight = candidate.flight_duration_hours ? `${candidate.flight_duration_hours} ч · ${candidate.transfers_count || 0} перес.` : "Уточнить";
   const weather = candidate.expected_temperature_c != null ? `${candidate.expected_temperature_c}° · море ${candidate.expected_sea_temperature_c ?? "—"}°` : "Уточнить";
   const actions = providerActions(candidate, chat.snapshot, index);
+  const stateLabels = {
+    ELIGIBLE: "Подтверждённый вариант",
+    CONDITIONAL: "Нужно проверить условия",
+    FALLBACK: "Ближайший вариант",
+  };
+  const stateLabel = stateLabels[item.state] || "Вариант";
   return `<article class="destination-card" style="--card-index: ${index}">
     <div class="card-image">
       ${image ? `<img src="${imageUrl}" alt="${escapeHtml(image.alt)}" loading="lazy" />` : ""}
-      <div class="image-shade"></div><span class="rank-badge">#${index + 1} вариант</span><span class="demo-tag">DEMO</span>
+      <div class="image-shade"></div><span class="rank-badge">#${index + 1} вариант</span><span class="demo-tag">DEMO</span><span class="ranking-state ${escapeHtml(item.state || "ELIGIBLE").toLowerCase()}">${escapeHtml(stateLabel)}</span>
       <div class="image-caption"><div><h3>${escapeHtml(candidate.city_or_region)}</h3><p>${escapeHtml(candidate.country)} · ${escapeHtml(candidate.nearest_airport || "аэропорт уточняется")}</p></div><span class="score-pill">${Math.round(item.total_score)} / 100</span></div>
       ${image ? `<a class="image-credit" href="${safeUrl(image.source_url)}" target="_blank" rel="noreferrer">Фото: ${escapeHtml(image.credit)}</a>` : ""}
     </div>

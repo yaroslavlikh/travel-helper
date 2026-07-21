@@ -62,6 +62,22 @@ def test_missing_dimension_keeps_its_weight_and_conservative_prior() -> None:
     assert scored.uncertainty_penalty > 0
 
 
+def test_fallback_is_labeled_and_never_claims_passed_hard_filters() -> None:
+    request = TravelRequest(
+        raw_query="Азия строго до 150 тысяч",
+        budget_total_rub=150_000,
+        budget_strict=True,
+        preferences=["Азия"],
+    )
+
+    ranked = rank_demo_candidates(request)
+
+    assert ranked
+    assert all(item.state == "FALLBACK" for item in ranked)
+    assert all(not item.passed_hard_filters for item in ranked)
+    assert all(item.rank_before_diversity and item.rank_after_diversity for item in ranked)
+
+
 def test_region_and_country_exclusions_are_hard_filters() -> None:
     candidates = load_demo_candidates()
     request = TravelRequest(
