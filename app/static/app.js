@@ -1,5 +1,6 @@
 const STORAGE_KEY = "travel-chat-state-v1";
 const ACCOUNT_CACHE_PREFIX = "travel-account-chat-state-v1:";
+const SIDEBAR_COLLAPSED_KEY = "travel-sidebar-collapsed-v1";
 const MONTHS = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
@@ -30,10 +31,12 @@ const FIELD_LABELS = {
   sea_required: "море",
   trip_style: "формат отдыха",
   heat_tolerance: "отношение к жаре",
+  rain_avoidance: "отношение к дождям",
   preferred_max_temperature_c: "максимальная температура",
   baggage_required: "багаж",
   preferences: "предпочтения",
   avoid: "что исключить",
+  avoided_features: "нежелательные особенности",
   priorities: "приоритеты",
 };
 const $ = (selector) => document.querySelector(selector);
@@ -133,6 +136,19 @@ function loadGuestStore() {
 }
 
 let store = loadGuestStore();
+
+function setSidebarCollapsed(collapsed) {
+  document.body.dataset.sidebarCollapsed = String(collapsed);
+  const toggle = $("#sidebar-toggle");
+  toggle.setAttribute("aria-expanded", String(!collapsed));
+  toggle.setAttribute("aria-label", collapsed ? "Развернуть историю чатов" : "Свернуть историю чатов");
+  toggle.title = toggle.getAttribute("aria-label");
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+  } catch {
+    // The workspace remains usable when private browsing rejects local storage.
+  }
+}
 
 function persist() {
   const key = accountState.authenticated
@@ -251,7 +267,7 @@ function renderChatList() {
   const chats = [...store.chats].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   $("#chat-list").innerHTML = chats.map((chat) => `
     <div class="chat-row">
-      <button class="chat-item ${chat.id === store.activeChatId ? "active" : ""}" type="button" data-chat-id="${escapeHtml(chat.id)}">
+      <button class="chat-item ${chat.id === store.activeChatId ? "active" : ""}" type="button" data-chat-id="${escapeHtml(chat.id)}"${chat.id === store.activeChatId ? ' aria-current="page"' : ""}>
         <strong>${escapeHtml(chat.title)}</strong>
         <small>${relativeDate(chat.updatedAt)} · ${Math.max(0, chat.messages.length - 1)} сообщ.</small>
       </button>
@@ -406,6 +422,7 @@ function renderCriteria(snapshot) {
     criterionMarkup("Куда", scope, changed.has("destination_scope")),
     criterionMarkup("Перелёт", request.max_flight_duration_hours ? `до ${request.max_flight_duration_hours} ч` : null, changed.has("max_flight_duration_hours")),
     criterionMarkup("Море", request.sea_required ? "обязательно" : null, changed.has("sea_required")),
+    criterionMarkup("Дожди", request.rain_avoidance ? "нежелательны" : null, changed.has("rain_avoidance")),
   ].join("");
 }
 
@@ -450,10 +467,19 @@ function destinationCard(item, index, chat) {
   const flight = candidate.flight_duration_hours ? `${candidate.flight_duration_hours} ч · ${candidate.transfers_count || 0} перес.` : "Уточнить";
   const weather = candidate.expected_temperature_c != null ? `${candidate.expected_temperature_c}° · море ${candidate.expected_sea_temperature_c ?? "—"}°` : "Уточнить";
   const actions = providerActions(candidate, chat.snapshot, index);
+  const stateLabels = {
+    ELIGIBLE: "Подтверждённый вариант",
+    CONDITIONAL: "Нужно проверить условия",
+    FALLBACK: "Ближайший вариант",
+  };
+  const stateLabel = stateLabels[item.state] || "Вариант";
+  const stateReason = ["CONDITIONAL", "FALLBACK"].includes(item.state)
+    ? (item.cons || [])[0] || (item.assumptions || [])[0] || "Требуется дополнительная проверка."
+    : "";
   return `<article class="destination-card" style="--card-index: ${index}">
     <div class="card-image">
       ${image ? `<img src="${imageUrl}" alt="${escapeHtml(image.alt)}" loading="lazy" />` : ""}
-      <div class="image-shade"></div><span class="rank-badge">#${index + 1} вариант</span><span class="demo-tag">DEMO</span>
+      <div class="image-shade"></div><span class="rank-badge">#${index + 1} вариант</span><span class="demo-tag">DEMO</span><span class="ranking-state ${escapeHtml(item.state || "ELIGIBLE").toLowerCase()}">${escapeHtml(stateLabel)}</span>
       <div class="image-caption"><div><h3>${escapeHtml(candidate.city_or_region)}</h3><p>${escapeHtml(candidate.country)} · ${escapeHtml(candidate.nearest_airport || "аэропорт уточняется")}</p></div><span class="score-pill">${Math.round(item.total_score)} / 100</span></div>
       ${image ? `<a class="image-credit" href="${safeUrl(image.source_url)}" target="_blank" rel="noreferrer">Фото: ${escapeHtml(image.credit)}</a>` : ""}
     </div>
@@ -463,6 +489,7 @@ function destinationCard(item, index, chat) {
         <div class="quick-metric"><span>Перелёт</span><strong>${escapeHtml(flight)}</strong></div>
         <div class="quick-metric"><span>Погода</span><strong>${escapeHtml(weather)}</strong></div>
       </div>
+      ${stateReason ? `<p class="ranking-note ${escapeHtml(item.state.toLowerCase())}">${escapeHtml(stateReason)}</p>` : ""}
       ${highlights ? `<div class="card-section"><h4>Конкретные места</h4><div class="place-list">${highlights}</div></div>` : ""}
       ${stayAreas ? `<div class="card-section"><h4>Районы для проживания</h4><div class="stay-areas">${stayAreas}</div></div>` : ""}
       ${destinationDiscussionAction(candidate, chat)}
@@ -957,7 +984,12 @@ function resizeComposer() {
 
 function setMobileView(view) {
   document.body.dataset.mobileView = view;
-  document.querySelectorAll(".mobile-tab").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  document.querySelectorAll(".mobile-tab").forEach((button) => {
+    const active = button.dataset.view === view;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
 }
 
 destinationComposer.addEventListener("submit", (event) => {
@@ -988,6 +1020,9 @@ document.querySelectorAll("[data-starter]").forEach((button) => {
 });
 $("#new-chat").addEventListener("click", openNewChat);
 $("#mobile-new-chat").addEventListener("click", openNewChat);
+$("#sidebar-toggle").addEventListener("click", () => {
+  setSidebarCollapsed(document.body.dataset.sidebarCollapsed !== "true");
+});
 $("#login-button").addEventListener("click", beginLogin);
 $("#mobile-login-button").addEventListener("click", () => {
   window.location.assign("/login?return_to=/");
@@ -1001,6 +1036,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") flushPendingSyncs();
 });
 
+setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true");
 persist();
 setMobileView("chat");
 renderAll();

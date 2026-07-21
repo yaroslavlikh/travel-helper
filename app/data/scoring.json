@@ -1,10 +1,38 @@
 {
   "weights": {
-    "budget_fit": 30,
-    "weather_fit": 20,
-    "entry_simplicity": 15,
-    "transport_convenience": 15,
-    "preference_fit": 15,
-    "evidence_quality": 5
+    "budget": 28,
+    "experience": 22,
+    "logistics": 18,
+    "weather": 14,
+    "entry": 8,
+    "practical": 10
+  },
+  "priors": {
+    "budget": 30,
+    "experience": 50,
+    "logistics": 40,
+    "weather": 45,
+    "entry": 30,
+    "practical": 50
+  },
+  "uncertainty": {
+    "multiplier": 10,
+    "cap": 15
+  },
+  "caps": {
+    "budget_below_25": 55,
+    "entry_below_25": 60,
+    "logistics_below_20": 55
+  },
+  "weather_fit": {
+    "default_rain_weight": 0.25,
+    "rain_avoidance_weight": 0.65,
+    "default_rain_scores": {"low": 100, "medium": 65, "high": 30},
+    "avoidance_rain_scores": {"low": 100, "medium": 35, "high": 0}
+  },
+  "diversity": {
+    "score_gap": 12,
+    "similarity_penalty": 8,
+    "country_cap": 2
   }
 }

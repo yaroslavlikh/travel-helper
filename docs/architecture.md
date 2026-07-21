@@ -18,7 +18,7 @@ flowchart LR
     GRAPH --> PROVIDERS["Search and travel provider ports"]
     GRAPH --> CP["LangGraph checkpointer"]
     API --> EVENTS["Anonymous events and feedback"]
-    API --> PLACES["Places repository"]
+    API --> PLACES["Places repository + destination context"]
     GRAPH -. spans .-> OBS["Observability port"]
     AI --> LLM["Gemini 3.1 Flash-Lite"]
     PROVIDERS --> WEB["External APIs and web sources"]
@@ -145,7 +145,8 @@ Scoring получает только normalized candidate + TravelRequest + wei
   provenance и retrieval ID. Эти записи не подтверждают текущие часы работы, цены или доступность.
   Endpoint возвращает optional предложение отправить refinement в основной chat.
 - `POST /events/travel-link`: best-effort anonymous событие перехода к flight/hotel provider.
-- `POST /places/search`: гибридный поиск только по опубликованному каноническому каталогу мест;
+- `POST /places/search`: lexical/category/geospatial baseline только по опубликованному каноническому
+  каталогу мест; hash-v1 не считается semantic retrieval;
   активное лицензированное описание возвращается только с provenance, freshness и source URL.
   При отсутствии базы endpoint честно возвращает `503` и не подменяет ответ demo fixture.
 - `POST /events/place`: privacy-bounded impression/open/save/hide/select для последующей оценки

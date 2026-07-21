@@ -1,12 +1,13 @@
-# Istanbul places pipeline
+# Places catalog pipeline
 
-Статус: первый повторяемый vertical slice. Город — Стамбул, целевой объём одного прогона — 100–300
-опубликованных туристических POI.
+Статус: один повторяемый pipeline для 26 направлений из продуктового каталога. Стамбул остаётся
+первым полностью проверенным vertical slice; целевой объём одного прогона — 100–300 опубликованных
+туристических POI на направление.
 
 ## Границы
 
-- Source первого среза — OpenStreetMap через Overpass, только named tourist POI в фиксированном
-  Istanbul bbox. Лицензия ODbL и атрибуция хранятся вместе с source record.
+- Source — OpenStreetMap через Overpass, только named tourist POI в versioned bounded bbox каждого
+  направления. Лицензия ODbL и атрибуция хранятся вместе с source record.
 - Overture, Wikidata, Wikivoyage и Wikimedia Commons предусмотрены моделью provenance (`sources`,
   `place_source_records`, snapshots, images), но их adapters не включены в этот bounded slice.
 - Платные API, scraping Google/Tripadvisor/Yandex/2GIS, отдельная vector DB, Kafka и глобальный
@@ -17,27 +18,41 @@
 
 ## Стадии
 
-1. Download: `scripts/import_istanbul_places.py --fetch` получает snapshot и записывает raw JSON
+1. Download: `scripts/import_istanbul_places.py --fetch --destination phuket` получает snapshot и записывает raw JSON
    с SHA-256 checksum.
 2. Staging/normalization: отсеиваются POI без имени, координат или mapping в малую taxonomy.
-3. Mapping/entity resolution: сначала совпадение `source + external_id`, затем exact normalized name
+3. Quality selection: после нормализации **всего** snapshot кандидаты ранжируются по прозрачным
+   OSM quality signals и только затем ограничиваются 100–300 местами.
+4. Mapping/entity resolution: сначала совпадение `source + external_id`, затем exact normalized name
    в пределах 120 м. Неуверенные fuzzy merges намеренно не выполняются автоматически.
-4. Enrichment/features: категории дают прозрачные rule-based tags, признаки качества и Commons image
+5. Enrichment/features: категории дают прозрачные rule-based tags, признаки качества и Commons image
    только при явном `wikimedia_commons` теге.
-5. Embeddings/publish: локальный deterministic `hash-v1` vector длиной 64, затем status `active`.
-6. Quality: `make places-eval-istanbul` исполняет 30 фиксированных queries и считает top-5 category
-   recall. Это регрессионный индикатор, не заявка на relevance benchmark.
+6. Publish/lifecycle: `hash-v1` vector длиной 64 сохраняется только для schema compatibility;
+   отсутствующие в новом полном snapshot source records становятся stale, а place без актуального
+   source становится `inactive`.
+7. Quality: `make places-eval-istanbul` исполняет независимые 40 queries, считает category/name
+   recall и печатает top-K errors. Это baseline, не заявка на semantic relevance benchmark.
 
 ## Поиск и ранжирование
 
 `POST /places/search` поддерживает destination, categories include/exclude, free/budget, indoor,
-geospatial radius, duration и accessibility flags. Retrieval смешивает cosine similarity pgvector,
-name lexical signal и `place_features`; затем применяет category diversity (не более двух мест одной
+geospatial radius, duration и accessibility flags. Retrieval использует lexical aliases, explicit
+category/area hints и `place_features`; `hash-v1` не выдаётся за semantic similarity. Затем
+применяется category diversity (не более двух мест одной
 категории, пока не достигнут limit). Response возвращает `retrieval_id`, component scores,
 ranking version, freshness, image attribution и provenance основного source record. В subchat
-Стамбула этот же bounded retrieval вызывает только POI-вопросы и отдаёт не более пяти мест.
+этот же bounded retrieval вызывает только POI-вопросы и отдаёт не более пяти мест. До первого
+успешного импорта конкретного направления UI честно сообщает, что каталог наполняется.
 Для каждого места может вернуться одно активное, не просроченное, атрибутированное описание. В
 subchat в prompt попадает только короткий excerpt уже отобранных результатов, а не весь каталог.
+
+## Контекст направления
+
+`app/data/destination-guides.json` — versioned planning brief для всех 26 карточек. В нём нет
+динамических фактов: только перефразированные районы, route clusters, trade-offs и конкретные места
+со ссылкой на guide source. Он помогает модели вести предметный разговор, но не заменяет POI retrieval
+и не подтверждает цены, часы работы, правила въезда или наличие. Из источников не копируется raw prose;
+каждый guide имеет свой `source_url`.
 
 ## Операционные команды
 
@@ -45,6 +60,7 @@ subchat в prompt попадает только короткий excerpt уже 
 make places-up
 make places-migrate
 make places-import-istanbul
+make places-import-all
 make places-import-descriptions DESCRIPTIONS_INPUT=path/to/reviewed-manifest.json
 make places-eval-istanbul
 ```

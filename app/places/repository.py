@@ -21,7 +21,7 @@ from app.places.models import (
     PlaceSearchResult,
     PlaceSource,
 )
-from app.places.semantics import deterministic_embedding, inferred_categories, vector_literal
+from app.places.semantics import inferred_area, inferred_categories, normalize_text
 
 
 class PlacesUnavailableError(RuntimeError):
@@ -64,26 +64,26 @@ class PostgresPlacesRepository:
 
     def _search_sync(self, query: PlaceSearchQuery) -> PlaceSearchResponse:
         retrieval_id = uuid4()
-        embedding = vector_literal(deterministic_embedding([query.query]))
         filters = [
             "d.slug = %s",
             "p.status = 'active'",
             "p.deleted_at IS NULL",
-            "pe.model_version = %s",
         ]
-        normalized_query = query.query.casefold()
+        normalized_query = normalize_text(query.query)
         category_hints = inferred_categories(query.query)
         params: list[object] = [
-            embedding,
-            self.embedding_version,
-            query.destination.casefold(),
-            max(query.limit * 8, 50),
             normalized_query,
             normalized_query,
             category_hints,
             query.destination.casefold(),
-            self.embedding_version,
         ]
+        area = inferred_area(query.query)
+        if area:
+            filters.append(
+                "ST_DWithin(p.location::geography, "
+                "ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, %s)"
+            )
+            params.extend([area[1], area[0], area[2]])
         if query.include_categories:
             filters.append("c.slug = ANY(%s)")
             params.append(query.include_categories)
@@ -125,38 +125,7 @@ class PostgresPlacesRepository:
         # Retrieve a larger candidate set, then diversify in Python by category.
         params.append(max(query.limit * 4, 20))
         statement = f"""
-            WITH query_context AS (
-                SELECT %s::vector AS embedding
-            ),
-            description_candidates AS MATERIALIZED (
-                SELECT
-                    document.place_id,
-                    1 - (chunk.embedding <=> query_context.embedding) AS semantic_score
-                FROM place_description_chunks chunk
-                JOIN place_description_documents document ON document.id = chunk.document_id
-                JOIN places described_place ON described_place.id = document.place_id
-                JOIN destinations described_destination
-                    ON described_destination.id = described_place.destination_id
-                JOIN place_source_records description_record
-                    ON description_record.id = document.place_source_record_id
-                JOIN source_usage_policies policy ON policy.source_id = description_record.source_id
-                CROSS JOIN query_context
-                WHERE chunk.embedding_version = %s
-                  AND described_destination.slug = %s
-                  AND described_place.status = 'active'
-                  AND described_place.deleted_at IS NULL
-                  AND description_record.deleted_at IS NULL
-                  AND (document.valid_until IS NULL OR document.valid_until > now())
-                  AND policy.may_embed_text
-                ORDER BY chunk.embedding <=> query_context.embedding
-                LIMIT %s
-            ),
-            description_matches AS (
-                SELECT place_id, MAX(semantic_score) AS semantic_score
-                FROM description_candidates
-                GROUP BY place_id
-            ),
-            ranked AS (
+            WITH ranked AS (
                 SELECT
                     p.id,
                     p.canonical_name,
@@ -166,15 +135,16 @@ class PostgresPlacesRepository:
                     c.slug AS category,
                     COALESCE(pf.freshness, 0) AS freshness_score,
                     COALESCE(pf.tourist_relevance, 0) AS relevance_score,
-                    1 - (pe.embedding <=> query_context.embedding) AS place_semantic_score,
-                    COALESCE(description_matches.semantic_score, 0) AS description_semantic_score,
-                    GREATEST(
-                        1 - (pe.embedding <=> query_context.embedding),
-                        COALESCE(description_matches.semantic_score, 0)
-                    ) AS semantic_score,
+                    0.0 AS place_semantic_score,
+                    0.0 AS description_semantic_score,
+                    0.0 AS semantic_score,
                     CASE
                         WHEN %s = '' THEN 0.5
-                        WHEN p.normalized_name ILIKE '%%' || %s || '%%' THEN 1.0
+                        WHEN EXISTS (
+                            SELECT 1 FROM place_names pn
+                            WHERE pn.place_id = p.id
+                              AND pn.normalized_name ILIKE '%%' || %s || '%%'
+                        ) THEN 1.0
                         ELSE 0.0
                     END AS lexical_score,
                     CASE WHEN c.slug = ANY(%s) THEN 1.0 ELSE 0.0 END AS category_score,
@@ -202,12 +172,9 @@ class PostgresPlacesRepository:
                     description.source_attribution AS description_source_attribution,
                     description.source_license AS description_source_license
                 FROM places p
-                CROSS JOIN query_context
                 JOIN destinations d ON d.id = p.destination_id
                 LEFT JOIN categories c ON c.id = p.category_id
-                JOIN place_embeddings pe ON pe.place_id = p.id
                 LEFT JOIN place_features pf ON pf.place_id = p.id
-                LEFT JOIN description_matches ON description_matches.place_id = p.id
                 LEFT JOIN LATERAL (
                     SELECT image_url, source_url, license, attribution
                     FROM place_images
@@ -257,10 +224,8 @@ class PostgresPlacesRepository:
                 ) description ON TRUE
                 WHERE {where_clause}
             )
-            SELECT *, (
-                semantic_score * 0.30 + lexical_score * 0.15 + category_score * 0.30
-                + feature_score * 0.25
-            ) AS rank_score
+            SELECT *, (lexical_score * 0.40 + category_score * 0.40 + feature_score * 0.20)
+                AS rank_score
             FROM ranked
             ORDER BY rank_score DESC, freshness_score DESC, canonical_name
             LIMIT %s
@@ -277,18 +242,16 @@ class PostgresPlacesRepository:
                 continue
             seen_categories[category] += 1
             scores = {
-                "semantic_place": round(float(row["place_semantic_score"]), 4),
-                "semantic_description": round(float(row["description_semantic_score"]), 4),
-                "semantic": round(float(row["semantic_score"]), 4),
+                "semantic_place": 0.0,
+                "semantic_description": 0.0,
+                "semantic": 0.0,
                 "lexical": round(float(row["lexical_score"]), 4),
                 "features": round(float(row["feature_score"]), 4),
                 "category": round(float(row["category_score"]), 4),
                 "final": round(float(row["rank_score"]), 4),
             }
             reasons = [
-                "Совпало с тематикой запроса"
-                if scores["semantic"] >= 0.45
-                else "Подходит по типу места",
+                "Совпало по названию" if scores["lexical"] else "Подходит по типу места",
                 "Прошло заданные фильтры",
             ]
             image = (

@@ -41,15 +41,23 @@ CATEGORY_TAGS = {
 
 QUERY_CATEGORY_HINTS = {
     "museum": ("музе",),
-    "gallery": ("галере",),
+    "gallery": ("галере", "искусств", "современн"),
     "historic": ("истор", "древност", "мемориал", "дворц", "памятник", "архитект"),
     "sight": ("достопримечатель", "впервые"),
-    "viewpoint": ("видов", "смотров", "босфор", "закат", "романтич"),
+    "viewpoint": ("видов", "смотров", "босфор", "закат", "романтич", "вода"),
     "park": ("парк", "сад", "прогул", "дет", "семейн"),
     "beach": ("пляж", "море", "набережн"),
-    "market": ("рынок", "сувенир", "локальн"),
+    "market": ("рынок", "сувенир", "локальн", "нетурист"),
     "nightlife": ("ночн", "клуб", "вечер"),
     "family": ("дет", "семейн"),
+}
+
+AREA_HINTS = {
+    "султанахмет": (41.0054, 28.9768, 1_500),
+    "галат": (41.0261, 28.9786, 1_800),
+    "карак": (41.0261, 28.9786, 1_800),
+    "босфор": (41.0422, 29.0066, 2_500),
+    "бешикташ": (41.0422, 29.0066, 2_500),
 }
 
 
@@ -82,6 +90,13 @@ def inferred_categories(query: str) -> list[str]:
         for category, hints in QUERY_CATEGORY_HINTS.items()
         if any(hint in normalized for hint in hints)
     ]
+
+
+def inferred_area(query: str) -> tuple[float, float, int] | None:
+    """Recognize only explicitly maintained Istanbul area hints for a transparent geo baseline."""
+
+    normalized = normalize_text(query)
+    return next((area for hint, area in AREA_HINTS.items() if hint in normalized), None)
 
 
 def deterministic_embedding(parts: Iterable[str]) -> list[float]:

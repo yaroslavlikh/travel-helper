@@ -30,6 +30,7 @@ from app.domain.models import (
     TravelRequest,
     TravelRequestPatch,
 )
+from app.places.context import destination_context
 from app.places.models import PlaceEventInput, PlaceSearchQuery, PlaceSearchResponse
 from app.places.repository import PlacesUnavailableError
 from app.services.aviasales import add_aviasales_links
@@ -539,6 +540,7 @@ async def destination_chat(
             gateway=resources.model_gateway,
             demo_mode=resources.settings.demo_mode,
             poi_places=poi_search.places,
+            destination_context=destination_context(destination.destination_id),
         )
         updated_history = [
             *history,

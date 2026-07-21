@@ -77,6 +77,18 @@ async def test_skips_catalog_for_non_place_questions_and_unsupported_destination
     assert is_poi_question("Где посмотреть закат на Босфоре?")
 
 
+async def test_routes_each_catalog_destination_to_its_own_places_scope() -> None:
+    repository = PlacesRepositoryStub()
+
+    await search_destination_pois(
+        destination_id="phuket",
+        query="Какие места посмотреть и где погулять?",
+        repository=repository,  # type: ignore[arg-type]
+    )
+
+    assert repository.query.destination == "phuket"
+
+
 async def test_reports_when_the_canonical_catalog_is_unavailable() -> None:
     result = await search_destination_pois(
         destination_id="istanbul",

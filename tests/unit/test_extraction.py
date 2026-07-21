@@ -1,7 +1,8 @@
 from datetime import date
 from typing import Any
 
-from pydantic import BaseModel
+import pytest
+from pydantic import BaseModel, ValidationError
 
 from app.domain.models import TravelRequest, TravelRequestPatch, TravelRequestRevision
 from app.services.extraction import (
@@ -26,6 +27,48 @@ class FakeModelGateway:
     ) -> BaseModel:
         del operation, prompt, schema, metadata
         return TravelRequestPatch(origin_city="Москва", month=8, adults=2)
+
+    async def aclose(self) -> None:
+        return None
+
+
+class RainConstraintGateway:
+    provider_name = "fake"
+    model_name = "fake-model"
+
+    async def generate_structured(
+        self,
+        *,
+        operation: str,
+        prompt: str,
+        schema: type[BaseModel],
+        metadata: dict[str, Any],
+    ) -> BaseModel:
+        del metadata
+        assert "rain_avoidance" in prompt
+        if operation == "revise_user_query":
+            return TravelRequestRevision(changes=TravelRequestPatch(rain_avoidance=True))
+        return TravelRequestPatch(origin_city="Москва", rain_avoidance=True)
+
+    async def aclose(self) -> None:
+        return None
+
+
+class AvoidedFeatureGateway:
+    provider_name = "fake"
+    model_name = "fake-model"
+
+    async def generate_structured(
+        self,
+        *,
+        operation: str,
+        prompt: str,
+        schema: type[BaseModel],
+        metadata: dict[str, Any],
+    ) -> BaseModel:
+        del operation, schema, metadata
+        assert "avoided_features" in prompt
+        return TravelRequestPatch(origin_city="Москва", avoided_features=["nightlife"])
 
     async def aclose(self) -> None:
         return None
@@ -102,6 +145,20 @@ def test_extracts_region_food_preference_and_explicit_country_exclusion() -> Non
     assert request.avoid == ["Грузия"]
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Хочу за границу, но не хочу в постсоветские страны",
+        "Хочу за границу, но не рассматриваю СНГ",
+        "Хочу за границу, исключить бывший СССР",
+    ],
+)
+def test_extracts_post_soviet_country_group_exclusion(query: str) -> None:
+    request = extract_travel_request(query)
+
+    assert request.avoid == ["постсоветские страны"]
+
+
 async def test_model_extraction_preserves_query_and_applies_validated_answers() -> None:
     request = await extract_travel_request_with_model(
         "Из Москвы в августе",
@@ -157,6 +214,63 @@ def test_infrastructure_and_activities_become_preference_hints() -> None:
     request = extract_travel_request("Нужна нормальная инфраструктура и куча активностей")
 
     assert request.preferences == ["инфраструктура", "активности"]
+
+
+@pytest.mark.parametrize("query", ["не хочу дождей", "без ливней", "нужна сухая погода"])
+def test_demo_parser_extracts_rain_avoidance_phrases(query: str) -> None:
+    request = extract_travel_request(query)
+
+    assert request.rain_avoidance is True
+
+
+@pytest.mark.asyncio
+async def test_model_normalizes_rain_dislike_into_typed_constraint() -> None:
+    request = await extract_travel_request_with_model(
+        "Из Москвы, терпеть не могу мокрую погоду",
+        None,
+        RainConstraintGateway(),  # type: ignore[arg-type]
+    )
+
+    assert request.rain_avoidance is True
+
+
+@pytest.mark.asyncio
+async def test_model_refinement_preserves_typed_rain_constraint_in_chat_memory() -> None:
+    base = TravelRequest(raw_query="Из Москвы", origin_city="Москва")
+
+    request = await extract_travel_request_with_model(
+        "И ещё не хочу дождей",
+        None,
+        RainConstraintGateway(),  # type: ignore[arg-type]
+        base_request=base,
+    )
+
+    assert request.origin_city == "Москва"
+    assert request.rain_avoidance is True
+
+
+@pytest.mark.asyncio
+async def test_model_normalizes_free_form_dislike_into_controlled_feature() -> None:
+    request = await extract_travel_request_with_model(
+        "Из Москвы, не переношу шумные тусовочные районы",
+        None,
+        AvoidedFeatureGateway(),  # type: ignore[arg-type]
+    )
+
+    assert request.avoided_features == ["nightlife"]
+
+
+def test_controlled_avoided_features_reject_unknown_model_output() -> None:
+    with pytest.raises(ValidationError):
+        TravelRequestPatch(avoided_features=["хамство"])  # type: ignore[list-item]
+
+
+def test_demo_refinement_can_reverse_rain_avoidance() -> None:
+    base = TravelRequest(raw_query="Без дождей", rain_avoidance=True)
+
+    request = revise_travel_request_deterministically(base, "Небольшой дождь не проблема")
+
+    assert request.rain_avoidance is False
 
 
 def test_flexible_departure_window_replaces_exact_trip_dates() -> None:
