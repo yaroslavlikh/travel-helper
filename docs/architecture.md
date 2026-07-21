@@ -54,6 +54,7 @@ State — versioned, JSON-serializable contract. Предполагаемые г
 - search: generated queries, raw provider results, provider warnings;
 - candidates: normalized candidates, evidence, conflicts;
 - decision: rejected candidates/reasons, scoring weights, scored candidates;
+- output: immutable recommendation and pricing snapshots for the current feed;
 - output: response status, recommendations, warnings;
 - operational: stage attempts and error codes, но не secrets и не live clients.
 
@@ -144,6 +145,7 @@ Scoring получает только normalized candidate + TravelRequest + wei
   поездки; для POI-вопросов о Стамбуле добавляет до пяти результатов из канонического каталога с
   provenance и retrieval ID. Эти записи не подтверждают текущие часы работы, цены или доступность.
   Endpoint возвращает optional предложение отправить refinement в основной chat.
+  Он читает сохранённый recommendation snapshot, а не запускает ranking заново.
 - `POST /events/travel-link`: best-effort anonymous событие перехода к flight/hotel provider.
 - `POST /places/search`: гибридный поиск только по опубликованному каноническому каталогу мест;
   активное лицензированное описание возвращается только с provenance, freshness и source URL.

@@ -409,9 +409,16 @@ function renderCriteria(snapshot) {
   ].join("");
 }
 
-function costRange(candidate) {
-  if (candidate.estimated_total_cost_rub_min == null) return "Нет оценки";
-  return `${formatMoney(candidate.estimated_total_cost_rub_min)} – ${formatMoney(candidate.estimated_total_cost_rub_max)}`;
+function priceView(item) {
+  return item.price_card_view || {
+    headline: item.candidate.estimated_total_cost_rub_min == null ? "Нет оценки" : `${formatMoney(item.candidate.estimated_total_cost_rub_min)} – ${formatMoney(item.candidate.estimated_total_cost_rub_max)}`,
+    subtitle: "Ориентир поездки",
+    budget_status_label: "Нужно уточнить бюджет",
+    freshness_label: "Нет источника цены",
+    confidence_label: "недостаточно данных",
+    breakdown_rows: [],
+    warnings: [],
+  };
 }
 
 function providerActions(candidate, snapshot, index) {
@@ -450,16 +457,19 @@ function destinationCard(item, index, chat) {
   const flight = candidate.flight_duration_hours ? `${candidate.flight_duration_hours} ч · ${candidate.transfers_count || 0} перес.` : "Уточнить";
   const weather = candidate.expected_temperature_c != null ? `${candidate.expected_temperature_c}° · море ${candidate.expected_sea_temperature_c ?? "—"}°` : "Уточнить";
   const actions = providerActions(candidate, chat.snapshot, index);
+  const price = priceView(item);
+  const breakdown = (price.breakdown_rows || []).map((row) => `<div class="price-breakdown-row"><span>${escapeHtml(row.label)}</span><strong>${escapeHtml(row.value)}</strong></div>`).join("");
   return `<article class="destination-card" style="--card-index: ${index}">
     <div class="card-image">
       ${image ? `<img src="${imageUrl}" alt="${escapeHtml(image.alt)}" loading="lazy" />` : ""}
-      <div class="image-shade"></div><span class="rank-badge">#${index + 1} вариант</span><span class="demo-tag">DEMO</span>
-      <div class="image-caption"><div><h3>${escapeHtml(candidate.city_or_region)}</h3><p>${escapeHtml(candidate.country)} · ${escapeHtml(candidate.nearest_airport || "аэропорт уточняется")}</p></div><span class="score-pill">${Math.round(item.total_score)} / 100</span></div>
+      <div class="image-shade"></div><span class="rank-badge">#${index + 1} вариант</span><span class="demo-tag">ESTIMATE</span>
+      <div class="image-caption"><div><h3>${escapeHtml(candidate.city_or_region)}</h3><p>${escapeHtml(candidate.country)} · ${escapeHtml(candidate.nearest_airport || "аэропорт уточняется")}</p></div><span class="score-pill budget-status">${escapeHtml(price.budget_status_label)}</span></div>
       ${image ? `<a class="image-credit" href="${safeUrl(image.source_url)}" target="_blank" rel="noreferrer">Фото: ${escapeHtml(image.credit)}</a>` : ""}
     </div>
     <div class="card-body">
+      <section class="price-summary"><span>Полная стоимость поездки</span><strong>${escapeHtml(price.headline)}</strong><p>${escapeHtml(price.subtitle)}</p>${price.floor_label ? `<small>${escapeHtml(price.floor_label)}</small>` : ""}<div class="price-meta"><b>${escapeHtml(price.budget_status_label)}</b><span>${escapeHtml(price.freshness_label)} · ${escapeHtml(price.confidence_label)}</span></div></section>
+      ${breakdown ? `<div class="price-breakdown">${breakdown}</div>` : ""}
       <div class="quick-metrics">
-        <div class="quick-metric"><span>Ориентир бюджета</span><strong>${escapeHtml(costRange(candidate))}</strong></div>
         <div class="quick-metric"><span>Перелёт</span><strong>${escapeHtml(flight)}</strong></div>
         <div class="quick-metric"><span>Погода</span><strong>${escapeHtml(weather)}</strong></div>
       </div>
@@ -467,7 +477,7 @@ function destinationCard(item, index, chat) {
       ${stayAreas ? `<div class="card-section"><h4>Районы для проживания</h4><div class="stay-areas">${stayAreas}</div></div>` : ""}
       ${destinationDiscussionAction(candidate, chat)}
       ${actions}
-      ${actions ? '<p class="external-note">Внешний поиск · цены и наличие не подтверждены</p>' : ""}
+      ${actions ? '<p class="external-note">На внешнем сайте цена и наличие могут измениться</p>' : ""}
       <details class="card-details"><summary>Почему подходит, риски и источники</summary><p class="detail-copy">${escapeHtml(item.explanation)} ${item.risks?.length ? `Риски: ${escapeHtml(item.risks.join("; "))}.` : ""} Въезд: ${escapeHtml(candidate.entry_requirements || "нужно проверить")}.</p><div class="source-links">${sources}</div></details>
     </div>
   </article>`;
@@ -665,7 +675,7 @@ async function sendDestinationMessage(text) {
       headers: accountState.authenticated
         ? accountHeaders({ csrf: true })
         : { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: chatId, destination_id: destinationId, query }),
+      body: JSON.stringify({ session_id: chatId, destination_id: destinationId, recommendation_snapshot_id: recommendationById(chat, destinationId)?.recommendation_snapshot_id || null, query }),
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.detail || "Не удалось получить ответ");

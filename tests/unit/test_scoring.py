@@ -99,6 +99,7 @@ def test_strict_budget_only_fallback_keeps_matching_destinations_visible() -> No
         item.candidate.country in {"Таиланд", "Малайзия", "Вьетнам", "Индонезия"} for item in ranked
     )
     assert all(STRICT_BUDGET_FALLBACK in item.assumptions for item in ranked)
+    assert all(not item.passed_hard_filters for item in ranked)
 
 
 def test_no_sea_and_infrastructure_rank_a_city_above_beach_resorts() -> None:

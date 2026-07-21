@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 
 from app.domain.models import DestinationCandidate, ScoredDestination, TravelRequest
+from app.pricing.estimator import estimate_trip_cost, price_card_view
+from app.pricing.models import TripCostEstimate
 from app.services.destination_semantics import normalized_avoided_tags, normalized_preference_tags
 from app.services.filtering import hard_filter_reasons
 
@@ -25,17 +27,20 @@ def validate_scoring_weights(weights: dict[str, float]) -> None:
         raise ValueError("Scoring weights must sum to 100")
 
 
-def _budget_fit(candidate: DestinationCandidate, request: TravelRequest) -> float | None:
-    if request.budget_total_rub is None or candidate.estimated_total_cost_rub_min is None:
+def _budget_fit(estimate: TripCostEstimate, request: TravelRequest) -> float | None:
+    if request.budget_total_rub is None:
         return None
-    budget = request.budget_total_rub
-    minimum = candidate.estimated_total_cost_rub_min
-    maximum = candidate.estimated_total_cost_rub_max or minimum
-    if maximum <= budget:
+    if estimate.budget_fit == "confidently_within":
         return 100.0
-    if minimum > budget:
-        return max(0.0, 100.0 - ((minimum - budget) / budget * 100))
-    return 75.0
+    if estimate.budget_fit == "likely_within":
+        return 80.0
+    if estimate.budget_fit == "possible_with_savings":
+        return 60.0
+    return max(
+        0.0,
+        40.0
+        - ((estimate.floor_total_rub - request.budget_total_rub) / request.budget_total_rub * 100),
+    )
 
 
 def _weather_fit(candidate: DestinationCandidate, request: TravelRequest) -> float | None:
@@ -81,10 +86,11 @@ def _evidence_quality(candidate: DestinationCandidate) -> float | None:
 def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> ScoredDestination:
     """Compute a stable 0–100 score and renormalize only known components."""
 
+    estimate = estimate_trip_cost(candidate, request)
     weights = load_scoring_weights()
     validate_scoring_weights(weights)
     component_scores = {
-        "budget_fit": _budget_fit(candidate, request),
+        "budget_fit": _budget_fit(estimate, request),
         "weather_fit": _weather_fit(candidate, request),
         "entry_simplicity": _entry_simplicity(candidate),
         "transport_convenience": _transport_convenience(candidate),
@@ -96,7 +102,13 @@ def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> 
     contributions = {
         name: round(score * weights[name] / active_weight, 2) for name, score in known.items()
     }
-    rejected_reasons = hard_filter_reasons(candidate, request)
+    candidate = candidate.model_copy(
+        update={
+            "estimated_total_cost_rub_min": estimate.floor_total_rub,
+            "estimated_total_cost_rub_max": estimate.safe_total_rub,
+        }
+    )
+    rejected_reasons = hard_filter_reasons(candidate, request, estimate)
     matched = [
         pref for pref in request.preferences if pref.casefold() in candidate.destination_tags
     ]
@@ -121,6 +133,9 @@ def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> 
             "Оценка рассчитана детерминированно по опубликованным весам; "
             "требуется live-проверка источников."
         ),
+        trip_cost_estimate=estimate,
+        price_card_view=price_card_view(estimate),
+        recommendation_snapshot_id=f"rec-{estimate.pricing_snapshot_id}",
     )
 
 
@@ -135,8 +150,6 @@ def rank_demo_candidates(request: TravelRequest, limit: int = 5) -> list[ScoredD
         eligible = [
             item.model_copy(
                 update={
-                    "passed_hard_filters": True,
-                    "rejected_reasons": [],
                     "cons": ["Строгий бюджет превышен."],
                     "risks": [*item.risks, STRICT_BUDGET_FALLBACK],
                     "assumptions": [*item.assumptions, STRICT_BUDGET_FALLBACK],

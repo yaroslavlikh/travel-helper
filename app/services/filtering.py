@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from app.domain.models import DestinationCandidate, TravelRequest
+from app.pricing.models import TripCostEstimate
 from app.services.destination_semantics import (
     matches_explicit_avoid,
     matches_requested_regions,
 )
 
 
-def hard_filter_reasons(candidate: DestinationCandidate, request: TravelRequest) -> list[str]:
+def hard_filter_reasons(
+    candidate: DestinationCandidate,
+    request: TravelRequest,
+    estimate: TripCostEstimate | None = None,
+) -> list[str]:
     """Return machine-readable human-facing reasons for every hard mismatch."""
 
     reasons: list[str] = []
@@ -26,11 +31,12 @@ def hard_filter_reasons(candidate: DestinationCandidate, request: TravelRequest)
         reasons.append("preferred_region_mismatch")
     if matches_explicit_avoid(candidate, request):
         reasons.append("explicitly_avoided")
+    strict_price = estimate.safe_total_rub if estimate else candidate.estimated_total_cost_rub_max
     if (
         request.budget_strict
         and request.budget_total_rub is not None
-        and candidate.estimated_total_cost_rub_min is not None
-        and candidate.estimated_total_cost_rub_min > request.budget_total_rub
+        and strict_price is not None
+        and strict_price > request.budget_total_rub
     ):
         reasons.append("strict_budget_exceeded")
     if (
@@ -39,10 +45,7 @@ def hard_filter_reasons(candidate: DestinationCandidate, request: TravelRequest)
         and candidate.flight_duration_hours > request.max_flight_duration_hours
     ):
         reasons.append("max_flight_duration_exceeded")
-    if request.visa_willingness == "no_visa" and candidate.visa_complexity not in {
-        "none",
-        "unknown",
-    }:
+    if request.visa_willingness == "no_visa" and candidate.visa_complexity != "none":
         reasons.append("visa_requirement_incompatible")
     temperature_limit = request.preferred_max_temperature_c
     if request.heat_tolerance == "low" and temperature_limit is None:
