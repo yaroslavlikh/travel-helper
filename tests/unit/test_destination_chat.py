@@ -8,11 +8,21 @@ from app.domain.models import (
     DestinationThreadMessage,
     TravelRequest,
 )
+from app.places.catalog import DESTINATIONS
 from app.places.context import destination_context
 from app.places.models import PlaceDescription, PlaceSearchResult, PlaceSource
 from app.services.destination_chat import _description_excerpt, answer_destination_question
 from app.services.model_gateway import DisabledModelGateway
 from app.services.scoring import rank_demo_candidates
+
+
+def test_every_catalog_destination_has_a_planning_context() -> None:
+    contexts = [destination_context(destination_id) for destination_id in DESTINATIONS]
+
+    assert all(context is not None for context in contexts)
+    assert all(
+        context.curated_highlights or context.tourist_areas for context in contexts if context
+    )
 
 
 class DestinationGateway:

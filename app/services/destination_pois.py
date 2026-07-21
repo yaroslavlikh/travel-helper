@@ -5,12 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.places.catalog import DESTINATIONS
 from app.places.models import PlaceSearchQuery, PlaceSearchResult
 from app.places.repository import PlacesRepository, PlacesUnavailableError
 
-# The catalog is deliberately one-city for now. Expanding this map requires a populated,
-# provenance-preserving catalog for the new destination rather than falling back to fixtures.
-CATALOG_DESTINATIONS = {"istanbul": "istanbul"}
+CATALOG_DESTINATIONS = {destination_id: destination_id for destination_id in DESTINATIONS}
 
 POI_QUERY_MARKERS = (
     "айя",
@@ -85,9 +84,15 @@ async def search_destination_pois(
                 "Каталог конкретных мест сейчас недоступен; ответ ограничен данными карточки."
             ]
         )
+    warnings = list(response.warnings)
+    if not response.results:
+        warnings.append(
+            "Каталог конкретных мест для этого направления ещё наполняется; "
+            "ответ ограничен данными карточки."
+        )
     return DestinationPoiSearch(
         retrieval_id=response.retrieval_id,
         ranking_version=response.ranking_version,
         results=response.results,
-        warnings=response.warnings,
+        warnings=warnings,
     )

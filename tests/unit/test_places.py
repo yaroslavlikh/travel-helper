@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from app.places.catalog import DESTINATIONS
 from app.places.importer import normalize_osm_payload, overpass_query
 from app.places.semantics import deterministic_embedding, inferred_categories, normalize_text
 
@@ -85,6 +86,17 @@ def test_overpass_query_applies_istanbul_bbox_to_each_selector() -> None:
 
     assert query.count("(40.8,28.55,41.35,29.45)") == 5
     assert ")(40.8,28.55,41.35,29.45)" not in query
+
+
+def test_every_product_destination_has_a_bounded_overpass_scope() -> None:
+    assert len(DESTINATIONS) == 26
+    for destination in DESTINATIONS.values():
+        west, south, east, north = destination.bbox
+        assert west < east and south < north
+        assert (
+            overpass_query(destination.destination_id).count(f"({south},{west},{north},{east})")
+            == 5
+        )
 
 
 def test_infers_explainable_category_hints_from_russian_place_intent() -> None:

@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.places.catalog import DESTINATIONS
+from app.services.fixtures import load_demo_candidates
 
 
 class DestinationFact(BaseModel):
@@ -44,6 +48,7 @@ class DestinationContext(BaseModel):
     less_suitable_for: list[str]
     transport_notes: list[str]
     poi_categories: list[str]
+    curated_highlights: list[str] = Field(default_factory=list)
     dynamic_facts: list[DestinationFact]
 
 
@@ -89,5 +94,58 @@ ISTANBUL_CONTEXT = DestinationContext(
 )
 
 
+@lru_cache(maxsize=32)
 def destination_context(destination_id: str) -> DestinationContext | None:
-    return ISTANBUL_CONTEXT if destination_id.casefold() == "istanbul" else None
+    """Give each current card a bounded planning brief; dynamic facts stay explicitly unknown."""
+
+    destination_id = destination_id.casefold()
+    if destination_id == "istanbul":
+        return ISTANBUL_CONTEXT
+    catalog = DESTINATIONS.get(destination_id)
+    if catalog is None:
+        return None
+    candidate = next(
+        (item for item in load_demo_candidates() if item.destination_id == destination_id), None
+    )
+    if candidate is None:
+        return None
+    west, south, east, north = catalog.bbox
+    return DestinationContext(
+        destination_id=destination_id,
+        city=catalog.name,
+        country=candidate.country,
+        source_url=(
+            candidate.image.source_url if candidate.image else "https://www.openstreetmap.org/"
+        ),
+        observed_at=datetime(2026, 7, 21, tzinfo=UTC),
+        tourist_areas=[
+            DestinationArea(
+                name=f"Основная зона {catalog.name}",
+                latitude=(south + north) / 2,
+                longitude=(west + east) / 2,
+                radius_meters=5_000,
+            )
+        ],
+        stay_areas=candidate.stay_areas,
+        trip_styles=candidate.destination_tags,
+        suitable_for=candidate.destination_tags,
+        less_suitable_for=[],
+        transport_notes=["Конкретные маршруты лучше собирать по районам, а не по всей зоне сразу."],
+        poi_categories=["museum", "historic", "sight", "viewpoint", "park", "market", "family"],
+        curated_highlights=[
+            f"{highlight.name}: {highlight.description}" for highlight in candidate.highlights
+        ],
+        dynamic_facts=[
+            DestinationFact(
+                kind="entry",
+                warning=(
+                    "Актуальные правила въезда не загружены: "
+                    "проверьте официальный источник перед поездкой."
+                ),
+            ),
+            DestinationFact(
+                kind="price",
+                warning="Актуальные цены и расписания не входят в контекст каталога мест.",
+            ),
+        ],
+    )

@@ -1,4 +1,4 @@
-"""Repeatable, bounded OpenStreetMap import for Istanbul tourist places."""
+"""Repeatable, bounded OpenStreetMap import for catalog tourist places."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import httpx
 import psycopg
 from psycopg.rows import dict_row
 
+from app.places.catalog import CatalogDestination, catalog_destination
 from app.places.semantics import (
     category_from_osm,
     deterministic_embedding,
@@ -22,8 +23,12 @@ from app.places.semantics import (
     vector_literal,
 )
 
-ISTANBUL_BBOX = (28.55, 40.80, 29.45, 41.35)
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# Compatibility for the first vertical slice and its external callers.
+ISTANBUL_BBOX = catalog_destination("istanbul").bbox
+OVERPASS_URLS = (
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
+)
 OVERPASS_USER_AGENT = "travel-helper/0.1 (+https://github.com/yaroslavlikh/travel-helper)"
 OSM_LICENSE = "ODbL 1.0"
 OSM_ATTRIBUTION = "© OpenStreetMap contributors"
@@ -62,10 +67,10 @@ def _required_id(row: dict[str, Any] | None) -> str:
     return str(row["id"])
 
 
-def overpass_query() -> str:
-    """Bound source scope to named Istanbul POIs useful for travellers, not all commerce."""
+def overpass_query(destination: str = "istanbul") -> str:
+    """Bound source scope to named tourist POIs, never all commercial objects."""
 
-    west, south, east, north = ISTANBUL_BBOX
+    west, south, east, north = catalog_destination(destination).bbox
     bbox = f"({south},{west},{north},{east})"
     selectors = (
         '["tourism"~"museum|gallery|attraction|viewpoint|zoo|theme_park"]["name"]',
@@ -78,34 +83,52 @@ def overpass_query() -> str:
     return f"[out:json][timeout:120];\n({statements}\n);\nout center tags;"
 
 
-def fetch_istanbul_osm(client: httpx.Client | None = None) -> dict[str, Any]:
+def fetch_osm(destination: str, client: httpx.Client | None = None) -> dict[str, Any]:
     """Download one public OSM snapshot; callers persist it before normalization."""
 
     owns_client = client is None
-    request_client = client or httpx.Client(timeout=httpx.Timeout(150.0))
+    request_client = client or httpx.Client(
+        timeout=httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=10.0)
+    )
+    last_error: httpx.HTTPError | None = None
     try:
-        response = request_client.post(
-            OVERPASS_URL,
-            data={"data": overpass_query()},
-            headers={"Accept": "application/json", "User-Agent": OVERPASS_USER_AGENT},
-        )
-        response.raise_for_status()
-        payload = response.json()
+        for url in OVERPASS_URLS:
+            try:
+                response = request_client.post(
+                    url,
+                    data={"data": overpass_query(destination)},
+                    headers={"Accept": "application/json", "User-Agent": OVERPASS_USER_AGENT},
+                )
+                response.raise_for_status()
+                payload = response.json()
+                break
+            except httpx.HTTPError as error:
+                last_error = error
+        else:
+            raise RuntimeError(f"All Overpass endpoints failed for {destination}") from last_error
     finally:
         if owns_client:
             request_client.close()
     if not isinstance(payload, dict) or not isinstance(payload.get("elements"), list):
-        raise ValueError("Overpass returned an invalid Istanbul OSM payload")
+        raise ValueError(f"Overpass returned an invalid {destination} OSM payload")
     return payload
 
 
-def persist_raw_payload(payload: dict[str, Any], raw_directory: Path) -> tuple[Path, str]:
+def fetch_istanbul_osm(client: httpx.Client | None = None) -> dict[str, Any]:
+    """Compatibility wrapper for the first catalog destination."""
+
+    return fetch_osm("istanbul", client)
+
+
+def persist_raw_payload(
+    payload: dict[str, Any], raw_directory: Path, *, destination: str = "istanbul"
+) -> tuple[Path, str]:
     """Store raw source bytes and return the immutable checksum for the import manifest."""
 
     raw_directory.mkdir(parents=True, exist_ok=True)
     content = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     checksum = hashlib.sha256(content.encode("utf-8")).hexdigest()
-    path = raw_directory / f"osm-istanbul-{checksum[:12]}.json"
+    path = raw_directory / f"osm-{destination}-{checksum[:12]}.json"
     if not path.exists():
         path.write_text(content, encoding="utf-8")
     return path, checksum
@@ -216,9 +239,11 @@ def import_osm_places(
     raw_path: Path,
     embedding_version: str,
     rejected: Counter[str],
+    destination: CatalogDestination | None = None,
 ) -> ImportReport:
     """Upsert source records, canonical places and provenance in one database transaction."""
 
+    catalog = destination or catalog_destination("istanbul")
     started_at = datetime.now(UTC)
     with psycopg.connect(database_url, row_factory=dict_row) as connection:
         with connection.transaction():
@@ -238,7 +263,7 @@ def import_osm_places(
                 attribution=COMMONS_ATTRIBUTION,
                 base_url="https://commons.wikimedia.org/",
             )
-            destination_id = _upsert_istanbul_destination(connection)
+            destination_id = _upsert_destination(connection, catalog)
             run_id = _required_id(
                 connection.execute(
                     """
@@ -251,14 +276,14 @@ def import_osm_places(
                     [
                         osm_source_id,
                         destination_id,
-                        json.dumps({"city": "istanbul", "bbox": ISTANBUL_BBOX}),
+                        json.dumps({"city": catalog.destination_id, "bbox": catalog.bbox}),
                         started_at.date().isoformat(),
                         checksum,
                         json.dumps(
                             {
                                 "source": "OpenStreetMap / Overpass",
                                 "license": OSM_LICENSE,
-                                "scope": "bounded tourist POIs in Istanbul",
+                                "scope": f"bounded tourist POIs in {catalog.name}",
                                 "raw_path": str(raw_path),
                             }
                         ),
@@ -353,15 +378,25 @@ def _upsert_source(
     )
 
 
-def _upsert_istanbul_destination(connection: psycopg.Connection[dict[str, Any]]) -> str:
+def _upsert_destination(
+    connection: psycopg.Connection[dict[str, Any]], catalog: CatalogDestination
+) -> str:
+    west, south, east, north = catalog.bbox
     return _required_id(
         connection.execute(
             """
             INSERT INTO destinations (slug, name, country_code, center)
-            VALUES ('istanbul', 'Стамбул', 'TR', ST_SetSRID(ST_MakePoint(28.9784, 41.0082), 4326))
+            VALUES (%s, %s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))
             ON CONFLICT (slug) DO UPDATE SET updated_at = now()
             RETURNING id
-            """
+            """,
+            [
+                catalog.destination_id,
+                catalog.name,
+                catalog.country_code,
+                (west + east) / 2,
+                (south + north) / 2,
+            ],
         ).fetchone()
     )
 
@@ -579,7 +614,7 @@ def _upsert_tags_and_features(
         connection.execute(
             """
             INSERT INTO place_tags (place_id, tag_id, confidence, source_kind, source_version)
-            VALUES (%s, %s, 0.7, 'rule', 'istanbul-tags-v1')
+            VALUES (%s, %s, 0.7, 'rule', 'osm-tags-v1')
             ON CONFLICT (place_id, tag_id, source_version) DO UPDATE SET
                 confidence = EXCLUDED.confidence,
                 calculated_at = now()
@@ -592,7 +627,7 @@ def _upsert_tags_and_features(
         INSERT INTO place_features (
             place_id, popularity, tourist_relevance, uniqueness_score, localness, freshness,
             confidence, tourist_trap_risk, source_quality, version
-        ) VALUES (%s, %s, %s, %s, 0.5, 1.0, 0.7, 0.25, 0.8, 'istanbul-features-v1')
+        ) VALUES (%s, %s, %s, %s, 0.5, 1.0, 0.7, 0.25, 0.8, 'osm-features-v1')
         ON CONFLICT (place_id) DO UPDATE SET
             popularity = EXCLUDED.popularity, tourist_relevance = EXCLUDED.tourist_relevance,
             uniqueness_score = EXCLUDED.uniqueness_score, freshness = EXCLUDED.freshness,
