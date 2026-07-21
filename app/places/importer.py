@@ -39,6 +39,7 @@ class RawPlace:
     latitude: float
     category: str
     tags: dict[str, str]
+    quality_score: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,8 +47,10 @@ class ImportReport:
     run_id: str
     received: int
     accepted: int
+    updated: int
     merged: int
     rejected: int
+    deactivated: int
     rejection_reasons: dict[str, int]
 
 
@@ -69,7 +72,7 @@ def overpass_query() -> str:
         '["historic"~"monument|memorial|castle|archaeological_site"]["name"]',
         '["leisure"~"park|garden"]["name"]',
         '["natural"="beach"]["name"]',
-        '["amenity"~"marketplace|nightclub"]["name"]',
+        '["amenity"="marketplace"]["name"]',
     )
     statements = "\n".join(f"nwr{selector}{bbox};" for selector in selectors)
     return f"[out:json][timeout:120];\n({statements}\n);\nout center tags;"
@@ -111,7 +114,7 @@ def persist_raw_payload(payload: dict[str, Any], raw_directory: Path) -> tuple[P
 def normalize_osm_payload(
     payload: dict[str, Any], *, limit: int = 300
 ) -> tuple[list[RawPlace], Counter[str]]:
-    """Stage and normalize a bounded subset of public OSM elements."""
+    """Normalize every valid candidate, then select the strongest tourist POIs deterministically."""
 
     records: list[RawPlace] = []
     rejected: Counter[str] = Counter()
@@ -147,11 +150,50 @@ def normalize_osm_payload(
                         latitude=coordinates[1],
                         category=category,
                         tags={str(key): str(value) for key, value in tags.items()},
+                        quality_score=_quality_score(name.strip(), category, tags),
                     )
                 )
-        if len(records) == limit:
-            break
-    return records, rejected
+    # The source response order is not a quality signal. Keep external IDs as the final tie-breaker
+    # so re-importing an identical full snapshot is deterministic.
+    records.sort(
+        key=lambda item: (
+            -item.quality_score,
+            item.category,
+            normalize_text(item.name),
+            item.external_id,
+        )
+    )
+    return records[:limit], rejected
+
+
+def _quality_score(name: str, category: str, tags: dict[str, Any]) -> int:
+    """Rank only observable OSM completeness signals; this is deliberately not popularity."""
+
+    category_weight = {
+        "museum": 40,
+        "historic": 40,
+        "sight": 35,
+        "viewpoint": 32,
+        "gallery": 28,
+        "market": 26,
+        "park": 24,
+        "family": 22,
+        "beach": 18,
+    }.get(category, 0)
+    linked_data = sum(bool(tags.get(key)) for key in ("wikidata", "wikipedia", "wikimedia_commons"))
+    names = sum(1 for key in tags if key == "name" or key.startswith("name:"))
+    useful_tags = sum(
+        bool(tags.get(key))
+        for key in ("website", "opening_hours", "heritage", "start_date", "image", "operator")
+    )
+    generic = normalize_text(name) in {"park", "museum", "market", "monument", "viewpoint"}
+    return (
+        category_weight
+        + linked_data * 12
+        + min(names, 3) * 3
+        + useful_tags * 2
+        - (20 if generic else 0)
+    )
 
 
 def _coordinates_from_element(element: dict[str, Any]) -> tuple[float, float] | None:
@@ -226,9 +268,10 @@ def import_osm_places(
                 ).fetchone()
             )
             accepted = 0
+            updated = 0
             merged = 0
             for record in records:
-                place_id, was_merged = _upsert_canonical_place(
+                place_id, was_updated, was_merged = _upsert_canonical_place(
                     connection,
                     destination_id=destination_id,
                     source_id=osm_source_id,
@@ -239,7 +282,14 @@ def import_osm_places(
                 )
                 del place_id
                 accepted += 1
+                updated += int(was_updated)
                 merged += int(was_merged)
+            deactivated = _deactivate_missing_osm_records(
+                connection,
+                destination_id=destination_id,
+                source_id=osm_source_id,
+                started_at=started_at,
+            )
             completed_at = datetime.now(UTC)
             connection.execute(
                 """
@@ -255,7 +305,14 @@ def import_osm_places(
                     merged,
                     sum(rejected.values()),
                     json.dumps(dict(rejected)),
-                    json.dumps({"completed_at": completed_at.isoformat(), "checksum": checksum}),
+                    json.dumps(
+                        {
+                            "completed_at": completed_at.isoformat(),
+                            "checksum": checksum,
+                            "updated": updated,
+                            "deactivated": deactivated,
+                        }
+                    ),
                     run_id,
                 ],
             )
@@ -263,8 +320,10 @@ def import_osm_places(
         run_id=str(run_id),
         received=len(records) + sum(rejected.values()),
         accepted=accepted,
+        updated=updated,
         merged=merged,
         rejected=sum(rejected.values()),
+        deactivated=deactivated,
         rejection_reasons=dict(rejected),
     )
 
@@ -316,12 +375,13 @@ def _upsert_canonical_place(
     record: RawPlace,
     embedding_version: str,
     commons_source_id: str,
-) -> tuple[str, bool]:
+) -> tuple[str, bool, bool]:
     existing = connection.execute(
         "SELECT place_id FROM place_source_records WHERE source_id = %s AND external_id = %s",
         [source_id, record.external_id],
     ).fetchone()
-    merged = existing is not None
+    updated = existing is not None
+    merged = False
     category_id = _upsert_category(connection, record.category)
     normalized_name = normalize_text(record.name)
     if existing:
@@ -389,6 +449,18 @@ def _upsert_canonical_place(
         """,
         [place_id, record.name, normalized_name, source_id],
     )
+    for key, value in record.tags.items():
+        if not key.startswith("name:") or not value.strip():
+            continue
+        language_code = key.removeprefix("name:")[:16]
+        connection.execute(
+            """
+            INSERT INTO place_names (place_id, name, normalized_name, language_code, source_id)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (place_id, normalized_name, language_code) DO NOTHING
+            """,
+            [place_id, value, normalize_text(value), language_code, source_id],
+        )
     source_record = _required_id(
         connection.execute(
             """
@@ -439,7 +511,41 @@ def _upsert_canonical_place(
         ],
     )
     _upsert_commons_image(connection, place_id, commons_source_id, record.tags)
-    return place_id, merged
+    return place_id, updated, merged
+
+
+def _deactivate_missing_osm_records(
+    connection: psycopg.Connection[dict[str, Any]],
+    *,
+    destination_id: str,
+    source_id: str,
+    started_at: datetime,
+) -> int:
+    """Retire records absent from this complete source snapshot without deleting audit history."""
+
+    stale_places = connection.execute(
+        """
+        UPDATE places p SET status = 'inactive', updated_at = now()
+        WHERE p.destination_id = %s AND p.status = 'active'
+          AND NOT EXISTS (
+              SELECT 1 FROM place_source_records psr
+              WHERE psr.place_id = p.id AND psr.source_id = %s
+                AND psr.deleted_at IS NULL AND psr.last_seen_at >= %s
+          )
+        RETURNING p.id
+        """,
+        [destination_id, source_id, started_at],
+    ).fetchall()
+    connection.execute(
+        """
+        UPDATE place_source_records psr SET deleted_at = now()
+        FROM places p
+        WHERE psr.place_id = p.id AND p.destination_id = %s AND psr.source_id = %s
+          AND psr.deleted_at IS NULL AND psr.last_seen_at < %s
+        """,
+        [destination_id, source_id, started_at],
+    )
+    return len(stale_places)
 
 
 def _upsert_category(connection: psycopg.Connection[dict[str, Any]], slug: str) -> str:

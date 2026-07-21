@@ -8,6 +8,7 @@ from app.domain.models import (
     DestinationThreadMessage,
     TravelRequest,
 )
+from app.places.context import destination_context
 from app.places.models import PlaceDescription, PlaceSearchResult, PlaceSource
 from app.services.destination_chat import _description_excerpt, answer_destination_question
 from app.services.model_gateway import DisabledModelGateway
@@ -180,6 +181,25 @@ async def test_destination_answer_passes_canonical_pois_as_evidence_context() ->
     assert "OpenStreetMap / Overpass" in gateway.prompt
     assert "Licensed Istanbul Guide" in gateway.prompt
     assert "пример подтверждённого описания" in gateway.prompt
+
+
+async def test_destination_answer_keeps_unknown_dynamic_context_as_warning() -> None:
+    request = trip_request()
+    recommendation = rank_demo_candidates(request)[0]
+    gateway = DestinationGateway()
+
+    await answer_destination_question(
+        query="Что посмотреть?",
+        trip_request=request,
+        recommendation=recommendation,
+        history=[DestinationThreadMessage(role="assistant", text="Обсудим этот вариант.")],
+        gateway=gateway,  # type: ignore[arg-type]
+        demo_mode=False,
+        destination_context=destination_context("istanbul"),
+    )
+
+    assert '"destination_context"' in gateway.prompt
+    assert "Актуальные правила въезда не загружены" in gateway.prompt
 
 
 def test_description_excerpt_stays_within_prompt_budget() -> None:

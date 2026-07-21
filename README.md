@@ -10,8 +10,9 @@ Evidence-first сервис для выбора направления путе�
 4. [AI-контракт](docs/ai-contract.md) — как подключается модель без привязки домена к провайдеру.
 5. [План реализации](docs/implementation-plan.md) — последовательность vertical slices и критерии готовности.
 6. [Методика рейтинга](docs/ranking.md) — hard-фильтры, формула score и fallback строгого бюджета.
-7. [ADR](docs/adr/) — журнал архитектурных решений.
-8. [Contributing](CONTRIBUTING.md) — Makefile-контракт, quality gates и правила коммитов.
+7. [Destination context и POI](docs/destination-context-and-poi-expansion.md) — проверенный Istanbul-only контур.
+8. [ADR](docs/adr/) — журнал архитектурных решений.
+9. [Contributing](CONTRIBUTING.md) — Makefile-контракт, quality gates и правила коммитов.
 
 Для AI-инструментов и новых участников краткая память проекта находится в [AGENTS.md](AGENTS.md).
 

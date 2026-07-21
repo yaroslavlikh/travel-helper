@@ -20,19 +20,24 @@
 1. Download: `scripts/import_istanbul_places.py --fetch` получает snapshot и записывает raw JSON
    с SHA-256 checksum.
 2. Staging/normalization: отсеиваются POI без имени, координат или mapping в малую taxonomy.
-3. Mapping/entity resolution: сначала совпадение `source + external_id`, затем exact normalized name
+3. Quality selection: после нормализации **всего** snapshot кандидаты ранжируются по прозрачным
+   OSM quality signals и только затем ограничиваются 100–300 местами.
+4. Mapping/entity resolution: сначала совпадение `source + external_id`, затем exact normalized name
    в пределах 120 м. Неуверенные fuzzy merges намеренно не выполняются автоматически.
-4. Enrichment/features: категории дают прозрачные rule-based tags, признаки качества и Commons image
+5. Enrichment/features: категории дают прозрачные rule-based tags, признаки качества и Commons image
    только при явном `wikimedia_commons` теге.
-5. Embeddings/publish: локальный deterministic `hash-v1` vector длиной 64, затем status `active`.
-6. Quality: `make places-eval-istanbul` исполняет 30 фиксированных queries и считает top-5 category
-   recall. Это регрессионный индикатор, не заявка на relevance benchmark.
+6. Publish/lifecycle: `hash-v1` vector длиной 64 сохраняется только для schema compatibility;
+   отсутствующие в новом полном snapshot source records становятся stale, а place без актуального
+   source становится `inactive`.
+7. Quality: `make places-eval-istanbul` исполняет независимые 40 queries, считает category/name
+   recall и печатает top-K errors. Это baseline, не заявка на semantic relevance benchmark.
 
 ## Поиск и ранжирование
 
 `POST /places/search` поддерживает destination, categories include/exclude, free/budget, indoor,
-geospatial radius, duration и accessibility flags. Retrieval смешивает cosine similarity pgvector,
-name lexical signal и `place_features`; затем применяет category diversity (не более двух мест одной
+geospatial radius, duration и accessibility flags. Retrieval использует lexical aliases, explicit
+category/area hints и `place_features`; `hash-v1` не выдаётся за semantic similarity. Затем
+применяется category diversity (не более двух мест одной
 категории, пока не достигнут limit). Response возвращает `retrieval_id`, component scores,
 ranking version, freshness, image attribution и provenance основного source record. В subchat
 Стамбула этот же bounded retrieval вызывает только POI-вопросы и отдаёт не более пяти мест.
