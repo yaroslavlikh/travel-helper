@@ -94,20 +94,26 @@ def _logistics_fit(candidate: DestinationCandidate) -> float | None:
 
 
 def _weather_fit(candidate: DestinationCandidate, request: TravelRequest) -> float | None:
-    if candidate.expected_temperature_c is None:
+    if candidate.expected_temperature_c is None and candidate.precipitation_risk is None:
         return None
     limit = request.preferred_max_temperature_c
     if limit is None and request.heat_tolerance == "low":
         limit = 30
-    temperature = (
-        85.0
-        if limit is None
-        else _clamp(100 - max(0, candidate.expected_temperature_c - limit) * 12)
+    if candidate.expected_temperature_c is None:
+        temperature = 45.0
+    elif limit is None:
+        temperature = 85.0
+    else:
+        temperature = _clamp(100 - max(0, candidate.expected_temperature_c - limit) * 12)
+    settings = load_scoring_config()["weather_fit"]
+    rain_key = "avoidance_rain_scores" if request.rain_avoidance else "default_rain_scores"
+    rain = float(settings[rain_key].get(candidate.precipitation_risk or "", 50.0))
+    rain_weight = float(
+        settings["rain_avoidance_weight"]
+        if request.rain_avoidance
+        else settings["default_rain_weight"]
     )
-    rain = {"low": 100.0, "medium": 65.0, "high": 30.0}.get(
-        candidate.precipitation_risk or "", 50.0
-    )
-    return temperature * 0.75 + rain * 0.25
+    return temperature * (1 - rain_weight) + rain * rain_weight
 
 
 def _entry_fit(candidate: DestinationCandidate) -> float | None:

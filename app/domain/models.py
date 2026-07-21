@@ -22,6 +22,19 @@ ClarificationTopic = Literal[
 ]
 UncertaintyImpact = Literal["high", "medium", "low"]
 PlanningConfidenceLevel = Literal["high", "medium", "low"]
+DestinationFeature = Literal[
+    "sea",
+    "beach",
+    "nightlife",
+    "city",
+    "nature",
+    "family",
+    "diving",
+    "food",
+    "spicy_food",
+    "all_inclusive",
+    "culture",
+]
 
 
 class DomainModel(BaseModel):
@@ -59,12 +72,14 @@ class TravelRequestPatch(DomainModel):
     trip_style: list[str] = Field(default_factory=list)
     sea_required: bool | None = None
     heat_tolerance: HeatTolerance | None = None
+    rain_avoidance: bool | None = None
     preferred_max_temperature_c: float | None = None
     visa_willingness: VisaWillingness | None = None
     max_flight_duration_hours: float | None = Field(default=None, gt=0)
     baggage_required: bool | None = None
     preferences: list[str] = Field(default_factory=list)
     avoid: list[str] = Field(default_factory=list)
+    avoided_features: list[DestinationFeature] = Field(default_factory=list)
     priorities: list[str] = Field(default_factory=list)
 
 

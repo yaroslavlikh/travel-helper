@@ -28,9 +28,14 @@
 вес: она получает объявленный prior и увеличивает uncertainty. В `scoring.json` uncertainty имеет
 multiplier `10` и cap `15`; низкий budget/entry/logistics fit ограничивается caps `55/60/55`.
 
+Weather fit обычно состоит из температуры на 75% и риска осадков на 25%. Если LLM извлекла
+типизированное `rain_avoidance=true`, доля осадков становится 65%: `low/medium/high` получают
+`100/35/0`. Эти значения находятся в `scoring.json`; LLM не вычисляет компонент и не меняет порядок.
+
 Experience fit — `(positive matches + avoided non-matches) / all stated tag conditions`.
 В `positive` одинаково входят preferences, trip_style и priorities. Поэтому запрос только
-«не хочу море» повышает неморской вариант и снижает морской.
+«не хочу море» повышает неморской вариант и снижает морской. LLM может нормализовать свободное
+отрицание в закрытый `avoided_features` enum; неизвестное значение схема не принимает.
 
 ## Hard checks
 

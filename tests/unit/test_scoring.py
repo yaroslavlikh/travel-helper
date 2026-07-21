@@ -417,6 +417,36 @@ def test_no_sea_and_infrastructure_rank_a_city_above_beach_resorts() -> None:
     )
 
 
+def test_rain_avoidance_penalizes_rainy_candidate_with_same_other_evidence() -> None:
+    base = next(item for item in load_demo_candidates() if item.destination_id == "antalya")
+    dry = base.model_copy(update={"destination_id": "dry", "precipitation_risk": "low"})
+    rainy = base.model_copy(update={"destination_id": "rainy", "precipitation_risk": "high"})
+    request = TravelRequest(raw_query="Не хочу дождей", rain_avoidance=True)
+
+    dry_score = score_candidate(dry, request)
+    rainy_score = score_candidate(rainy, request)
+
+    assert dry_score.score_breakdown["weather"] > rainy_score.score_breakdown["weather"]
+    assert dry_score.final_score > rainy_score.final_score
+
+
+def test_model_normalized_avoided_feature_changes_experience_score() -> None:
+    base = next(item for item in load_demo_candidates() if item.destination_id == "antalya")
+    quiet = base.model_copy(update={"destination_id": "quiet", "destination_tags": ["city"]})
+    party = base.model_copy(
+        update={"destination_id": "party", "destination_tags": ["city", "nightlife"]}
+    )
+    request = TravelRequest(
+        raw_query="Не хочу шумные тусовочные районы",
+        avoided_features=["nightlife"],
+    )
+
+    assert (
+        score_candidate(quiet, request).score_breakdown["experience"]
+        > score_candidate(party, request).score_breakdown["experience"]
+    )
+
+
 def test_demo_candidates_include_credited_places_and_navigation_links() -> None:
     candidates = load_demo_candidates()
 

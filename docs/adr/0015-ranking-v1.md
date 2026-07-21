@@ -30,6 +30,13 @@ not arbitrary country substring matching. Group exclusions use the same controll
 `post-Soviet countries`, `CIS` and `former USSR` map to the explicitly listed 15 former Soviet
 republics and fail the explicit-avoid check.
 
+Natural-language dislikes are model-normalized into typed request fields before ranking; the model
+does not score candidates. `rain_avoidance=true` changes only deterministic weather fit: rain uses
+65% of that component instead of 25%, with versioned low/medium/high values in `scoring.json`.
+Supported destination dislikes are validated against the closed `avoided_features` enum and then
+compared with candidate tags inside experience fit. Unsupported concepts without evidence remain
+displayed request text and do not silently change the score.
+
 Candidates sort by deterministic state/score/confidence/id. Diversity operates only in a bounded
 score window and records rank before/after; it uses a documented similarity penalty and country
 cap. Affiliate links never affect filtering, score, or diversity.

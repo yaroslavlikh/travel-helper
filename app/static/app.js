@@ -30,10 +30,12 @@ const FIELD_LABELS = {
   sea_required: "море",
   trip_style: "формат отдыха",
   heat_tolerance: "отношение к жаре",
+  rain_avoidance: "отношение к дождям",
   preferred_max_temperature_c: "максимальная температура",
   baggage_required: "багаж",
   preferences: "предпочтения",
   avoid: "что исключить",
+  avoided_features: "нежелательные особенности",
   priorities: "приоритеты",
 };
 const $ = (selector) => document.querySelector(selector);
@@ -406,6 +408,7 @@ function renderCriteria(snapshot) {
     criterionMarkup("Куда", scope, changed.has("destination_scope")),
     criterionMarkup("Перелёт", request.max_flight_duration_hours ? `до ${request.max_flight_duration_hours} ч` : null, changed.has("max_flight_duration_hours")),
     criterionMarkup("Море", request.sea_required ? "обязательно" : null, changed.has("sea_required")),
+    criterionMarkup("Дожди", request.rain_avoidance ? "нежелательны" : null, changed.has("rain_avoidance")),
   ].join("");
 }
 

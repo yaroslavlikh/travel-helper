@@ -112,11 +112,12 @@ def normalized_avoided_tags(request: TravelRequest) -> set[str]:
     """Map explicit non-geographic dislikes into candidate tags for scoring."""
 
     text = " ".join(request.avoid).casefold()
-    return {
+    legacy_tags = {
         tag
         for tag, aliases in AVOIDED_TAG_ALIASES.items()
         if any(alias in text for alias in aliases)
     }
+    return {*request.avoided_features, *legacy_tags}
 
 
 def _russian_stem(value: str) -> str:
