@@ -8,6 +8,7 @@ function returnTarget() {
 }
 
 const target = returnTarget();
+const loginError = new URLSearchParams(window.location.search).get("error");
 
 function showState(id) {
   ["#auth-loading", "#auth-ready", "#auth-signed-in", "#auth-unavailable-state"]
@@ -49,6 +50,10 @@ async function initializeAuthPage() {
     showState("#auth-unavailable-state");
     showError(`${error.message}. Гостевые поездки всё равно доступны.`);
   }
+}
+
+if (loginError) {
+  showError("Не удалось завершить вход. Попробуйте ещё раз или продолжите без аккаунта.");
 }
 
 $("#provider-login").addEventListener("click", () => {

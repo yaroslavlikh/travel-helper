@@ -211,6 +211,15 @@ class AccountStore:
     def owns_chat(self, *, owner_id: str, chat_id: str) -> bool:
         return self.get_chat(owner_id=owner_id, chat_id=chat_id) is not None
 
+    def is_account_chat(self, chat_id: str) -> bool:
+        """Tell account-owned IDs apart from anonymous graph thread IDs."""
+
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT 1 FROM account_chats WHERE id = ?", (chat_id,)
+            ).fetchone()
+        return row is not None
+
     def update_chat(
         self, *, owner_id: str, chat_id: str, title: str, payload: dict[str, Any]
     ) -> ChatRecord | None:

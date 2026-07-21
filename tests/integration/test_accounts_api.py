@@ -38,6 +38,21 @@ def login(resources: object, client: httpx.AsyncClient, subject: str) -> tuple[s
 
 
 @pytest.mark.asyncio
+async def test_failed_oidc_callback_returns_to_login_without_flow_cookie() -> None:
+    app = create_app(configured_settings())
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test", follow_redirects=False
+        ) as client:
+            response = await client.get("/auth/callback?code=expired-code&state=wrong-state")
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login?error=login_failed"
+    assert 'travel_oidc_flow=""' in response.headers["set-cookie"]
+
+
+@pytest.mark.asyncio
 async def test_account_chat_import_sync_and_delete_are_owner_scoped() -> None:
     app = create_app(configured_settings())
     async with app.router.lifespan_context(app):
@@ -142,6 +157,46 @@ async def test_authenticated_recommendation_rejects_another_users_chat() -> None
                 )
 
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_guest_cannot_access_an_account_owned_planning_session() -> None:
+    app = create_app(configured_settings())
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as owner:
+            _account_id, csrf = login(app.state.resources, owner, "owner")
+            created = await owner.post(
+                "/account/chats",
+                headers={"X-CSRF-Token": csrf},
+                json={"title": "Личная поездка", "payload": {}},
+            )
+            chat_id = created.json()["id"]
+            initialized = await owner.post(
+                "/recommend",
+                headers={"X-CSRF-Token": csrf},
+                json={"session_id": chat_id, "query": "Из Москвы на море в августе"},
+            )
+            destination_id = initialized.json()["recommendations"][0]["candidate"]["destination_id"]
+
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as guest:
+            recommendation = await guest.post(
+                "/recommend",
+                json={"session_id": chat_id, "query": "Покажи историю"},
+            )
+            destination_chat = await guest.post(
+                "/destination-chat",
+                json={
+                    "session_id": chat_id,
+                    "destination_id": destination_id,
+                    "query": "Где остановиться?",
+                },
+            )
+
+    assert created.status_code == 201
+    assert initialized.status_code == 200
+    assert recommendation.status_code == 404
+    assert destination_chat.status_code == 404
 
 
 @pytest.mark.asyncio

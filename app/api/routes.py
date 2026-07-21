@@ -42,6 +42,23 @@ from app.services.scoring import STRICT_BUDGET_FALLBACK, rank_demo_candidates
 router = APIRouter(tags=["recommendations"])
 
 
+def _require_planning_session_access(
+    *, resources: AppResources, request: Request, session_id: str, csrf: bool
+) -> None:
+    """Keep account-owned thread IDs private without restricting guest threads."""
+
+    account_session = resources.auth_service.current_session(request)
+    if account_session is None:
+        if resources.account_store.is_account_chat(session_id):
+            raise HTTPException(status_code=404, detail="Unknown planning session")
+        return
+    resources.auth_service.require_session(request, csrf=csrf)
+    if not resources.account_store.owns_chat(
+        owner_id=account_session.account.id, chat_id=session_id
+    ):
+        raise HTTPException(status_code=404, detail="Unknown planning session")
+
+
 @router.post("/places/search", response_model=PlaceSearchResponse, tags=["places"])
 async def search_places(payload: PlaceSearchQuery, request: Request) -> PlaceSearchResponse:
     """Search published places from the canonical data store, never from demo fixtures."""
@@ -478,13 +495,9 @@ async def destination_chat(
     resources = request.app.state.resources
     if not isinstance(resources, AppResources):
         raise RuntimeError("Application resources are unavailable")
-    account_session = resources.auth_service.current_session(request)
-    if account_session is not None:
-        resources.auth_service.require_session(request, csrf=True)
-        if not resources.account_store.owns_chat(
-            owner_id=account_session.account.id, chat_id=payload.session_id
-        ):
-            raise HTTPException(status_code=404, detail="Unknown planning session")
+    _require_planning_session_access(
+        resources=resources, request=request, session_id=payload.session_id, csrf=True
+    )
     config: RunnableConfig = {"configurable": {"thread_id": payload.session_id}}
     snapshot = await resources.planner_graph.aget_state(config)
     if not snapshot.values:
@@ -608,22 +621,25 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
 
     account_session = resources.auth_service.current_session(request)
     if account_session is not None:
-        resources.auth_service.require_session(request, csrf=True)
         if payload.session_id is None:
+            resources.auth_service.require_session(request, csrf=True)
             account_chat = resources.account_store.create_chat(
                 owner_id=account_session.account.id,
                 title="Новая поездка",
                 payload={},
             )
             session_id = account_chat.id
-        elif resources.account_store.owns_chat(
-            owner_id=account_session.account.id, chat_id=payload.session_id
-        ):
-            session_id = payload.session_id
         else:
-            raise HTTPException(status_code=404, detail="Unknown planning session")
+            _require_planning_session_access(
+                resources=resources, request=request, session_id=payload.session_id, csrf=True
+            )
+            session_id = payload.session_id
     else:
         session_id = payload.session_id or str(uuid4())
+        if payload.session_id is not None:
+            _require_planning_session_access(
+                resources=resources, request=request, session_id=session_id, csrf=False
+            )
     config: RunnableConfig = {"configurable": {"thread_id": session_id}}
     snapshot = await resources.planner_graph.aget_state(config)
     existing_state = cast(PlannerState, snapshot.values) if snapshot.values else None
