@@ -109,14 +109,24 @@ async def login(request: Request, return_to: str = "/") -> RedirectResponse:
 
 
 @router.get("/auth/callback", include_in_schema=False)
-async def callback(request: Request, code: str, state: str) -> RedirectResponse:
+async def callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+) -> RedirectResponse:
     resources = _resources(request)
     signed_flow = request.cookies.get(FLOW_COOKIE, "")
-    token, return_to, _expires_at = await resources.auth_service.complete_login(
-        code=code,
-        state=state,
-        signed_flow=signed_flow,
-    )
+    if error or not code or not state:
+        return _failed_login_response()
+    try:
+        token, return_to, _expires_at = await resources.auth_service.complete_login(
+            code=code,
+            state=state,
+            signed_flow=signed_flow,
+        )
+    except HTTPException:
+        return _failed_login_response()
     response = RedirectResponse(return_to, status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(FLOW_COOKIE, path="/auth")
     response.set_cookie(
@@ -128,6 +138,12 @@ async def callback(request: Request, code: str, state: str) -> RedirectResponse:
         samesite="lax",
         path="/",
     )
+    return response
+
+
+def _failed_login_response() -> RedirectResponse:
+    response = RedirectResponse("/login?error=login_failed", status_code=status.HTTP_303_SEE_OTHER)
+    response.delete_cookie(FLOW_COOKIE, path="/auth")
     return response
 
 

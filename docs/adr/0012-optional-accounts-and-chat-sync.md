@@ -47,6 +47,8 @@ the external OIDC identity remains managed by its provider.
   callback.
 - No raw chat content is placed in authentication cookies or logs.
 - Account APIs return only resources owned by the current identity.
+- An unauthenticated request with an account-owned chat ID receives the same `404` as an unknown
+  planning session; IDs do not become a fallback bearer credential for the anonymous graph.
 - Production requires HTTPS cookies and a non-default application signing secret.
 
 ## Consequences
