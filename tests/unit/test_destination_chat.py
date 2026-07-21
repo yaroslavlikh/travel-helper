@@ -21,10 +21,8 @@ def test_every_catalog_destination_has_a_planning_context() -> None:
 
     assert set(_guides()) == set(DESTINATIONS)
     assert all(context is not None for context in contexts)
-    assert all(
-        context.curated_highlights or context.tourist_areas for context in contexts if context
-    )
-    assert all(context.day_plans for context in contexts if context)
+    assert all(len(context.curated_highlights) >= 4 for context in contexts if context)
+    assert all(len(context.day_plans) >= 2 for context in contexts if context)
 
 
 class DestinationGateway:
