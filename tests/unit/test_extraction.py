@@ -1,6 +1,7 @@
 from datetime import date
 from typing import Any
 
+import pytest
 from pydantic import BaseModel
 
 from app.domain.models import TravelRequest, TravelRequestPatch, TravelRequestRevision
@@ -100,6 +101,20 @@ def test_extracts_region_food_preference_and_explicit_country_exclusion() -> Non
 
     assert request.preferences == ["Азия", "острая еда"]
     assert request.avoid == ["Грузия"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Хочу за границу, но не хочу в постсоветские страны",
+        "Хочу за границу, но не рассматриваю СНГ",
+        "Хочу за границу, исключить бывший СССР",
+    ],
+)
+def test_extracts_post_soviet_country_group_exclusion(query: str) -> None:
+    request = extract_travel_request(query)
+
+    assert request.avoid == ["постсоветские страны"]
 
 
 async def test_model_extraction_preserves_query_and_applies_validated_answers() -> None:

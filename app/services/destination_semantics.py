@@ -18,6 +18,30 @@ REGION_ALIASES = {
     "russia": ("росси", "внутренн", "domestic"),
 }
 
+COUNTRY_GROUP_COUNTRIES = {
+    "post_soviet": {
+        "Азербайджан",
+        "Армения",
+        "Беларусь",
+        "Грузия",
+        "Казахстан",
+        "Кыргызстан",
+        "Латвия",
+        "Литва",
+        "Молдова",
+        "Россия",
+        "Таджикистан",
+        "Туркменистан",
+        "Узбекистан",
+        "Украина",
+        "Эстония",
+    }
+}
+
+COUNTRY_GROUP_ALIASES = {
+    "post_soviet": ("постсовет", "пост-совет", "снг", "бывший ссср", "бывшие республики ссср")
+}
+
 PREFERENCE_TAG_ALIASES = {
     "spicy_food": ("остр", "spicy"),
     "food": ("ед", "кухн", "гастроном", "food"),
@@ -60,6 +84,13 @@ def matches_explicit_avoid(candidate: DestinationCandidate, request: TravelReque
     avoid_text = " ".join(request.avoid).casefold()
     if not avoid_text:
         return False
+    avoided_groups = {
+        group
+        for group, aliases in COUNTRY_GROUP_ALIASES.items()
+        if any(alias in avoid_text for alias in aliases)
+    }
+    if any(candidate.country in COUNTRY_GROUP_COUNTRIES[group] for group in avoided_groups):
+        return True
     values = (candidate.country, candidate.city_or_region)
     return any(_russian_stem(value) in avoid_text for value in values)
 

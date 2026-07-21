@@ -26,7 +26,9 @@ the card. Visa policy is explicit: `no_visa` accepts only `none`, `evisa_ok` acc
 Strict-budget fallback is the sole relaxation. It is allowed only when strict budget has failed and
 every other applicable check is `PASS` or `NOT_APPLICABLE`; existing warnings remain intact and a
 human budget warning is appended. Region matching is a controlled alias-to-country-set mapping,
-not arbitrary country substring matching.
+not arbitrary country substring matching. Group exclusions use the same controlled approach;
+`post-Soviet countries`, `CIS` and `former USSR` map to the explicitly listed 15 former Soviet
+republics and fail the explicit-avoid check.
 
 Candidates sort by deterministic state/score/confidence/id. Diversity operates only in a bounded
 score window and records rank before/after; it uses a documented similarity penalty and country

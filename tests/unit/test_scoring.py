@@ -1,6 +1,7 @@
 import pytest
 
 from app.domain.models import TravelRequest
+from app.services.extraction import extract_travel_request
 from app.services.filtering import hard_filter_reasons
 from app.services.fixtures import load_demo_candidates
 from app.services.scoring import (
@@ -274,6 +275,28 @@ def test_region_and_country_exclusions_are_hard_filters() -> None:
         "explicitly_avoided",
     ]
     assert hard_filter_reasons(langkawi, request) == []
+
+
+@pytest.mark.parametrize("avoid", [["постсоветские страны"], ["СНГ"], ["бывший СССР"]])
+def test_post_soviet_country_group_excludes_georgia(avoid: list[str]) -> None:
+    candidates = load_demo_candidates()
+    request = TravelRequest(raw_query="Не хочу в постсоветские страны", avoid=avoid)
+    batumi = next(item for item in candidates if item.destination_id == "batumi")
+    antalya = next(item for item in candidates if item.destination_id == "antalya")
+
+    assert hard_filter_reasons(batumi, request) == ["explicitly_avoided"]
+    assert hard_filter_reasons(antalya, request) == []
+
+
+def test_post_soviet_exclusion_survives_extraction_and_shortlist_ranking() -> None:
+    request = extract_travel_request(
+        "Из Москвы за границу в августе, не хочу в постсоветские страны"
+    )
+
+    ranked = rank_demo_candidates(request)
+
+    assert ranked
+    assert all(item.candidate.country != "Грузия" for item in ranked)
 
 
 @pytest.mark.parametrize(
