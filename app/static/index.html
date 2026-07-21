@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f4f8fc" />
+    <meta name="description" content="Тудавай помогает выбрать направление поездки по бюджету, датам и предпочтениям." />
     <title>Тудавай — помощник в путешествиях</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
@@ -66,13 +67,13 @@
         </header>
 
         <div class="mobile-switch" role="tablist" aria-label="Разделы">
-          <button class="mobile-tab active" type="button" data-view="chat" role="tab">Чат</button>
-          <button class="mobile-tab" type="button" data-view="feed" role="tab">
+          <button class="mobile-tab active" type="button" data-view="chat" role="tab" aria-controls="chat-view" aria-selected="true">Чат</button>
+          <button class="mobile-tab" type="button" data-view="feed" role="tab" aria-controls="feed-panel" aria-selected="false" tabindex="-1">
             Варианты <span id="mobile-count">0</span>
           </button>
         </div>
 
-        <section id="chat-view" class="chat-view">
+        <section id="chat-view" class="chat-view" role="tabpanel">
           <div id="message-list" class="message-list" aria-live="polite"></div>
           <div id="typing" class="typing hidden" aria-live="polite">
             <span class="avatar assistant-avatar">✦</span>
@@ -104,7 +105,7 @@
         </section>
       </main>
 
-      <section id="feed-panel" class="feed-panel" aria-label="Лента вариантов">
+      <section id="feed-panel" class="feed-panel" role="tabpanel" aria-label="Лента вариантов">
         <div id="feed-content" class="feed-content">
           <header class="feed-header">
             <div>

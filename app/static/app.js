@@ -251,7 +251,7 @@ function renderChatList() {
   const chats = [...store.chats].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   $("#chat-list").innerHTML = chats.map((chat) => `
     <div class="chat-row">
-      <button class="chat-item ${chat.id === store.activeChatId ? "active" : ""}" type="button" data-chat-id="${escapeHtml(chat.id)}">
+      <button class="chat-item ${chat.id === store.activeChatId ? "active" : ""}" type="button" data-chat-id="${escapeHtml(chat.id)}"${chat.id === store.activeChatId ? ' aria-current="page"' : ""}>
         <strong>${escapeHtml(chat.title)}</strong>
         <small>${relativeDate(chat.updatedAt)} · ${Math.max(0, chat.messages.length - 1)} сообщ.</small>
       </button>
@@ -967,7 +967,12 @@ function resizeComposer() {
 
 function setMobileView(view) {
   document.body.dataset.mobileView = view;
-  document.querySelectorAll(".mobile-tab").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  document.querySelectorAll(".mobile-tab").forEach((button) => {
+    const active = button.dataset.view === view;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
 }
 
 destinationComposer.addEventListener("submit", (event) => {
