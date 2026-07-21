@@ -1,10 +1,10 @@
 {
   "weights": {
-    "budget_fit": 30,
-    "weather_fit": 20,
-    "entry_simplicity": 15,
-    "transport_convenience": 15,
-    "preference_fit": 15,
-    "evidence_quality": 5
+    "budget": 28,
+    "experience": 22,
+    "logistics": 18,
+    "weather": 14,
+    "entry": 8,
+    "practical": 10
   }
 }

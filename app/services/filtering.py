@@ -29,8 +29,8 @@ def hard_filter_reasons(candidate: DestinationCandidate, request: TravelRequest)
     if (
         request.budget_strict
         and request.budget_total_rub is not None
-        and candidate.estimated_total_cost_rub_min is not None
-        and candidate.estimated_total_cost_rub_min > request.budget_total_rub
+        and candidate.estimated_total_cost_rub_max is not None
+        and candidate.estimated_total_cost_rub_max > request.budget_total_rub
     ):
         reasons.append("strict_budget_exceeded")
     if (

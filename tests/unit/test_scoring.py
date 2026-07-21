@@ -33,6 +33,35 @@ def test_hard_filter_returns_machine_readable_reason() -> None:
     assert "destination_scope_mismatch" in hard_filter_reasons(sochi, _sample_request())
 
 
+def test_strict_budget_uses_safe_total_not_the_lowest_estimate() -> None:
+    candidate = next(item for item in load_demo_candidates() if item.destination_id == "antalya")
+    request = TravelRequest(
+        raw_query="Строго до 150 тысяч",
+        budget_total_rub=150_000,
+        budget_strict=True,
+    )
+
+    scored = score_candidate(candidate, request)
+
+    assert "strict_budget_exceeded" in scored.rejected_reasons
+    assert scored.hard_checks["strict_budget"] == "FAIL"
+    assert scored.state == "EXCLUDED"
+
+
+def test_missing_dimension_keeps_its_weight_and_conservative_prior() -> None:
+    candidate = next(
+        item for item in load_demo_candidates() if item.destination_id == "antalya"
+    ).model_copy(
+        update={"estimated_total_cost_rub_min": None, "estimated_total_cost_rub_max": None}
+    )
+    scored = score_candidate(
+        candidate, TravelRequest(raw_query="Нужен отпуск", budget_total_rub=150_000)
+    )
+
+    assert scored.score_breakdown["budget"] == 8.4
+    assert scored.uncertainty_penalty > 0
+
+
 def test_region_and_country_exclusions_are_hard_filters() -> None:
     candidates = load_demo_candidates()
     request = TravelRequest(
