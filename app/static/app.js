@@ -1,5 +1,6 @@
 const STORAGE_KEY = "travel-chat-state-v1";
 const ACCOUNT_CACHE_PREFIX = "travel-account-chat-state-v1:";
+const SIDEBAR_COLLAPSED_KEY = "travel-sidebar-collapsed-v1";
 const MONTHS = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
@@ -135,6 +136,19 @@ function loadGuestStore() {
 }
 
 let store = loadGuestStore();
+
+function setSidebarCollapsed(collapsed) {
+  document.body.dataset.sidebarCollapsed = String(collapsed);
+  const toggle = $("#sidebar-toggle");
+  toggle.setAttribute("aria-expanded", String(!collapsed));
+  toggle.setAttribute("aria-label", collapsed ? "Развернуть историю чатов" : "Свернуть историю чатов");
+  toggle.title = toggle.getAttribute("aria-label");
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+  } catch {
+    // The workspace remains usable when private browsing rejects local storage.
+  }
+}
 
 function persist() {
   const key = accountState.authenticated
@@ -1006,6 +1020,9 @@ document.querySelectorAll("[data-starter]").forEach((button) => {
 });
 $("#new-chat").addEventListener("click", openNewChat);
 $("#mobile-new-chat").addEventListener("click", openNewChat);
+$("#sidebar-toggle").addEventListener("click", () => {
+  setSidebarCollapsed(document.body.dataset.sidebarCollapsed !== "true");
+});
 $("#login-button").addEventListener("click", beginLogin);
 $("#mobile-login-button").addEventListener("click", () => {
   window.location.assign("/login?return_to=/");
@@ -1019,6 +1036,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") flushPendingSyncs();
 });
 
+setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true");
 persist();
 setMobileView("chat");
 renderAll();

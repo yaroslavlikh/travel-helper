@@ -11,17 +11,24 @@
   <body data-workspace-state="conversation">
     <div class="app-shell">
       <aside class="sidebar" aria-label="История чатов">
-        <a class="brand" href="/" aria-label="Тудавай">
-          <span class="brand-mark" aria-hidden="true">✈</span>
-          <span><strong>Тудавай</strong><small>соберём поездку</small></span>
-        </a>
+        <div class="sidebar-top">
+          <a class="brand" href="/" aria-label="Тудавай">
+            <span class="brand-mark" aria-hidden="true">✈</span>
+            <span class="brand-copy"><strong>Тудавай</strong><small>соберём поездку</small></span>
+          </a>
+          <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-controls="chat-history" aria-expanded="true" aria-label="Свернуть историю чатов" title="Свернуть историю чатов">
+            <span aria-hidden="true">‹</span>
+          </button>
+        </div>
 
-        <button id="new-chat" class="new-chat-button" type="button">
-          <span aria-hidden="true">＋</span> Новый чат
+        <button id="new-chat" class="new-chat-button" type="button" title="Новый чат">
+          <span aria-hidden="true">＋</span><span class="new-chat-label">Новый чат</span>
         </button>
 
-        <div class="history-heading">Недавние поездки</div>
-        <nav id="chat-list" class="chat-list"></nav>
+        <section id="chat-history" class="chat-history">
+          <div class="history-heading">Недавние поездки</div>
+          <nav id="chat-list" class="chat-list"></nav>
+        </section>
 
         <section id="account-panel" class="account-panel" aria-live="polite">
           <button id="login-button" class="account-primary" type="button"><span aria-hidden="true">↗</span> Войти и синхронизировать</button>

@@ -75,6 +75,22 @@ async def test_health_exposes_safe_demo_status() -> None:
 
 
 @pytest.mark.asyncio
+async def test_frontend_exposes_an_accessible_sidebar_collapse_control() -> None:
+    app = create_app(
+        Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="sidebar-toggle"' in response.text
+    assert 'aria-controls="chat-history"' in response.text
+
+
+@pytest.mark.asyncio
 async def test_recommendation_clarifies_then_resumes_same_session() -> None:
     app = create_app(
         Settings(app_env="test", demo_mode=True, langfuse_enabled=False, _env_file=None)
