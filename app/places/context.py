@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from functools import lru_cache
-from typing import Literal
+from pathlib import Path
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.places.catalog import DESTINATIONS
 from app.services.fixtures import load_demo_candidates
+
+GUIDES_PATH = Path(__file__).resolve().parents[1] / "data" / "destination-guides.json"
+
+
+@lru_cache(maxsize=1)
+def _guides() -> dict[str, dict[str, Any]]:
+    payload = json.loads(GUIDES_PATH.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Destination guides must be a JSON object")
+    return payload
 
 
 class DestinationFact(BaseModel):
@@ -48,6 +60,8 @@ class DestinationContext(BaseModel):
     less_suitable_for: list[str]
     transport_notes: list[str]
     poi_categories: list[str]
+    summary: str | None = None
+    day_plans: list[str] = Field(default_factory=list)
     curated_highlights: list[str] = Field(default_factory=list)
     dynamic_facts: list[DestinationFact]
 
@@ -78,6 +92,20 @@ ISTANBUL_CONTEXT = DestinationContext(
         "Маршрут лучше собирать по районам, а не по всему городу за один день.",
     ],
     poi_categories=["museum", "historic", "sight", "viewpoint", "park", "market", "family"],
+    summary=(
+        "Город двух континентов с плотной историей, водой и районами, "
+        "которые лучше не пытаться охватить одним маршрутом."
+    ),
+    curated_highlights=[
+        "Айя-София и Султанахмет: историческое ядро.",
+        "Галатская башня и Каракёй: виды и городской ритм.",
+        "Дворец Топкапы: большой отдельный музейный маршрут.",
+        "Кадыкёй: азиатская сторона с рынками и кафе.",
+    ],
+    day_plans=[
+        "История: Айя-София → Голубая мечеть → Топкапы.",
+        "Город: Каракёй → Галата → Бейоглу вечером.",
+    ],
     dynamic_facts=[
         DestinationFact(
             kind="entry",
@@ -109,14 +137,15 @@ def destination_context(destination_id: str) -> DestinationContext | None:
     )
     if candidate is None:
         return None
+    guide = _guides().get(destination_id)
+    if guide is None:
+        return None
     west, south, east, north = catalog.bbox
     return DestinationContext(
         destination_id=destination_id,
         city=catalog.name,
         country=candidate.country,
-        source_url=(
-            candidate.image.source_url if candidate.image else "https://www.openstreetmap.org/"
-        ),
+        source_url=str(guide["source_url"]),
         observed_at=datetime(2026, 7, 21, tzinfo=UTC),
         tourist_areas=[
             DestinationArea(
@@ -128,13 +157,13 @@ def destination_context(destination_id: str) -> DestinationContext | None:
         ],
         stay_areas=candidate.stay_areas,
         trip_styles=candidate.destination_tags,
-        suitable_for=candidate.destination_tags,
-        less_suitable_for=[],
-        transport_notes=["Конкретные маршруты лучше собирать по районам, а не по всей зоне сразу."],
+        suitable_for=list(guide["suitable_for"]),
+        less_suitable_for=list(guide["less_suitable_for"]),
+        transport_notes=list(guide["transport_notes"]),
         poi_categories=["museum", "historic", "sight", "viewpoint", "park", "market", "family"],
-        curated_highlights=[
-            f"{highlight.name}: {highlight.description}" for highlight in candidate.highlights
-        ],
+        summary=str(guide["summary"]),
+        curated_highlights=list(guide["curated_highlights"]),
+        day_plans=list(guide["day_plans"]),
         dynamic_facts=[
             DestinationFact(
                 kind="entry",

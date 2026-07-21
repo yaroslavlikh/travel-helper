@@ -15,6 +15,12 @@ All supported destinations are declared in one versioned catalog configuration w
 scope, country code, city label and stable context. The importer accepts a destination ID, records
 that ID and scope in every import run, and keeps the existing source identity/lifecycle rules.
 
+The subchat also receives a versioned, source-linked destination guide: neighbourhood trade-offs,
+practical route clusters and a small curated set of places. It is a planning brief, not a live
+source: prices, opening hours, entry rules, availability and date-specific weather remain explicitly
+unknown until a dedicated current evidence provider supplies them. Guide text is paraphrased from
+listed sources; raw source prose is not stored or sent to the model.
+
 Each city is populated and evaluated independently. A city becomes subchat-searchable only after
 its import passes the catalog bounds and its destination-specific eval is recorded. Dynamic facts
 remain unknown until dedicated sourced snapshots exist.
