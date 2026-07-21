@@ -165,9 +165,10 @@ def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> 
     reasons = hard_filter_reasons(candidate, request)
     checks = _hard_checks(candidate, request, reasons)
     unknown = [name for name, result in checks.items() if result == "UNKNOWN"]
+    legal_hard_unknown = request.visa_willingness == "no_visa" and "visa" in unknown
     state: CandidateState = (
         "EXCLUDED"
-        if reasons or "FAIL" in checks.values()
+        if reasons or "FAIL" in checks.values() or legal_hard_unknown
         else "CONDITIONAL"
         if unknown
         else "ELIGIBLE"
@@ -198,7 +199,10 @@ def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> 
         uncertainty_penalty=round(uncertainty, 2),
         caps_applied=caps,
         pros=["Соответствует подтверждённым условиям.", *matched][:3],
-        cons=reasons[:3],
+        cons=[
+            *reasons,
+            *(["Не удалось подтвердить безвизовый въезд."] if legal_hard_unknown else []),
+        ][:3],
         risks=["Оценки demo fixture не являются актуальными фактами."],
         assumptions=["Цена — modelled estimate; для строгого бюджета используется safe total."],
         explanation=(

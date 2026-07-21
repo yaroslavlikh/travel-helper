@@ -78,6 +78,28 @@ def test_fallback_is_labeled_and_never_claims_passed_hard_filters() -> None:
     assert all(item.rank_before_diversity and item.rank_after_diversity for item in ranked)
 
 
+def test_unknown_visa_does_not_pass_a_no_visa_hard_requirement() -> None:
+    candidate = next(item for item in load_demo_candidates() if item.destination_id == "kohsamui")
+
+    scored = score_candidate(
+        candidate, TravelRequest(raw_query="Только без визы", visa_willingness="no_visa")
+    )
+
+    assert scored.hard_checks["visa"] == "UNKNOWN"
+    assert scored.state == "EXCLUDED"
+    assert not scored.passed_hard_filters
+
+
+def test_affiliate_navigation_links_do_not_change_relevance_score() -> None:
+    candidate = next(item for item in load_demo_candidates() if item.destination_id == "antalya")
+    request = TravelRequest(raw_query="Море", sea_required=True)
+
+    assert (
+        score_candidate(candidate, request).final_score
+        == score_candidate(candidate.model_copy(update={"external_links": []}), request).final_score
+    )
+
+
 def test_region_and_country_exclusions_are_hard_filters() -> None:
     candidates = load_demo_candidates()
     request = TravelRequest(
