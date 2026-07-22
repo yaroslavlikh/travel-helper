@@ -6,6 +6,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 import secrets
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
@@ -22,6 +23,12 @@ SESSION_COOKIE = "travel_account_session"
 FLOW_COOKIE = "travel_oidc_flow"
 SESSION_DAYS = 30
 FLOW_MINUTES = 10
+PASSWORD_SCRYPT_N = 2**14
+PASSWORD_SCRYPT_R = 8
+PASSWORD_SCRYPT_P = 1
+PASSWORD_SALT_BYTES = 16
+PASSWORD_HASH_BYTES = 32
+EMAIL_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 
 def _b64encode(value: bytes) -> str:
@@ -57,17 +64,26 @@ class AuthService:
         self.settings = settings
         self.store = store
         self.http_client = http_client
+        self._session_secret = settings.auth_session_secret_value or secrets.token_urlsafe(48)
 
     @property
     def enabled(self) -> bool:
+        return self.settings.account_auth_is_configured
+
+    @property
+    def oidc_enabled(self) -> bool:
         return self.settings.auth_is_configured
+
+    @property
+    def password_enabled(self) -> bool:
+        return self.settings.password_auth_is_configured
 
     @property
     def cookie_secure(self) -> bool:
         return self.settings.auth_cookie_secure
 
     def begin_login(self, return_to: str) -> tuple[str, str]:
-        if not self.enabled:
+        if not self.oidc_enabled:
             raise HTTPException(status_code=503, detail="Account login is not configured")
         safe_return_to = (
             return_to if return_to.startswith("/") and not return_to.startswith("//") else "/"
@@ -137,6 +153,30 @@ class AuthService:
         token, expires_at = self.issue_session(account)
         return token, flow.return_to, expires_at
 
+    def register_password(self, *, email: str, password: str) -> tuple[str, str, Account]:
+        if not self.password_enabled:
+            raise HTTPException(status_code=503, detail="Password login is not configured")
+        normalized_email = self._normalize_email(email)
+        self._validate_password(password)
+        account = self.store.create_password_account(
+            email=normalized_email,
+            password_hash=self._hash_password(password),
+        )
+        if account is None:
+            raise HTTPException(status_code=409, detail="Account already exists")
+        token, expires_at = self.issue_session(account)
+        return token, expires_at, account
+
+    def login_password(self, *, email: str, password: str) -> tuple[str, str, Account]:
+        if not self.password_enabled:
+            raise HTTPException(status_code=503, detail="Password login is not configured")
+        normalized_email = self._normalize_email(email)
+        account_and_hash = self.store.password_account(normalized_email)
+        if account_and_hash is None or not self._verify_password(password, account_and_hash[1]):
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        token, expires_at = self.issue_session(account_and_hash[0])
+        return token, expires_at, account_and_hash[0]
+
     def issue_session(self, account: Account) -> tuple[str, str]:
         """Create an opaque application session after identity verification."""
 
@@ -178,10 +218,54 @@ class AuthService:
         self.store.delete_session(_token_hash(session_token))
 
     def _secret(self) -> bytes:
-        value = self.settings.auth_session_secret_value
-        if not value:
-            raise HTTPException(status_code=503, detail="Account login is not configured")
-        return value.encode("utf-8")
+        return self._session_secret.encode("utf-8")
+
+    @staticmethod
+    def _normalize_email(value: str) -> str:
+        email = value.strip().casefold()
+        if not EMAIL_PATTERN.fullmatch(email):
+            raise HTTPException(status_code=422, detail="Enter a valid email address")
+        return email
+
+    @staticmethod
+    def _validate_password(value: str) -> None:
+        if not 12 <= len(value) <= 256:
+            raise HTTPException(
+                status_code=422, detail="Password must contain from 12 to 256 characters"
+            )
+
+    @staticmethod
+    def _hash_password(value: str) -> str:
+        salt = secrets.token_bytes(PASSWORD_SALT_BYTES)
+        derived = hashlib.scrypt(
+            value.encode("utf-8"),
+            salt=salt,
+            n=PASSWORD_SCRYPT_N,
+            r=PASSWORD_SCRYPT_R,
+            p=PASSWORD_SCRYPT_P,
+            dklen=PASSWORD_HASH_BYTES,
+        )
+        return f"scrypt${_b64encode(salt)}${_b64encode(derived)}"
+
+    @staticmethod
+    def _verify_password(value: str, stored: str) -> bool:
+        try:
+            algorithm, encoded_salt, encoded_hash = stored.split("$", 2)
+            if algorithm != "scrypt":
+                return False
+            salt = base64.urlsafe_b64decode(encoded_salt + "=" * (-len(encoded_salt) % 4))
+            expected = base64.urlsafe_b64decode(encoded_hash + "=" * (-len(encoded_hash) % 4))
+            actual = hashlib.scrypt(
+                value.encode("utf-8"),
+                salt=salt,
+                n=PASSWORD_SCRYPT_N,
+                r=PASSWORD_SCRYPT_R,
+                p=PASSWORD_SCRYPT_P,
+                dklen=len(expected),
+            )
+        except (TypeError, ValueError):
+            return False
+        return hmac.compare_digest(actual, expected)
 
     def _sign_flow(self, flow: LoginFlow) -> str:
         payload = _b64encode(json.dumps(asdict(flow), separators=(",", ":")).encode("utf-8"))

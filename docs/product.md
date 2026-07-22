@@ -56,9 +56,13 @@ Travel Choice Assistant принимает естественный запрос
 
 ## Границы MVP
 
-В MVP входят: anonymous sessions, отдельная optional OIDC login page и account sync, natural-language input, clarification loop, search-based candidate generation, evidence normalization, hard filters, deterministic scoring, responsive web UI, sources, warnings, feedback и operational tracing.
+В MVP входят: anonymous sessions, optional account login by email/password or configured OIDC provider,
+account sync, natural-language input, clarification loop, search-based candidate generation, evidence
+normalization, hard filters, deterministic scoring, responsive web UI, sources, warnings, feedback и
+operational tracing.
 
-В MVP не входят: обязательная регистрация, собственное хранение паролей, оплата, бронирование,
+В MVP не входят: обязательная регистрация, подтверждение email и восстановление пароля без
+подключённого почтового провайдера, оплата, бронирование,
 полноценный личный кабинет, мобильное приложение, multi-agent orchestration, универсальная vector/RAG
 база, собственный crawler и рекомендательная ML-модель.
 

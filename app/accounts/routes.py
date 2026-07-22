@@ -29,6 +29,8 @@ class AccountSummary(AccountApiModel):
 
 class AccountStatus(AccountApiModel):
     auth_enabled: bool
+    password_enabled: bool
+    oidc_enabled: bool
     authenticated: bool
     account: AccountSummary | None = None
     csrf_token: str | None = None
@@ -55,6 +57,11 @@ class DeleteAccountInput(AccountApiModel):
     confirmation: Literal["DELETE"]
 
 
+class PasswordCredentials(AccountApiModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=1, max_length=256)
+
+
 def _resources(request: Request) -> AppResources:
     resources = request.app.state.resources
     if not isinstance(resources, AppResources):
@@ -77,6 +84,29 @@ def _chat_output(chat: ChatRecord) -> ChatOutput:
         payload=chat.payload,
         created_at=chat.created_at,
         updated_at=chat.updated_at,
+    )
+
+
+def _account_status(resources: AppResources, account: Account, token: str) -> AccountStatus:
+    return AccountStatus(
+        auth_enabled=resources.auth_service.enabled,
+        password_enabled=resources.auth_service.password_enabled,
+        oidc_enabled=resources.auth_service.oidc_enabled,
+        authenticated=True,
+        account=_summary(account),
+        csrf_token=resources.auth_service.csrf_token(token),
+    )
+
+
+def _set_session_cookie(response: Response, resources: AppResources, token: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=30 * 24 * 60 * 60,
+        httponly=True,
+        secure=resources.auth_service.cookie_secure,
+        samesite="lax",
+        path="/",
     )
 
 
@@ -129,15 +159,7 @@ async def callback(
         return _failed_login_response()
     response = RedirectResponse(return_to, status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(FLOW_COOKIE, path="/auth")
-    response.set_cookie(
-        SESSION_COOKIE,
-        token,
-        max_age=30 * 24 * 60 * 60,
-        httponly=True,
-        secure=resources.auth_service.cookie_secure,
-        samesite="lax",
-        path="/",
-    )
+    _set_session_cookie(response, resources, token)
     return response
 
 
@@ -147,6 +169,35 @@ def _failed_login_response() -> RedirectResponse:
     return response
 
 
+@router.post(
+    "/auth/password/register",
+    response_model=AccountStatus,
+    status_code=status.HTTP_201_CREATED,
+    tags=["account"],
+)
+async def password_register(
+    payload: PasswordCredentials, request: Request, response: Response
+) -> AccountStatus:
+    resources = _resources(request)
+    token, _expires_at, account = resources.auth_service.register_password(
+        email=payload.email, password=payload.password
+    )
+    _set_session_cookie(response, resources, token)
+    return _account_status(resources, account, token)
+
+
+@router.post("/auth/password/login", response_model=AccountStatus, tags=["account"])
+async def password_login(
+    payload: PasswordCredentials, request: Request, response: Response
+) -> AccountStatus:
+    resources = _resources(request)
+    token, _expires_at, account = resources.auth_service.login_password(
+        email=payload.email, password=payload.password
+    )
+    _set_session_cookie(response, resources, token)
+    return _account_status(resources, account, token)
+
+
 @router.get("/account/me", response_model=AccountStatus, tags=["account"])
 async def account_status(request: Request) -> AccountStatus:
     resources = _resources(request)
@@ -154,14 +205,11 @@ async def account_status(request: Request) -> AccountStatus:
     if session is None:
         return AccountStatus(
             auth_enabled=resources.auth_service.enabled,
+            password_enabled=resources.auth_service.password_enabled,
+            oidc_enabled=resources.auth_service.oidc_enabled,
             authenticated=False,
         )
-    return AccountStatus(
-        auth_enabled=resources.auth_service.enabled,
-        authenticated=True,
-        account=_summary(session.account),
-        csrf_token=resources.auth_service.csrf_token(session.token),
-    )
+    return _account_status(resources, session.account, session.token)
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT, tags=["account"])
