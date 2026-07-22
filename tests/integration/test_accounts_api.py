@@ -53,6 +53,44 @@ async def test_failed_oidc_callback_returns_to_login_without_flow_cookie() -> No
 
 
 @pytest.mark.asyncio
+async def test_password_registration_and_login_issue_account_sessions() -> None:
+    app = create_app(configured_settings())
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            registered = await client.post(
+                "/auth/password/register",
+                json={"email": "Traveler@Example.com", "password": "a safe password"},
+            )
+            profile = await client.get("/account/me")
+            duplicate = await client.post(
+                "/auth/password/register",
+                json={"email": "traveler@example.com", "password": "another safe password"},
+            )
+            csrf = registered.json()["csrf_token"]
+            logged_out = await client.post("/auth/logout", headers={"X-CSRF-Token": csrf})
+
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            wrong_password = await client.post(
+                "/auth/password/login",
+                json={"email": "traveler@example.com", "password": "wrong password"},
+            )
+            logged_in = await client.post(
+                "/auth/password/login",
+                json={"email": "TRAVELER@example.com", "password": "a safe password"},
+            )
+
+    assert registered.status_code == 201
+    assert profile.json()["authenticated"] is True
+    assert profile.json()["account"]["email"] == "traveler@example.com"
+    assert duplicate.status_code == 409
+    assert logged_out.status_code == 204
+    assert wrong_password.status_code == 401
+    assert logged_in.status_code == 200
+    assert logged_in.json()["authenticated"] is True
+
+
+@pytest.mark.asyncio
 async def test_account_chat_import_sync_and_delete_are_owner_scoped() -> None:
     app = create_app(configured_settings())
     async with app.router.lifespan_context(app):

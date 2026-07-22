@@ -377,7 +377,8 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
     assert 'aria-controls="feed-panel" aria-selected="false"' in page.text
     assert login_page.status_code == 200
     assert "Продолжайте планировать с любого устройства" in login_page.text
-    assert "Без новых паролей" in login_page.text
+    assert "Вход как вам удобно" in login_page.text
+    assert 'id="password-form"' in login_page.text
     assert feedback.status_code == 204
     assert travel_link.status_code == 204
     assert len(recorded_clicks) == 1

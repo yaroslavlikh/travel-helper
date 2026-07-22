@@ -56,6 +56,7 @@ class AccountStore:
                     subject TEXT NOT NULL,
                     email TEXT,
                     display_name TEXT,
+                    password_hash TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     UNIQUE (issuer, subject)
@@ -82,6 +83,12 @@ class AccountStore:
                     ON account_chats(owner_id, updated_at DESC);
                 """
             )
+            columns = {
+                str(row["name"])
+                for row in self._connection.execute("PRAGMA table_info(accounts)").fetchall()
+            }
+            if "password_hash" not in columns:
+                self._connection.execute("ALTER TABLE accounts ADD COLUMN password_hash TEXT")
             self._connection.commit()
 
     def close(self) -> None:
@@ -132,6 +139,41 @@ class AccountStore:
                 (token_hash, account_id, expires_at, _now()),
             )
             self._connection.commit()
+
+    def create_password_account(
+        self, *, email: str, password_hash: str, display_name: str | None = None
+    ) -> Account | None:
+        timestamp = _now()
+        account_id = str(uuid4())
+        with self._lock:
+            try:
+                self._connection.execute(
+                    """
+                    INSERT INTO accounts
+                        (id, issuer, subject, email, display_name, password_hash,
+                         created_at, updated_at)
+                    VALUES (?, 'password', ?, ?, ?, ?, ?, ?)
+                    """,
+                    (account_id, email, email, display_name, password_hash, timestamp, timestamp),
+                )
+            except sqlite3.IntegrityError:
+                return None
+            self._connection.commit()
+        return Account(account_id, "password", email, email, display_name)
+
+    def password_account(self, email: str) -> tuple[Account, str] | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT id, issuer, subject, email, display_name, password_hash
+                FROM accounts
+                WHERE issuer = 'password' AND subject = ? AND password_hash IS NOT NULL
+                """,
+                (email,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._account(row), str(row["password_hash"])
 
     def account_for_session(self, *, token_hash: str, now: str) -> Account | None:
         with self._lock:

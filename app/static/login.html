@@ -21,7 +21,7 @@
 
         <div class="auth-benefits">
           <article><span aria-hidden="true">↻</span><div><strong>Диалоги не теряются</strong><p>Условия, подборки и обсуждения направлений сохраняются вместе.</p></div></article>
-          <article><span aria-hidden="true">◇</span><div><strong>Без новых паролей</strong><p>Безопасный вход через настроенного провайдера; пароль Тудавай не видит и не хранит.</p></div></article>
+          <article><span aria-hidden="true">◇</span><div><strong>Вход как вам удобно</strong><p>Почта и пароль или настроенный аккаунт Google / Яндекс.</p></div></article>
           <article><span aria-hidden="true">⌁</span><div><strong>Гость — полноценный режим</strong><p>Можно вернуться к поездке сейчас и решить вопрос со входом позже.</p></div></article>
         </div>
 
@@ -40,7 +40,15 @@
 
         <div id="auth-ready" class="auth-state hidden">
           <p id="auth-description">После входа мы предложим перенести ваши локальные поездки — только с вашего согласия.</p>
-          <button id="provider-login" class="auth-primary" type="button"><span aria-hidden="true">→</span> Продолжить через аккаунт</button>
+          <form id="password-form" class="password-form">
+            <label>Почта<input id="password-email" type="email" name="email" autocomplete="email" placeholder="you@example.com" required /></label>
+            <label>Пароль<input id="password-value" type="password" name="password" autocomplete="new-password" minlength="12" maxlength="256" placeholder="Не менее 12 символов" required /></label>
+            <label id="password-confirm-row">Повторите пароль<input id="password-confirm" type="password" autocomplete="new-password" minlength="12" maxlength="256" placeholder="Повторите пароль" required /></label>
+            <button id="password-submit" class="auth-primary" type="submit">Создать аккаунт <span aria-hidden="true">→</span></button>
+          </form>
+          <button id="password-mode" class="auth-text-button" type="button">Уже есть аккаунт? Войти</button>
+          <div id="provider-choice" class="provider-choice hidden"><span>или</span></div>
+          <button id="provider-login" class="auth-secondary hidden" type="button"><span aria-hidden="true">→</span> Продолжить через Google или Яндекс</button>
           <button id="guest-continue" class="auth-secondary" type="button">Продолжить без входа</button>
         </div>
 

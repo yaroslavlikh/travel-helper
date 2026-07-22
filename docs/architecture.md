@@ -154,7 +154,8 @@ Scoring получает только normalized candidate + TravelRequest + wei
 - `POST /events/place`: privacy-bounded impression/open/save/hide/select для последующей оценки
   ранжирования; raw текст запроса в это событие не записывается.
 - `POST /feedback`: anonymous up/down и optional comment.
-- `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`: optional OIDC login and opaque
+- `POST /auth/password/register`, `POST /auth/password/login`, `GET /auth/login`,
+  `GET /auth/callback`, `POST /auth/logout`: optional email/password or OIDC login and opaque
   application session lifecycle.
 - `/account/*`: current identity, owned chat list/create/import/update/delete and complete account-data
   deletion. Authenticated mutations require a session-bound CSRF token.

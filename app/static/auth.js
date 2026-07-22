@@ -9,6 +9,7 @@ function returnTarget() {
 
 const target = returnTarget();
 const loginError = new URLSearchParams(window.location.search).get("error");
+let passwordMode = "register";
 
 function showState(id) {
   ["#auth-loading", "#auth-ready", "#auth-signed-in", "#auth-unavailable-state"]
@@ -22,6 +23,22 @@ function showError(message) {
 
 function continueToWorkspace() {
   window.location.assign(target);
+}
+
+function setPasswordMode(mode) {
+  passwordMode = mode;
+  const registering = mode === "register";
+  const passwordAvailable = $("#password-form").dataset.enabled === "true";
+  $("#password-form").classList.toggle("hidden", !passwordAvailable);
+  $("#password-confirm-row").classList.toggle("hidden", !registering);
+  $("#password-confirm").required = registering;
+  $("#password-value").autocomplete = registering ? "new-password" : "current-password";
+  $("#password-submit").innerHTML = registering
+    ? 'Создать аккаунт <span aria-hidden="true">→</span>'
+    : 'Войти <span aria-hidden="true">→</span>';
+  $("#password-mode").textContent = registering
+    ? "Уже есть аккаунт? Войти"
+    : "Нет аккаунта? Создать";
 }
 
 async function initializeAuthPage() {
@@ -39,7 +56,14 @@ async function initializeAuthPage() {
       return;
     }
     if (status.auth_enabled) {
-      $("#auth-card-title").textContent = "Войти в Тудавай";
+      const passwordEnabled = Boolean(status.password_enabled);
+      $("#password-form").dataset.enabled = passwordEnabled ? "true" : "";
+      $("#password-form").classList.toggle("hidden", !passwordEnabled);
+      $("#password-mode").classList.toggle("hidden", !passwordEnabled);
+      $("#provider-choice").classList.toggle("hidden", !passwordEnabled || !status.oidc_enabled);
+      $("#provider-login").classList.toggle("hidden", !status.oidc_enabled);
+      $("#auth-card-title").textContent = passwordEnabled ? "Создайте аккаунт" : "Войти в Тудавай";
+      setPasswordMode("register");
       showState("#auth-ready");
       return;
     }
@@ -58,6 +82,29 @@ if (loginError) {
 
 $("#provider-login").addEventListener("click", () => {
   window.location.assign(`/auth/login?return_to=${encodeURIComponent(target)}`);
+});
+$("#password-mode").addEventListener("click", () => {
+  setPasswordMode(passwordMode === "register" ? "login" : "register");
+});
+$("#password-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const email = $("#password-email").value;
+  const password = $("#password-value").value;
+  if (passwordMode === "register" && password !== $("#password-confirm").value) {
+    showError("Пароли не совпадают.");
+    return;
+  }
+  const response = await fetch(`/auth/password/${passwordMode === "register" ? "register" : "login"}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    showError(payload.detail || "Не удалось выполнить вход. Попробуйте ещё раз.");
+    return;
+  }
+  continueToWorkspace();
 });
 $("#guest-continue").addEventListener("click", continueToWorkspace);
 $("#signed-continue").addEventListener("click", continueToWorkspace);

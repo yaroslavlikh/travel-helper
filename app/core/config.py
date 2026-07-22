@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     oidc_redirect_uri: str = "http://127.0.0.1:8000/auth/callback"
     auth_session_secret: SecretStr | None = None
     auth_cookie_secure_override: bool | None = None
+    password_auth_enabled: bool = True
 
     @property
     def model_is_configured(self) -> bool:
@@ -91,6 +92,16 @@ class Settings(BaseSettings):
         )
 
     @property
+    def password_auth_is_configured(self) -> bool:
+        return self.password_auth_enabled and (
+            self.app_env != "production" or bool(self.auth_session_secret)
+        )
+
+    @property
+    def account_auth_is_configured(self) -> bool:
+        return self.auth_is_configured or self.password_auth_is_configured
+
+    @property
     def auth_cookie_secure(self) -> bool:
         if self.auth_cookie_secure_override is not None:
             return self.auth_cookie_secure_override
@@ -110,7 +121,7 @@ class Settings(BaseSettings):
 
         if self.app_env == "production" and self.demo_mode:
             raise ValueError("DEMO_MODE must be false in production")
-        if self.app_env == "production" and self.auth_is_configured:
+        if self.app_env == "production" and (self.auth_is_configured or self.password_auth_enabled):
             if not self.auth_cookie_secure:
                 raise ValueError("Secure account cookies are required in production")
             if len(self.auth_session_secret_value) < 32:
