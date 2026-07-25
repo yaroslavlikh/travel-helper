@@ -116,6 +116,10 @@ function hydrateAdvisoryQuestion(chat) {
   }
 }
 
+function hasUserMessage(chat) {
+  return (chat.messages || []).some((message) => message.role === "user");
+}
+
 function loadGuestStore() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -124,9 +128,13 @@ function loadGuestStore() {
         chat.destinationThreads = chat.destinationThreads || {};
         hydrateAdvisoryQuestion(chat);
       });
-      const activeExists = saved.chats.some((chat) => chat.id === saved.activeChatId);
-      saved.activeChatId = activeExists ? saved.activeChatId : saved.chats[0].id;
-      return saved;
+      const chats = saved.chats.filter(hasUserMessage);
+      const retained = chats.length ? chats : [saved.chats[0]];
+      const activeExists = retained.some((chat) => chat.id === saved.activeChatId);
+      return {
+        activeChatId: activeExists ? saved.activeChatId : retained[0].id,
+        chats: retained,
+      };
     }
   } catch (error) {
     console.warn("Не удалось восстановить локальную историю", error);
@@ -785,6 +793,10 @@ function switchChat(chatId) {
 
 async function openNewChat() {
   if (!accountReady || busy || destinationBusy) return;
+  if (!hasUserMessage(activeChat())) {
+    messageInput.focus();
+    return;
+  }
   activeDestinationId = null;
   let chat = createChat();
   if (accountState.authenticated) {
