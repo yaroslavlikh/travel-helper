@@ -80,3 +80,6 @@ Diversity работает после стабильной сортировки:
 Это ranking над demo fixture, а не live pricing, availability, погодой или визовыми правилами.
 Все оценки в карточке — modelled evidence, не гарантия покупки. Живой каталог мест Стамбула
 использует отдельный hybrid ranking: [places pipeline](places-pipeline.md).
+
+Детерминированная детализация modelled стоимости для всей группы, включая floor/expected/safe
+сценарии, описана в [методике ценообразования](pricing.md).

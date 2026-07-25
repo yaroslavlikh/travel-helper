@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 from app.domain.models import DestinationCandidate, ScoredDestination, TravelRequest
+from app.pricing.estimator import estimate_trip_cost, price_card_view
+from app.pricing.models import TripCostEstimate
 from app.services.destination_semantics import normalized_avoided_tags, normalized_preference_tags
 from app.services.filtering import evaluate_hard_checks, hard_filter_reasons
 
@@ -48,12 +50,12 @@ def _clamp(value: float, minimum: float = 0, maximum: float = 100) -> float:
     return max(minimum, min(maximum, value))
 
 
-def _budget_fit(candidate: DestinationCandidate, request: TravelRequest) -> float | None:
-    if request.budget_total_rub is None or candidate.estimated_total_cost_rub_min is None:
+def _budget_fit(estimate: TripCostEstimate, request: TravelRequest) -> float | None:
+    if request.budget_total_rub is None:
         return None
-    floor = candidate.estimated_total_cost_rub_min
-    safe = candidate.estimated_total_cost_rub_max or floor
-    expected = (floor + safe) / 2
+    floor = estimate.floor_total_rub
+    expected = estimate.expected_total_rub
+    safe = estimate.safe_total_rub
     budget = request.budget_total_rub
     if safe <= budget:
         return 90 + 10 * min((budget - safe) / max(budget * 0.2, 1), 1)
@@ -136,12 +138,20 @@ def _confidence(candidate: DestinationCandidate, observed: float | None) -> floa
 def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> ScoredDestination:
     """Score one candidate with fixed weights, per-axis shrinkage and explicit state."""
 
+    source_candidate = candidate
+    estimate = estimate_trip_cost(source_candidate, request)
+    candidate = candidate.model_copy(
+        update={
+            "estimated_total_cost_rub_min": estimate.floor_total_rub,
+            "estimated_total_cost_rub_max": estimate.safe_total_rub,
+        }
+    )
     weights = load_scoring_weights()
     validate_scoring_weights(weights)
     config = load_scoring_config()
     priors = {name: float(value) for name, value in config["priors"].items()}
     observed = {
-        "budget": _budget_fit(candidate, request),
+        "budget": _budget_fit(estimate, request),
         "experience": _experience_fit(candidate, request),
         "logistics": _logistics_fit(candidate),
         "weather": _weather_fit(candidate, request),
@@ -161,8 +171,8 @@ def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> 
         float(uncertainty_settings["multiplier"])
         * sum(weights[name] / 100 * (1 - confidences[name]) for name in weights),
     )
-    checks = evaluate_hard_checks(candidate, request)
-    reasons = hard_filter_reasons(candidate, request)
+    checks = evaluate_hard_checks(source_candidate, request)
+    reasons = hard_filter_reasons(source_candidate, request)
     unknown = [name for name, result in checks.items() if result == "UNKNOWN"]
     blocking_unknown = {"strict_budget", "visa"} & set(unknown)
     state: CandidateState = (
@@ -217,6 +227,9 @@ def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> 
             *[_unknown_message(name) for name in unknown],
         ],
         explanation=_explanation(state, unknown),
+        trip_cost_estimate=estimate,
+        price_card_view=price_card_view(estimate),
+        recommendation_snapshot_id=f"rec-{estimate.pricing_snapshot_id}",
     )
 
 

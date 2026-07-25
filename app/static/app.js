@@ -476,6 +476,11 @@ function destinationCard(item, index, chat) {
   const stateReason = ["CONDITIONAL", "FALLBACK"].includes(item.state)
     ? (item.cons || [])[0] || (item.assumptions || [])[0] || "Требуется дополнительная проверка."
     : "";
+  const price = item.price_card_view;
+  const priceBreakdown = (price?.breakdown_rows || []).map((row) => (
+    `<div class="price-breakdown-row"><span>${escapeHtml(row.label)}</span><strong>${escapeHtml(row.value)}</strong></div>`
+  )).join("");
+  const priceMarkup = price ? `<section class="price-summary"><span>Оценка всей поездки</span><strong>${escapeHtml(price.headline)}</strong><p>${escapeHtml(price.subtitle)}</p>${price.floor_label ? `<small>${escapeHtml(price.floor_label)}</small>` : ""}${priceBreakdown ? `<div class="price-breakdown">${priceBreakdown}</div>` : ""}<small>${escapeHtml(price.freshness_label)}</small></section>` : "";
   return `<article class="destination-card" style="--card-index: ${index}">
     <div class="card-image">
       ${image ? `<img src="${imageUrl}" alt="${escapeHtml(image.alt)}" loading="lazy" />` : ""}
@@ -484,6 +489,7 @@ function destinationCard(item, index, chat) {
       ${image ? `<a class="image-credit" href="${safeUrl(image.source_url)}" target="_blank" rel="noreferrer">Фото: ${escapeHtml(image.credit)}</a>` : ""}
     </div>
     <div class="card-body">
+      ${priceMarkup}
       <div class="quick-metrics">
         <div class="quick-metric"><span>Ориентир бюджета</span><strong>${escapeHtml(costRange(candidate))}</strong></div>
         <div class="quick-metric"><span>Перелёт</span><strong>${escapeHtml(flight)}</strong></div>

@@ -178,7 +178,7 @@ def test_absent_user_constraints_create_no_unknown_hard_checks() -> None:
     assert score_candidate(candidate, TravelRequest(raw_query="Хочу отдохнуть")).hard_checks == {}
 
 
-def test_missing_dimension_keeps_its_weight_and_conservative_prior() -> None:
+def test_pricing_snapshot_supplies_budget_component_without_legacy_total() -> None:
     candidate = next(
         item for item in load_demo_candidates() if item.destination_id == "antalya"
     ).model_copy(
@@ -188,8 +188,8 @@ def test_missing_dimension_keeps_its_weight_and_conservative_prior() -> None:
         candidate, TravelRequest(raw_query="Нужен отпуск", budget_total_rub=150_000)
     )
 
-    assert scored.score_breakdown["budget"] == 8.4
-    assert scored.uncertainty_penalty > 0
+    assert scored.score_breakdown["budget"] > 8.4
+    assert scored.trip_cost_estimate is not None
 
 
 def test_fallback_is_labeled_and_never_claims_passed_hard_filters() -> None:
@@ -364,6 +364,7 @@ def test_strict_budget_only_fallback_keeps_matching_destinations_visible() -> No
         item.candidate.country in {"Таиланд", "Малайзия", "Вьетнам", "Индонезия"} for item in ranked
     )
     assert all(STRICT_BUDGET_FALLBACK in item.assumptions for item in ranked)
+    assert all(not item.passed_hard_filters for item in ranked)
 
 
 def test_fallback_never_relaxes_unknown_visa_or_other_hard_constraints() -> None:

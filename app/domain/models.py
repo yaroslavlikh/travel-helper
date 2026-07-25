@@ -7,6 +7,8 @@ from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.pricing.models import PriceCardView, TripCostEstimate
+
 DestinationScope = Literal["domestic", "international", "any"]
 HeatTolerance = Literal["low", "medium", "high"]
 VisaWillingness = Literal["no_visa", "evisa_ok", "visa_ok", "any"]
@@ -222,6 +224,9 @@ class ScoredDestination(DomainModel):
     )
     rank_before_diversity: int | None = Field(default=None, ge=1)
     rank_after_diversity: int | None = Field(default=None, ge=1)
+    trip_cost_estimate: TripCostEstimate | None = None
+    price_card_view: PriceCardView | None = None
+    recommendation_snapshot_id: str | None = None
 
 
 class DestinationThreadMessage(DomainModel):
@@ -257,5 +262,6 @@ class PlannerState(TypedDict, total=False):
     assumptions: list[str]
     planning_confidence: dict[str, Any]
     next_best_question: dict[str, Any] | None
+    recommendations: list[dict[str, Any]]
     status: Literal["received", "needs_clarification", "ready_for_search"]
     warnings: list[str]

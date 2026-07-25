@@ -56,6 +56,16 @@ async def answer_destination_question(
             "assumptions": recommendation.assumptions,
             "explanation": recommendation.explanation,
         },
+        "pricing_snapshot": (
+            recommendation.trip_cost_estimate.model_dump(mode="json")
+            if recommendation.trip_cost_estimate
+            else None
+        ),
+        "price_card": (
+            recommendation.price_card_view.model_dump(mode="json")
+            if recommendation.price_card_view
+            else None
+        ),
         "destination_context": (
             destination_context.model_dump(mode="json") if destination_context else None
         ),

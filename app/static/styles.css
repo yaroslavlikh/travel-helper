@@ -470,6 +470,14 @@ body[data-workspace-state="opening"] .feed-loading {
 .ranking-state { position: absolute; top: 58px; left: 18px; padding: 6px 9px; border-radius: 999px; color: #0759a7; background: #eef7ff; font-size: 12px; font-weight: 800; }
 .ranking-state.conditional { color: #855b00; background: #fff4d6; }
 .ranking-state.fallback { color: #9b3c00; background: #fff0e7; }
+.price-summary { margin-bottom: 10px; padding: 13px; border: 1px solid #badcff; border-radius: 13px; background: linear-gradient(135deg, #edf7ff, #f8fcff); }
+.price-summary > span, .price-summary p, .price-summary small { display: block; color: #708aa4; font-size: 12px; }
+.price-summary > strong { display: block; margin: 2px 0; color: #10599c; font-size: 21px; letter-spacing: -.5px; }
+.price-summary p { margin: 0; }
+.price-summary small { margin-top: 6px; color: #477ba8; }
+.price-breakdown { display: grid; gap: 5px; margin: 10px 0; padding: 10px 12px; border-radius: 11px; background: #f7fafc; }
+.price-breakdown-row { display: flex; justify-content: space-between; gap: 12px; color: #708aa4; font-size: 12px; }
+.price-breakdown-row strong { color: #38536f; white-space: nowrap; }
 .image-credit { position: absolute; right: 7px; bottom: 5px; color: rgb(255 255 255 / 80%); font-size: 11px; text-decoration: none; }
 .card-body { padding: 17px; }
 .quick-metrics { display: grid; grid-template-columns: 1.25fr 0.85fr 0.9fr; gap: 6px; }

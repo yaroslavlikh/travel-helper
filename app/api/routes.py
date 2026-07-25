@@ -297,6 +297,10 @@ async def _build_recommendation_response(
                 parsed_request,
                 marker=resources.settings.aviasales_marker,
             )
+            await resources.planner_graph.aupdate_state(
+                config,
+                {"recommendations": [item.model_dump(mode="json") for item in recommendations]},
+            )
             scoring_observation.update(
                 output={"recommendation_count": len(recommendations)},
                 metadata={"outcome": "success"},
@@ -410,18 +414,24 @@ def _destination_trace_input(
 
 
 def _find_current_recommendation(
-    *, destination_id: str, request: TravelRequest, resources: AppResources
+    *, destination_id: str, recommendation_snapshot_id: str | None, state: PlannerState
 ) -> ScoredDestination | None:
-    if not resources.settings.demo_mode:
-        return None
-    return next(
-        (
-            item
-            for item in rank_demo_candidates(request)
-            if item.candidate.destination_id == destination_id
-        ),
-        None,
-    )
+    """Use the card actually shown to the traveller, never re-rank it during a subchat."""
+
+    for raw_item in state.get("recommendations", []):
+        try:
+            item = ScoredDestination.model_validate(raw_item)
+        except (TypeError, ValueError):
+            continue
+        if item.candidate.destination_id != destination_id:
+            continue
+        if (
+            recommendation_snapshot_id
+            and item.recommendation_snapshot_id != recommendation_snapshot_id
+        ):
+            continue
+        return item
+    return None
 
 
 @router.post("/feedback", status_code=status.HTTP_204_NO_CONTENT)
@@ -488,8 +498,8 @@ async def destination_chat(
     trip_request = _state_to_request(state)
     recommendation = _find_current_recommendation(
         destination_id=payload.destination_id,
-        request=trip_request,
-        resources=resources,
+        recommendation_snapshot_id=payload.recommendation_snapshot_id,
+        state=state,
     )
     if recommendation is None:
         raise HTTPException(status_code=404, detail="Destination is not in the current shortlist")
