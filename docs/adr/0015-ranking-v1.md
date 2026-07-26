@@ -19,9 +19,10 @@ and cap thresholds are versioned in `app/data/scoring.json`.
 Every requested hard constraint is evaluated as `PASS`, `FAIL`, `UNKNOWN` or `NOT_APPLICABLE`.
 No user constraint means no check. Missing evidence for a requested constraint is `UNKNOWN`.
 Known contradictions are `FAIL`. Unknown temperature or flight duration produces a `CONDITIONAL`
-card; unknown strict budget and visa evidence do not establish mandatory requirements and exclude
-the card. Visa policy is explicit: `no_visa` accepts only `none`, `evisa_ok` accepts `none/evisa`,
-`visa_ok` accepts any known mode, and `any` is not applicable.
+card; unknown strict budget excludes the card. Entry-rule semantics are superseded by
+[ADR-0016](0016-country-entry-assessments.md): an unavailable assessment does not establish a
+mandatory visa preference, but remains a visible conditional card with an explicit warning. Legacy
+fixture `visa` values are not ranking evidence.
 
 Strict-budget fallback is the sole relaxation. It is allowed only when strict budget has failed and
 every other applicable check is `PASS` or `NOT_APPLICABLE`; existing warnings remain intact and a

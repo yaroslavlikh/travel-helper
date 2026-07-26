@@ -47,15 +47,16 @@ Experience fit — `(positive matches + avoided non-matches) / all stated tag co
 | Strict budget | known maximum не выше бюджета | minimum выше бюджета или known maximum выше бюджета | maximum неизвестен — `UNKNOWN` (включая неизвестный minimum) |
 | Максимальный перелёт | known duration в лимите | known duration выше лимита | duration отсутствует — `UNKNOWN` |
 | Температурный лимит | known temperature в лимите | known temperature выше лимита | temperature отсутствует — `UNKNOWN` |
-| `no_visa` | только `none` | `evisa` или `visa` | `unknown` — `UNKNOWN` |
-| `evisa_ok` | `none` или `evisa` | `visa` | `unknown` — `UNKNOWN` |
-| `visa_ok` | любой known режим (`none`, `evisa`, `visa`) | — | `unknown` — `UNKNOWN` |
-| `any` | — | — | `NOT_APPLICABLE`: визовый режим не ограничивает shortlist |
+| Только без визы | verified `visa_free` + eligible | verified visa/permit/restriction | assessment отсутствует, stale или unverified — `UNKNOWN` |
+| Допустимо оформить онлайн | verified `visa_free` или применимое pre-trip действие | verified restriction/ineligible | assessment отсутствует, stale или unverified — `UNKNOWN` |
+| Виза возможна | verified eligible/pre-trip action | verified ineligible/restricted | assessment отсутствует, stale или unverified — `UNKNOWN` |
+| Въезд не ограничивает выбор | — | — | `NOT_APPLICABLE` |
 | Scope, море, регион, явное исключение | evidence соответствует | известное противоречие | Не создаются без такого ограничения |
 
-`FAIL` исключает вариант. `UNKNOWN` для длительности и температуры делает карточку
-`CONDITIONAL` с понятной причиной. `UNKNOWN` strict budget или visa не подтверждает обязательное
-условие и исключает вариант из обычной выдачи.
+`FAIL` исключает вариант. `UNKNOWN` для длительности, температуры или въезда делает карточку
+`CONDITIONAL` с понятной причиной. `UNKNOWN` strict budget не подтверждает обязательное условие и
+исключает вариант из обычной выдачи. Неизвестные условия въезда не считаются подходящими для
+подтверждённо безвизового shortlist, но не исчезают молча.
 
 Поддерживаемая география сознательно ограничена явными aliases и country sets: Азия, Европа,
 Ближний Восток, Россия/внутренние направления. Произвольные названия стран и регионов не
@@ -67,7 +68,7 @@ Experience fit — `(positive matches + avoided non-matches) / all stated tag co
 
 Если нормальная выдача пуста, fallback может ослабить **только** strict budget. В него попадает
 кандидат со `strict_budget=FAIL`, когда каждый другой применимый hard check равен `PASS` или
-`NOT_APPLICABLE`. `UNKNOWN`/`FAIL` визы, региона, температуры, перелёта и прочих условий
+`NOT_APPLICABLE`. `UNKNOWN`/`FAIL` въезда, региона, температуры, перелёта и прочих условий
 fallback запрещает. Предыдущие risks/cons сохраняются и дополняются понятным бюджетным
 предупреждением.
 
@@ -77,7 +78,10 @@ Diversity работает после стабильной сортировки:
 
 ## Ограничения v1
 
-Это ranking над demo fixture, а не live pricing, availability, погодой или визовыми правилами.
+Это ranking над demo fixture, а не live pricing, availability, погодой или правилами въезда.
+Переходный entry assessment для fixture всегда помечен как непроверенный и не использует legacy
+поле `visa`; production country-policy contract описан в
+[ADR-0016](adr/0016-country-entry-assessments.md).
 Все оценки в карточке — modelled evidence, не гарантия покупки. Живой каталог мест Стамбула
 использует отдельный hybrid ranking: [places pipeline](places-pipeline.md).
 

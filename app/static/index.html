@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f4f8fc" />
+    <meta name="theme-color" content="#f6f8fb" />
     <meta name="description" content="Тудавай помогает выбрать направление поездки по бюджету, датам и предпочтениям." />
     <title>Тудавай — помощник в путешествиях</title>
     <link rel="stylesheet" href="/static/styles.css" />
@@ -13,8 +13,10 @@
       <aside class="sidebar" aria-label="История чатов">
         <div class="sidebar-top">
           <a class="brand" href="/" aria-label="Тудавай">
-            <span class="brand-mark" aria-hidden="true">✈</span>
-            <span class="brand-copy"><strong>Тудавай</strong><small>соберём поездку</small></span>
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M21.4 5.5c-.5-1-1.8-1.3-2.7-.7l-4.2 2.8-6.8-3.4-1.5.9 4.9 4.8-4.2 2.8-2.7-1.4-1.2.8 2.6 2.9 1.1.4 6-2.1 4.9-3.3c1.8-1.2 3.3-3.4 3.8-5.5Z"/></svg>
+            </span>
+            <span class="brand-copy"><strong>Тудавай</strong><small>AI travel copilot</small></span>
           </a>
           <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-controls="chat-history" aria-expanded="true" aria-label="Свернуть историю чатов" title="Свернуть историю чатов">
             <span aria-hidden="true">‹</span>
@@ -22,11 +24,11 @@
         </div>
 
         <button id="new-chat" class="new-chat-button" type="button" title="Новый чат">
-          <span aria-hidden="true">＋</span><span class="new-chat-label">Новый чат</span>
+          <span aria-hidden="true">＋</span><span class="new-chat-label">Новая поездка</span>
         </button>
 
         <section id="chat-history" class="chat-history">
-          <div class="history-heading">Недавние поездки</div>
+          <div class="history-heading">Ваши поездки</div>
           <nav id="chat-list" class="chat-list"></nav>
         </section>
 
@@ -45,7 +47,7 @@
 
         <div class="sidebar-note">
           <span class="status-dot"></span>
-          <div><strong>Демо-режим</strong><small>Цены и наличие не проверяются</small></div>
+          <div><strong>Режим планирования</strong><small>Сверяйте цены перед покупкой</small></div>
         </div>
       </aside>
 
@@ -62,10 +64,20 @@
 
       <main class="conversation-panel">
         <header class="conversation-header">
-          <div>
-            <span class="mobile-logo">✈</span>
-            <h1 id="chat-title">Новая поездка</h1>
-            <p id="chat-status">Расскажите, куда хочется · память включена</p>
+          <div class="conversation-heading">
+            <span class="mobile-logo" aria-hidden="true">✈</span>
+            <div class="conversation-title">
+              <span class="conversation-eyebrow">Личный планировщик</span>
+              <h1 id="chat-title">Новая поездка</h1>
+              <p id="chat-status">Расскажите, куда хочется · память включена</p>
+            </div>
+            <div class="journey-progress" aria-label="Этап планирования">
+              <span data-journey-step="request"><i>1</i>Запрос</span>
+              <b aria-hidden="true"></b>
+              <span data-journey-step="clarify"><i>2</i>Условия</span>
+              <b aria-hidden="true"></b>
+              <span data-journey-step="results"><i>3</i>Варианты</span>
+            </div>
           </div>
           <div class="header-actions">
             <button id="mobile-login-button" class="mobile-account-button" type="button">Войти</button>
@@ -89,21 +101,20 @@
 
           <div class="starter-zone" id="starter-zone">
             <div class="starter-copy">
-              <span class="starter-kicker">Можно без анкеты</span>
-              <h2>Опишите поездку своими словами</h2>
-              <p>Достаточно города вылета и пары ориентиров. Остальное уточним только если это действительно меняет подборку.</p>
+              <span class="starter-kicker">Можно без анкеты и фильтров</span>
+              <h2>Скажите, какого отдыха хочется. Мы найдём, где он живёт.</h2>
+              <p>Бюджет, даты, ритм, погода, визы и даже «только не дожди» — пишите как другу. Ответ превратится в короткую, объяснимую подборку.</p>
             </div>
             <div class="starter-chips">
-              <button type="button" data-starter="Из Москвы на море в августе на 7–10 дней, бюджет 150 тысяч на одного, без сильной жары, за границу"><span aria-hidden="true">≈</span><strong>Море без жары</strong><small>Москва · август · 150 000 ₽</small></button>
-              <button type="button" data-starter="Из Санкт-Петербурга на море в сентябре, нас двое, без визы, максимум четыре часа перелёта, бюджет 180 тысяч"><span aria-hidden="true">◇</span><strong>Без визы на двоих</strong><small>Петербург · сентябрь · до 4 ч</small></button>
-              <button type="button" data-starter="Из Москвы по России на море в августе, на неделю, бюджет 100 тысяч на одного"><span aria-hidden="true">⌁</span><strong>По России</strong><small>Море · неделя · 100 000 ₽</small></button>
+              <button type="button" data-starter="Из Москвы на море в августе на 7–10 дней, бюджет 150 тысяч на одного, без сильной жары, за границу"><span aria-hidden="true">☼</span><strong>Тёплое море без жары</strong><small>Москва · август · 150 000 ₽</small><i aria-hidden="true">→</i></button>
+              <button type="button" data-starter="Из Москвы в Азию в конце августа на неделю, еду один, бюджет 150 тысяч, хочу городскую жизнь, острую еду и много активностей, море не обязательно"><span aria-hidden="true">⌁</span><strong>Азия и городской драйв</strong><small>Один · конец августа · 150 000 ₽</small><i aria-hidden="true">→</i></button>
+              <button type="button" data-starter="Из Санкт-Петербурга в сентябре, нас двое, без визы, максимум четыре часа перелёта, бюджет 180 тысяч, хотим красивый город и вкусную еду"><span aria-hidden="true">◇</span><strong>Красивый город без визы</strong><small>Петербург · сентябрь · до 4 ч</small><i aria-hidden="true">→</i></button>
             </div>
-            <div class="starter-hints" aria-hidden="true"><span>откуда</span><i></i><span>когда</span><i></i><span>что важно</span></div>
           </div>
 
           <form id="composer" class="composer">
             <label class="sr-only" for="message-input">Сообщение помощнику</label>
-            <textarea id="message-input" rows="1" maxlength="4000" placeholder="Опишите поездку или уточните условия…" required></textarea>
+            <textarea id="message-input" rows="1" maxlength="4000" placeholder="Например: хочу в Азию в августе, один, до 150 000 ₽…" required></textarea>
             <button id="send-button" type="submit" aria-label="Отправить">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 9-18 9 3.7-9L3 3Zm3.2 8h8.3L7.4 7.5 6.2 11Zm1.2 5.5 7.1-3.5H6.2l1.2 3.5Z"/></svg>
             </button>
@@ -116,17 +127,24 @@
         <div id="feed-content" class="feed-content">
           <header class="feed-header">
             <div>
-              <span class="feed-kicker">Живая подборка</span>
-              <h2>Подходящие направления</h2>
+              <span class="feed-kicker">Живая подборка · обновляется в диалоге</span>
+              <h2>Куда вам правда стоит поехать</h2>
+              <p>Сравните варианты по цене, дороге и впечатлениям</p>
             </div>
-            <span id="result-count" class="result-count">0 вариантов</span>
+            <div class="feed-header-actions">
+              <button id="refine-results" class="refine-results" type="button"><span aria-hidden="true">✦</span> Уточнить</button>
+              <span id="result-count" class="result-count">0 вариантов</span>
+            </div>
           </header>
-          <div id="criteria" class="criteria"></div>
+          <div id="criteria" class="criteria" aria-label="Условия поездки"></div>
           <div id="feed-empty" class="feed-empty">
-            <span class="feed-empty-mark" aria-hidden="true">✦</span>
+            <span class="feed-empty-mark" aria-hidden="true">
+              <svg viewBox="0 0 64 64"><path d="M8 45c11-5 16-16 28-20 8-3 14-2 20-7" /><circle cx="8" cy="45" r="4" /><circle cx="56" cy="18" r="4" /><path d="m31 27 7 1 5-4" /></svg>
+            </span>
             <div>
-              <h3>Маршрут ещё складывается</h3>
-              <p>Условия уже сохраняются в разговоре. Варианты появятся, когда данных будет достаточно.</p>
+              <span>Начните слева</span>
+              <h3>Здесь появится ваш личный shortlist</h3>
+              <p>Не каталог из сотен стран, а 3–5 направлений с понятным «почему», бюджетом на всю поездку и следующими шагами.</p>
             </div>
           </div>
           <div id="feed-update" class="feed-update hidden"></div>
@@ -138,13 +156,13 @@
           <div class="route-progress" aria-hidden="true">
             <span></span><i></i><span></span><i></i><span></span>
           </div>
-          <span class="feed-kicker">Собираю маршрут</span>
-          <strong>Превращаю пожелания в варианты</strong>
-          <p>Сначала условия, затем направления — без лишних экранов и анкет.</p>
+          <span class="feed-kicker">Маршрут уже строится</span>
+          <strong>Ищем не страну, а ваш сценарий поездки</strong>
+          <p>Сопоставляем бюджет, дорогу, сезон и то, как именно вы хотите провести время.</p>
           <div class="loading-steps" aria-hidden="true">
-            <span>Разбираю запрос</span>
-            <span>Сверяю условия</span>
-            <span>Готовлю подборку</span>
+            <span>Понимаем пожелания</span>
+            <span>Отсекаем лишнее</span>
+            <span>Ранжируем варианты</span>
           </div>
         </div>
 
@@ -153,7 +171,7 @@
             <button id="destination-back" class="destination-back" type="button" aria-label="Вернуться к вариантам">←</button>
             <img id="destination-chat-image" class="destination-chat-image" alt="" />
             <div>
-              <span class="feed-kicker">Разговор о направлении</span>
+              <span class="feed-kicker">Гид по выбранному варианту</span>
               <h2 id="destination-chat-title">Направление</h2>
               <p id="destination-chat-subtitle">Отдельная ветка этой поездки</p>
             </div>
@@ -169,7 +187,7 @@
             <textarea id="destination-input" rows="1" maxlength="4000" placeholder="Спросите про районы, места или риски…" required></textarea>
             <button id="destination-send" type="submit" aria-label="Отправить вопрос">→</button>
           </form>
-          <p class="destination-note">Этот разговор не меняет общую подборку без вашего подтверждения</p>
+          <p class="destination-note"><span aria-hidden="true">✓</span> Этот разговор не меняет общую подборку без вашего подтверждения</p>
         </section>
       </section>
     </div>

@@ -119,7 +119,16 @@ def _weather_fit(candidate: DestinationCandidate, request: TravelRequest) -> flo
 
 
 def _entry_fit(candidate: DestinationCandidate) -> float | None:
-    return {"none": 100.0, "evisa": 75.0, "visa": 50.0}.get(candidate.visa_complexity or "")
+    assessment = candidate.entry_assessment
+    if assessment is None or assessment.confidence != "verified":
+        return None
+    if assessment.outcome == "eligible" and assessment.requirement == "visa_free":
+        return 100.0
+    if assessment.outcome == "requires_pretrip_action":
+        return 50.0
+    if assessment.outcome == "ineligible":
+        return 0.0
+    return None
 
 
 def _practical_fit(candidate: DestinationCandidate, request: TravelRequest) -> float:
@@ -174,7 +183,7 @@ def score_candidate(candidate: DestinationCandidate, request: TravelRequest) -> 
     checks = evaluate_hard_checks(source_candidate, request)
     reasons = hard_filter_reasons(source_candidate, request)
     unknown = [name for name, result in checks.items() if result == "UNKNOWN"]
-    blocking_unknown = {"strict_budget", "visa"} & set(unknown)
+    blocking_unknown = {"strict_budget"} & set(unknown)
     state: CandidateState = (
         "EXCLUDED" if reasons or blocking_unknown else "CONDITIONAL" if unknown else "ELIGIBLE"
     )
@@ -245,7 +254,7 @@ def _sort_key(item: ScoredDestination) -> tuple[int, int, float, str]:
 def _unknown_message(name: str) -> str:
     return {
         "strict_budget": "Не удалось подтвердить безопасную верхнюю границу стоимости.",
-        "visa": "Не удалось подтвердить применимый визовый режим.",
+        "visa": "Условия въезда пока не проверены.",
         "max_flight_duration": "Не удалось подтвердить длительность перелёта.",
         "temperature_limit": "Не удалось подтвердить температуру для заданного лимита.",
     }.get(name, "Не удалось подтвердить одно из заданных условий.")

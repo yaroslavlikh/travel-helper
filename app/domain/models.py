@@ -12,6 +12,11 @@ from app.pricing.models import PriceCardView, TripCostEstimate
 DestinationScope = Literal["domestic", "international", "any"]
 HeatTolerance = Literal["low", "medium", "high"]
 VisaWillingness = Literal["no_visa", "evisa_ok", "visa_ok", "any"]
+EntryOutcome = Literal["eligible", "requires_pretrip_action", "ineligible", "unknown"]
+EntryRequirement = Literal[
+    "visa_free", "visa_required", "entry_permit_required", "restricted", "unknown"
+]
+EntryConfidence = Literal["verified", "provisional", "stale", "conflicting", "unavailable"]
 AmbiguityPriority = Literal["P0", "P1", "P2"]
 ClarificationTopic = Literal[
     "departure",
@@ -141,6 +146,18 @@ class SourceEvidence(DomainModel):
     confidence: float = Field(ge=0, le=1)
 
 
+class EntryAssessment(DomainModel):
+    """Trip-context entry result; fixture data may only create an unavailable assessment."""
+
+    destination_country_code: str | None = None
+    outcome: EntryOutcome = "unknown"
+    requirement: EntryRequirement = "unknown"
+    confidence: EntryConfidence = "unavailable"
+    checked_at: datetime | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class DestinationImage(DomainModel):
     """Credited real-place image; generated imagery is not used as destination evidence."""
 
@@ -189,6 +206,7 @@ class DestinationCandidate(DomainModel):
     transfers_count: int | None = Field(default=None, ge=0)
     entry_requirements: str | None = None
     visa_complexity: str | None = None
+    entry_assessment: EntryAssessment | None = None
     destination_tags: list[str] = Field(default_factory=list)
     matched_preferences: list[str] = Field(default_factory=list)
     violated_preferences: list[str] = Field(default_factory=list)

@@ -65,17 +65,31 @@ def evaluate_hard_checks(
         else:
             checks["temperature_limit"] = "PASS"
     if request.visa_willingness is not None:
-        visa = candidate.visa_complexity
         if request.visa_willingness == "any":
             checks["visa"] = "NOT_APPLICABLE"
-        elif visa == "unknown":
-            checks["visa"] = "UNKNOWN"
-        elif request.visa_willingness == "no_visa":
-            checks["visa"] = "PASS" if visa == "none" else "FAIL"
-        elif request.visa_willingness == "evisa_ok":
-            checks["visa"] = "PASS" if visa in {"none", "evisa"} else "FAIL"
-        else:  # visa_ok: every known fixture entry mode is acceptable.
-            checks["visa"] = "PASS" if visa in {"none", "evisa", "visa"} else "UNKNOWN"
+        else:
+            assessment = candidate.entry_assessment
+            if assessment is None or assessment.confidence != "verified":
+                checks["visa"] = "UNKNOWN"
+            elif request.visa_willingness == "no_visa":
+                checks["visa"] = (
+                    "PASS"
+                    if assessment.outcome == "eligible" and assessment.requirement == "visa_free"
+                    else "FAIL"
+                )
+            elif request.visa_willingness == "evisa_ok":
+                checks["visa"] = (
+                    "PASS"
+                    if assessment.outcome in {"eligible", "requires_pretrip_action"}
+                    and assessment.requirement in {"visa_free", "visa_required"}
+                    else "FAIL"
+                )
+            else:  # visa_ok: any verified, non-restricted outcome remains acceptable.
+                checks["visa"] = (
+                    "PASS"
+                    if assessment.outcome in {"eligible", "requires_pretrip_action"}
+                    else "FAIL"
+                )
     return checks
 
 
