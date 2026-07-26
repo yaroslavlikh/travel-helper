@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from app.domain.models import DestinationCandidate, EntryAssessment, SourceEvidence
+from app.services.destination_semantics import country_code_for_name
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 DATA_PATH = DATA_DIR / "destinations.fixture.json"
@@ -39,6 +40,7 @@ def load_demo_candidates() -> list[DestinationCandidate]:
             DestinationCandidate(
                 destination_id=item["id"],
                 country=item["country"],
+                country_code=country_code_for_name(item["country"]),
                 city_or_region=item["region"],
                 nearest_airport=item["airport"],
                 estimated_flight_cost_rub_min=round(total_min * 0.35),

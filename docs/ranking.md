@@ -51,6 +51,7 @@ Experience fit — `(positive matches + avoided non-matches) / all stated tag co
 | Допустимо оформить онлайн | verified `visa_free` или применимое pre-trip действие | verified restriction/ineligible | assessment отсутствует, stale или unverified — `UNKNOWN` |
 | Виза возможна | verified eligible/pre-trip action | verified ineligible/restricted | assessment отсутствует, stale или unverified — `UNKNOWN` |
 | Въезд не ограничивает выбор | — | — | `NOT_APPLICABLE` |
+| Явно выбранные страны | country code входит в выбранный набор | country code вне набора | Не создаётся без явного выбора страны |
 | Scope, море, регион, явное исключение | evidence соответствует | известное противоречие | Не создаются без такого ограничения |
 
 `FAIL` исключает вариант. `UNKNOWN` для длительности, температуры или въезда делает карточку
@@ -63,6 +64,11 @@ Experience fit — `(positive matches + avoided non-matches) / all stated tag co
 сопоставляются substring-поиском и не считаются выполненным hard constraint. Контролируемая группа
 исключения «постсоветские страны» (включая aliases «СНГ» и «бывший СССР») охватывает 15 бывших
 республик СССР и применяется как hard filter к стране кандидата.
+
+Явно названные страны нормализуются только через контролируемый набор aliases в ISO alpha-2 коды.
+Несколько стран имеют семантику OR: «Малайзия или Сингапур» допускает `MY` и `SG`, но не добавляет
+в выдачу страны вне набора. Если для выбранной страны нет карточек в текущем каталоге, она не
+подменяется похожим направлением.
 
 ## Fallback и diversity
 

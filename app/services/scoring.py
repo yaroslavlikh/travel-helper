@@ -263,6 +263,7 @@ def _unknown_message(name: str) -> str:
 def _failure_message(reason: str) -> str:
     return {
         "destination_scope_mismatch": "Не соответствует выбранной географии поездки.",
+        "destination_country_mismatch": "Не относится к выбранным странам.",
         "sea_required": "Не подтверждено обязательное море.",
         "preferred_region_mismatch": "Не относится к выбранному региону.",
         "explicitly_avoided": "Направление явно исключено из запроса.",

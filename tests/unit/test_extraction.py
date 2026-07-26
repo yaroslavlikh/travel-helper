@@ -145,6 +145,12 @@ def test_extracts_region_food_preference_and_explicit_country_exclusion() -> Non
     assert request.avoid == ["Грузия"]
 
 
+def test_extracts_multiple_explicit_destination_countries_to_iso_codes() -> None:
+    request = extract_travel_request("Хочу куда-нибудь в Малазию или Сингапур")
+
+    assert request.destination_country_codes == ["MY", "SG"]
+
+
 @pytest.mark.parametrize(
     "query",
     [

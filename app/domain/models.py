@@ -10,6 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.pricing.models import PriceCardView, TripCostEstimate
 
 DestinationScope = Literal["domestic", "international", "any"]
+DestinationCountryCode = Literal[
+    "AE", "EG", "ES", "GE", "GR", "ID", "IT", "ME", "MY", "RU", "SG", "TH", "TR", "VN"
+]
 HeatTolerance = Literal["low", "medium", "high"]
 VisaWillingness = Literal["no_visa", "evisa_ok", "visa_ok", "any"]
 EntryOutcome = Literal["eligible", "requires_pretrip_action", "ineligible", "unknown"]
@@ -57,6 +60,7 @@ class TravelRequestPatch(DomainModel):
     origin_country: str | None = None
     citizenship: str | None = None
     destination_scope: DestinationScope | None = None
+    destination_country_codes: list[DestinationCountryCode] = Field(default_factory=list)
     # Exact trip boundaries: outbound and return dates when both are confirmed.
     date_from: date | None = None
     date_to: date | None = None
@@ -190,6 +194,7 @@ class DestinationCandidate(DomainModel):
 
     destination_id: str
     country: str
+    country_code: DestinationCountryCode | None = None
     city_or_region: str
     nearest_airport: str | None = None
     estimated_flight_cost_rub_min: int | None = Field(default=None, ge=0)

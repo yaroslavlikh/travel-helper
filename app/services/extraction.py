@@ -10,6 +10,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.domain.models import Ambiguity, TravelRequest, TravelRequestPatch, TravelRequestRevision
+from app.services.destination_semantics import country_codes_from_text
 from app.services.model_gateway import ModelGateway, ModelGatewayError
 
 MONTH_BY_FRAGMENT = {
@@ -59,7 +60,14 @@ POST_SOVIET_EXCLUSION = re.compile(
     r"стран\w*\s+снг|снг|бывш\w*(?:\s+республик\w*)?\s+ссср)"
 )
 
-LIST_REQUEST_FIELDS = {"trip_style", "preferences", "avoid", "avoided_features", "priorities"}
+LIST_REQUEST_FIELDS = {
+    "trip_style",
+    "preferences",
+    "avoid",
+    "avoided_features",
+    "priorities",
+    "destination_country_codes",
+}
 FLEXIBLE_DATE_FIELDS = {"month", "departure_window_from", "departure_window_to"}
 EXACT_DATE_VALUE_FIELDS = {
     "date_from",
@@ -251,6 +259,8 @@ def extract_travel_request(raw_query: str, answers: dict[str, Any] | None = None
         values["destination_scope"] = "international"
     elif any(fragment in text for fragment in ("по россии", "в россии", "внутри страны")):
         values["destination_scope"] = "domestic"
+    if country_codes := country_codes_from_text(text):
+        values["destination_country_codes"] = country_codes
     sea_requirement = _explicit_sea_requirement(text)
     if sea_requirement is not None:
         values["sea_required"] = sea_requirement
@@ -335,7 +345,9 @@ Rules:
 - flight_departure_date/flight_return_date are legacy compatibility fields; do not populate them.
 - Use flight_one_way=true only when the user explicitly says no return ticket is needed.
 - For list fields, return the complete updated list only when the user changes that list.
-- Put explicit regions such as "Азия" into preferences and explicit exclusions such as
+- Put explicit regions such as "Азия" into preferences. Put explicit destination countries into
+  destination_country_codes using supported ISO alpha-2 codes; several countries mean OR. Put
+  explicit exclusions such as
   "не хочу Грузию" or "не хочу в постсоветские страны" into avoid. Preserve earlier list items
   when returning the updated list.
 - A request for only the Schengen area means visa_willingness=visa_ok and the explicit
@@ -390,7 +402,9 @@ Rules:
 - A phrase such as "поездка с 15 по 20 октября" means date_from=15 October and date_to=20 October.
 - flight_departure_date/flight_return_date are legacy compatibility fields; do not populate them.
 - Use flight_one_way=true only when the user explicitly says no return ticket is needed.
-- Put explicit regions such as "Азия" into preferences and explicit exclusions such as
+- Put explicit regions such as "Азия" into preferences. Put explicit destination countries into
+  destination_country_codes using supported ISO alpha-2 codes; several countries mean OR. Put
+  explicit exclusions such as
   "не хочу Грузию" or "не хочу в постсоветские страны" into avoid.
 - A request for only the Schengen area means visa_willingness=visa_ok and the explicit
   preference "шенгенская зона".
