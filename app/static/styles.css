@@ -492,6 +492,21 @@ body[data-workspace-state="results"] .conversation-panel {
   overflow-y: auto;
   padding: 38px clamp(28px, 6vw, 72px) 28px;
 }
+.chat-view.starter-visible .message-list {
+  height: auto;
+  flex: 0 0 auto;
+  overflow: visible;
+  padding-bottom: 0;
+}
+.chat-view.starter-visible .starter-zone {
+  position: relative;
+  inset: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  overflow-y: auto;
+  padding: 8px 30px 130px;
+}
 .starter-copy { max-width: 680px; margin-bottom: 24px; }
 .starter-kicker {
   display: inline-flex;
@@ -1094,7 +1109,7 @@ body[data-workspace-state="opening"] .feed-loading {
   .mobile-tab span { padding: 1px 5px; border-radius: 99px; background: #fff; }
   .message-list { padding: 22px 16px 192px; }
   .chat-view.starter-visible .message-list { display: none; }
-  .starter-zone { inset: 0 0 120px; justify-content: flex-start; padding: 26px 16px 12px; }
+  .chat-view.starter-visible .starter-zone { padding: 26px 16px 130px; }
   .starter-copy { margin-bottom: 16px; }
   .starter-copy h2 { margin-top: 8px; font-size: 28px; }
   .starter-copy p { font-size: 13px; }
@@ -1158,7 +1173,6 @@ body[data-workspace-state="opening"] .feed-loading {
 
 @media (hover: none) { .chat-delete { opacity: 1; } }
 @media (max-height: 720px) and (min-width: 1025px) {
-  .starter-zone { inset-block-start: 112px; justify-content: flex-start; padding-top: 18px; }
   .starter-copy { margin-bottom: 14px; }
   .starter-copy h2 { font-size: 30px; }
   .starter-copy p, .starter-proof { display: none; }
