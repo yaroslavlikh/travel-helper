@@ -84,12 +84,10 @@ Diversity работает после стабильной сортировки:
 
 ## Ограничения v1
 
-Это ranking над demo fixture, а не live pricing, availability, погодой или правилами въезда.
+Это ranking над demo fixture, а не live prices, availability, погодой или правилами въезда.
 Переходный entry assessment для fixture всегда помечен как непроверенный и не использует legacy
 поле `visa`; production country-policy contract описан в
 [ADR-0016](adr/0016-country-entry-assessments.md).
-Все оценки в карточке — modelled evidence, не гарантия покупки. Живой каталог мест Стамбула
-использует отдельный hybrid ranking: [places pipeline](places-pipeline.md).
-
-Детерминированная детализация modelled стоимости для всей группы, включая floor/expected/safe
-сценарии, описана в [методике ценообразования](pricing.md).
+Модельные цены временно отключены: диапазоны fixture используются только как ограниченное
+демо-evidence для budget fit и не отображаются пользователю. Живой каталог мест Стамбула использует
+отдельный hybrid ranking: [places pipeline](places-pipeline.md).

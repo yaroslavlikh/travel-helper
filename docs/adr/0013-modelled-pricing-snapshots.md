@@ -1,6 +1,6 @@
 # ADR-0013: Modelled trip-cost snapshots before live pricing providers
 
-- Status: accepted for the first pricing vertical slice
+- Status: superseded by ADR-0017
 - Date: 2026-07-21
 
 ## Context

@@ -503,11 +503,6 @@ function destinationCard(item, index, chat) {
     ? (item.cons || [])[0] || (item.assumptions || [])[0] || "Требуется дополнительная проверка."
     : "";
   const pros = (item.pros || []).slice(0, 3).map((pro) => `<li><span aria-hidden="true">✓</span>${escapeHtml(pro)}</li>`).join("");
-  const price = item.price_card_view;
-  const priceBreakdown = (price?.breakdown_rows || []).map((row) => (
-    `<div class="price-breakdown-row"><span>${escapeHtml(row.label)}</span><strong>${escapeHtml(row.value)}</strong></div>`
-  )).join("");
-  const priceMarkup = price ? `<section class="price-summary"><div class="price-heading"><span>Плановый бюджет</span><small>на всю поездку</small></div><strong>${escapeHtml(price.headline)}</strong><p>${escapeHtml(price.subtitle)}</p>${price.floor_label ? `<small class="price-floor">${escapeHtml(price.floor_label)}</small>` : ""}${priceBreakdown ? `<details class="price-breakdown"><summary>Что входит в расчёт <span>＋</span></summary><div>${priceBreakdown}</div></details>` : ""}<small class="price-freshness"><i aria-hidden="true"></i>${escapeHtml(price.freshness_label)}</small></section>` : "";
   const positionLabel = index === 0 ? "Лучшее совпадение" : `Вариант ${index + 1}`;
   return `<article class="destination-card${index === 0 ? " featured" : ""}" style="--card-index: ${index}">
     <div class="card-image">
@@ -519,8 +514,7 @@ function destinationCard(item, index, chat) {
       ${image ? `<a class="image-credit" href="${safeUrl(image.source_url)}" target="_blank" rel="noreferrer">Фото: ${escapeHtml(image.credit)}</a>` : ""}
     </div>
     <div class="card-body">
-      <div class="card-overview${price ? "" : " no-price"}">
-        ${priceMarkup}
+      <div class="card-overview no-price">
         <div class="quick-metrics">
           <div class="quick-metric"><span aria-hidden="true">↗</span><div><small>Дорога</small><strong>${escapeHtml(flight)}</strong></div></div>
           <div class="quick-metric"><span aria-hidden="true">☼</span><div><small>Сезон</small><strong>${escapeHtml(weather)}</strong></div></div>

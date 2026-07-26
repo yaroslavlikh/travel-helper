@@ -60,10 +60,6 @@ class DestinationChatResponse(ApiModel):
     message_count: int
     turn_index: int
     warnings: list[str] = Field(default_factory=list)
-    pricing_scenario_id: str | None = None
-    pricing_changed: bool = False
-    previous_total_rub: int | None = None
-    current_total_rub: int | None = None
     refresh_status: Literal["not_requested", "updated", "unchanged", "unavailable"] = (
         "not_requested"
     )

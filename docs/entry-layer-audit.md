@@ -55,7 +55,7 @@ extended for hierarchy only after an explicit migration and compatibility audit.
 generic `sources` table but require separate policy records and source linkage: POI provenance
 cannot become entry-policy provenance by implication.
 
-Cards currently carry a deterministic pricing snapshot identifier and are serialized into the
+Cards carry a deterministic recommendation snapshot identifier and are serialized into the
 LangGraph checkpoint. There is no database table for recommendation snapshots and no stable
 assessment payload. The entry rollout therefore needs a versioned assessment embedded in each
 stored card before policy display or subchat claims are enabled.

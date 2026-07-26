@@ -214,7 +214,7 @@ def test_absent_user_constraints_create_no_unknown_hard_checks() -> None:
     assert score_candidate(candidate, TravelRequest(raw_query="Хочу отдохнуть")).hard_checks == {}
 
 
-def test_pricing_snapshot_supplies_budget_component_without_legacy_total() -> None:
+def test_missing_budget_evidence_uses_budget_prior() -> None:
     candidate = next(
         item for item in load_demo_candidates() if item.destination_id == "antalya"
     ).model_copy(
@@ -224,8 +224,7 @@ def test_pricing_snapshot_supplies_budget_component_without_legacy_total() -> No
         candidate, TravelRequest(raw_query="Нужен отпуск", budget_total_rub=150_000)
     )
 
-    assert scored.score_breakdown["budget"] > 8.4
-    assert scored.trip_cost_estimate is not None
+    assert scored.score_breakdown["budget"] == 8.4
 
 
 def test_fallback_is_labeled_and_never_claims_passed_hard_filters() -> None:

@@ -54,7 +54,7 @@ State — versioned, JSON-serializable contract. Предполагаемые г
 - search: generated queries, raw provider results, provider warnings;
 - candidates: normalized candidates, evidence, conflicts;
 - decision: rejected candidates/reasons, scoring weights, scored candidates;
-- output: immutable recommendation and pricing snapshots for the current feed;
+- output: immutable recommendation snapshots for the current feed;
 - output: response status, recommendations, warnings;
 - operational: stage attempts and error codes, но не secrets и не live clients.
 

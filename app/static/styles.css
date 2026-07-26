@@ -844,28 +844,6 @@ body[data-workspace-state="opening"] .feed-loading {
 .card-overview { display: grid; grid-template-columns: 1.08fr .92fr; gap: 12px; }
 .card-overview.no-price { grid-template-columns: 1fr; }
 .card-overview.no-price .quick-metrics { grid-template-columns: repeat(3, 1fr); }
-.price-summary {
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid #b9d9f6;
-  border-radius: 16px;
-  background: linear-gradient(145deg, #eaf5ff, #f7fbff);
-}
-.price-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.price-heading > span { color: #2c6fae; font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
-.price-heading > small { color: #7590a8; font-size: 9px; }
-.price-summary > strong { display: block; margin: 8px 0 4px; color: #0b4e91; font-size: clamp(22px, 2.3vw, 29px); line-height: 1; letter-spacing: -.05em; }
-.price-summary > p { margin: 0; color: #698298; font-size: 11px; line-height: 1.45; }
-.price-floor { display: block; margin-top: 8px; color: #3e759f; font-size: 10px; }
-.price-breakdown { margin-top: 11px; padding-top: 10px; border-top: 1px solid #cfe3f5; }
-.price-breakdown summary { display: flex; align-items: center; justify-content: space-between; color: #3973a7; cursor: pointer; font-size: 10px; font-weight: 750; list-style: none; }
-.price-breakdown summary::-webkit-details-marker { display: none; }
-.price-breakdown[open] summary span { transform: rotate(45deg); }
-.price-breakdown > div { display: grid; gap: 5px; margin-top: 8px; }
-.price-breakdown-row { display: flex; justify-content: space-between; gap: 12px; color: #6d859b; font-size: 10px; }
-.price-breakdown-row strong { color: #365c7d; white-space: nowrap; }
-.price-freshness { display: flex; align-items: center; gap: 6px; margin-top: 11px; color: #668096; font-size: 9px; }
-.price-freshness i { width: 6px; height: 6px; border-radius: 50%; background: #6fb391; box-shadow: 0 0 0 3px rgb(111 179 145 / 12%); }
 .quick-metrics { display: grid; gap: 7px; }
 .quick-metric {
   display: grid;

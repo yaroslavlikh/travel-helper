@@ -60,16 +60,6 @@ async def answer_destination_question(
             "assumptions": recommendation.assumptions,
             "explanation": recommendation.explanation,
         },
-        "pricing_snapshot": (
-            recommendation.trip_cost_estimate.model_dump(mode="json")
-            if recommendation.trip_cost_estimate
-            else None
-        ),
-        "price_card": (
-            recommendation.price_card_view.model_dump(mode="json")
-            if recommendation.price_card_view
-            else None
-        ),
         "destination_context": (
             destination_context.model_dump(mode="json") if destination_context else None
         ),
@@ -176,17 +166,10 @@ def _fallback_reply(
             "обязательно сверьте актуальные требования на официальном ресурсе."
         )
     elif any(fragment in normalized for fragment in ("цена", "стоим", "бюджет", "дорого")):
-        minimum = candidate.estimated_total_cost_rub_min
-        maximum = candidate.estimated_total_cost_rub_max
-        if minimum is not None and maximum is not None:
-            cost = f"примерно {minimum:,}–{maximum:,} ₽".replace(",", " ")
-        elif minimum is not None:
-            cost = f"от {minimum:,} ₽".replace(",", " ")
-        else:
-            cost = "диапазон стоимости в карточке не указан"
         answer = (
-            f"Для {candidate.city_or_region} ориентир на поездку — {cost}. "
-            "Точная сумма будет зависеть от дат, состава поездки и актуальных билетов."
+            "Сейчас я не показываю расчёт стоимости: этот слой временно отключён, "
+            "чтобы не выдавать модельный ориентир за актуальную цену. "
+            "Проверьте билеты и жильё по выбранным датам во внешнем поиске."
         )
     elif any(fragment in normalized for fragment in ("перел", "лететь", "рейс", "пересад")):
         duration = (

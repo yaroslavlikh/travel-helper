@@ -452,7 +452,17 @@ def _find_current_recommendation(
 
     for raw_item in state.get("recommendations", []):
         try:
-            item = ScoredDestination.model_validate(raw_item)
+            # Local checkpoints from the removed modelled-pricing slice retain these fields.
+            # They are presentation-only, so safely ignore them while preserving the card snapshot.
+            item = ScoredDestination.model_validate(
+                {
+                    key: value
+                    for key, value in raw_item.items()
+                    if key not in {"trip_cost_estimate", "price_card_view"}
+                }
+                if isinstance(raw_item, dict)
+                else raw_item
+            )
         except (TypeError, ValueError):
             continue
         if item.candidate.destination_id != destination_id:

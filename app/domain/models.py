@@ -7,8 +7,6 @@ from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.pricing.models import PriceCardView, TripCostEstimate
-
 DestinationScope = Literal["domestic", "international", "any"]
 DestinationCountryCode = Literal[
     "AE", "EG", "ES", "GE", "GR", "ID", "IT", "ME", "MY", "RU", "SG", "TH", "TR", "VN"
@@ -190,7 +188,7 @@ class ExternalTravelLink(DomainModel):
 
 
 class DestinationCandidate(DomainModel):
-    """Normalized travel option; estimate fields are ranges, never fabricated point prices."""
+    """Normalized travel option; demo budget ranges are only ranking evidence."""
 
     destination_id: str
     country: str
@@ -247,8 +245,6 @@ class ScoredDestination(DomainModel):
     )
     rank_before_diversity: int | None = Field(default=None, ge=1)
     rank_after_diversity: int | None = Field(default=None, ge=1)
-    trip_cost_estimate: TripCostEstimate | None = None
-    price_card_view: PriceCardView | None = None
     recommendation_snapshot_id: str | None = None
 
 
