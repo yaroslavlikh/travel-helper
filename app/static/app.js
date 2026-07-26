@@ -26,6 +26,7 @@ const FIELD_LABELS = {
   budget_total_rub: "бюджет",
   budget_strict: "строгость бюджета",
   destination_scope: "география",
+  destination_country_codes: "страны назначения",
   max_flight_duration_hours: "длительность перелёта",
   visa_willingness: "виза",
   sea_required: "море",

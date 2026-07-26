@@ -33,6 +33,10 @@ def evaluate_hard_checks(
         checks["sea_required"] = "FAIL"
     elif request.sea_required:
         checks["sea_required"] = "PASS"
+    if request.destination_country_codes:
+        checks["destination_country"] = (
+            "PASS" if candidate.country_code in request.destination_country_codes else "FAIL"
+        )
     if requested_regions(request) and not matches_requested_regions(candidate, request):
         checks["region"] = "FAIL"
     elif requested_regions(request):
@@ -99,6 +103,7 @@ def hard_filter_reasons(candidate: DestinationCandidate, request: TravelRequest)
     names = {
         "destination_scope": "destination_scope_mismatch",
         "sea_required": "sea_required",
+        "destination_country": "destination_country_mismatch",
         "region": "preferred_region_mismatch",
         "explicit_avoid": "explicitly_avoided",
         "strict_budget": "strict_budget_exceeded",

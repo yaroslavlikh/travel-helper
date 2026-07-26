@@ -368,6 +368,18 @@ def test_controlled_regions_are_hard_filters(region: str, allowed_countries: set
     assert all(item.candidate.country in allowed_countries for item in ranked)
 
 
+def test_explicit_country_set_is_a_hard_or_filter() -> None:
+    ranked = rank_demo_candidates(
+        TravelRequest(
+            raw_query="Малайзия или Сингапур",
+            destination_country_codes=["MY", "SG"],
+        )
+    )
+
+    assert ranked
+    assert {item.candidate.country for item in ranked} == {"Малайзия"}
+
+
 def test_scoring_is_deterministic_and_retains_sources() -> None:
     request = _sample_request()
     batumi = next(item for item in load_demo_candidates() if item.destination_id == "batumi")

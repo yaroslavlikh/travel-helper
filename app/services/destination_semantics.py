@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.domain.models import DestinationCandidate, TravelRequest
+from app.domain.models import DestinationCandidate, DestinationCountryCode, TravelRequest
 
 REGION_COUNTRIES = {
     "asia": {"Вьетнам", "Индонезия", "Малайзия", "Таиланд"},
@@ -16,6 +16,39 @@ REGION_ALIASES = {
     "europe": ("европ", "europe"),
     "middle_east": ("ближн", "middle east"),
     "russia": ("росси", "внутренн", "domestic"),
+}
+
+COUNTRY_CODE_ALIASES: dict[DestinationCountryCode, tuple[str, ...]] = {
+    "RU": ("росси", "russia"),
+    "GE": ("грузи", "georgia"),
+    "ME": ("черногор", "montenegro"),
+    "TH": ("таиланд", "тайланд", "thailand"),
+    "TR": ("турци", "turkey"),
+    "AE": ("оаэ", "эмират", "uae", "united arab emirates"),
+    "EG": ("егип", "egypt"),
+    "VN": ("вьетнам", "vietnam"),
+    "MY": ("малайзи", "малази", "malaysia"),
+    "ID": ("индонези", "indonesia"),
+    "ES": ("испани", "spain"),
+    "GR": ("греци", "greece"),
+    "IT": ("итали", "italy"),
+    "SG": ("сингапур", "singapore"),
+}
+
+COUNTRY_CODES_BY_NAME: dict[str, DestinationCountryCode] = {
+    "Россия": "RU",
+    "Грузия": "GE",
+    "Черногория": "ME",
+    "Таиланд": "TH",
+    "Турция": "TR",
+    "ОАЭ": "AE",
+    "Египет": "EG",
+    "Вьетнам": "VN",
+    "Малайзия": "MY",
+    "Индонезия": "ID",
+    "Испания": "ES",
+    "Греция": "GR",
+    "Италия": "IT",
 }
 
 COUNTRY_GROUP_COUNTRIES = {
@@ -66,6 +99,23 @@ def requested_regions(request: TravelRequest) -> set[str]:
         for region, aliases in REGION_ALIASES.items()
         if any(alias in text for alias in aliases)
     }
+
+
+def country_codes_from_text(text: str) -> list[DestinationCountryCode]:
+    """Resolve only catalogued country aliases; arbitrary substrings are never countries."""
+
+    normalized = text.casefold()
+    return [
+        code
+        for code, aliases in COUNTRY_CODE_ALIASES.items()
+        if any(alias in normalized for alias in aliases)
+    ]
+
+
+def country_code_for_name(country: str) -> DestinationCountryCode | None:
+    """Return the controlled ISO code for a catalog display name."""
+
+    return COUNTRY_CODES_BY_NAME.get(country)
 
 
 def matches_requested_regions(candidate: DestinationCandidate, request: TravelRequest) -> bool:
