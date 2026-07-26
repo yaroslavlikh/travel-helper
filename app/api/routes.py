@@ -318,9 +318,24 @@ async def _build_recommendation_response(
                 config,
                 {"recommendations": [item.model_dump(mode="json") for item in recommendations]},
             )
+            unavailable_entry_count = sum(
+                "ENTRY_DATA_UNAVAILABLE"
+                in (
+                    item.candidate.entry_assessment.warnings
+                    if item.candidate.entry_assessment
+                    else []
+                )
+                for item in recommendations
+            )
             scoring_observation.update(
-                output={"recommendation_count": len(recommendations)},
-                metadata={"outcome": "success"},
+                output={
+                    "recommendation_count": len(recommendations),
+                    "entry_data_unavailable_count": unavailable_entry_count,
+                },
+                metadata={
+                    "outcome": "success",
+                    "entry_data_status": "unavailable" if unavailable_entry_count else "available",
+                },
             )
         return CompletedRecommendationResponse(
             status="completed",

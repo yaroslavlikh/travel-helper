@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from app.domain.models import DestinationCandidate, SourceEvidence
+from app.domain.models import DestinationCandidate, EntryAssessment, SourceEvidence
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 DATA_PATH = DATA_DIR / "destinations.fixture.json"
@@ -53,8 +53,9 @@ def load_demo_candidates() -> list[DestinationCandidate]:
                 precipitation_risk=item["rain"],
                 flight_duration_hours=item["flight"],
                 transfers_count=item["transfers"],
-                entry_requirements=item["entry"],
-                visa_complexity=item["visa"],
+                # Legacy `entry`/`visa` fixture fields are deliberately not read: they have no
+                # citizenship, date, source or freshness context and cannot be entry evidence.
+                entry_assessment=EntryAssessment(warnings=["ENTRY_DATA_UNAVAILABLE"]),
                 destination_tags=item["tags"],
                 image=content["image"],
                 highlights=content["highlights"],

@@ -85,6 +85,14 @@ function safeUrl(value) {
   }
 }
 
+function entryAssessmentCopy(candidate) {
+  const assessment = candidate.entry_assessment;
+  if (!assessment || assessment.confidence !== "verified") return "Условия въезда пока не проверены";
+  if (assessment.outcome === "eligible" && assessment.requirement === "visa_free") return "Без визы";
+  if (assessment.outcome === "requires_pretrip_action") return "Нужно оформить до поездки";
+  return "Требуется проверка условий въезда";
+}
+
 function defaultGreeting() {
   return {
     id: id(),
@@ -515,7 +523,7 @@ function destinationCard(item, index, chat) {
         <div class="quick-metrics">
           <div class="quick-metric"><span aria-hidden="true">↗</span><div><small>Дорога</small><strong>${escapeHtml(flight)}</strong></div></div>
           <div class="quick-metric"><span aria-hidden="true">☼</span><div><small>Сезон</small><strong>${escapeHtml(weather)}</strong></div></div>
-          <div class="quick-metric"><span aria-hidden="true">◎</span><div><small>Въезд</small><strong>${escapeHtml(candidate.entry_requirements || "проверить")}</strong></div></div>
+          <div class="quick-metric"><span aria-hidden="true">◎</span><div><small>Въезд</small><strong>${escapeHtml(entryAssessmentCopy(candidate))}</strong></div></div>
         </div>
       </div>
       ${stateReason ? `<p class="ranking-note ${escapeHtml(rankingState.toLowerCase())}">${escapeHtml(stateReason)}</p>` : ""}

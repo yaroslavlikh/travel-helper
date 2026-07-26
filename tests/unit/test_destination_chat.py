@@ -105,7 +105,7 @@ async def test_destination_answer_has_explicit_demo_fallback() -> None:
     assert warnings and "Локальный режим" in warnings[0]
 
 
-async def test_destination_fallback_answers_a_visa_question_from_the_card() -> None:
+async def test_destination_fallback_never_claims_legacy_visa_from_the_card() -> None:
     request = trip_request()
     recommendation = rank_demo_candidates(request)[0]
 
@@ -118,7 +118,7 @@ async def test_destination_fallback_answers_a_visa_question_from_the_card() -> N
         demo_mode=True,
     )
 
-    assert recommendation.candidate.entry_requirements in reply.answer
+    assert "условия въезда пока не проверены" in reply.answer
     assert "официальном ресурсе" in reply.answer
     assert warnings and "Локальный режим" in warnings[0]
 

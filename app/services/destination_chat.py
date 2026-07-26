@@ -43,7 +43,11 @@ async def answer_destination_question(
             "precipitation_risk": candidate.precipitation_risk,
             "flight_duration_hours": candidate.flight_duration_hours,
             "transfers_count": candidate.transfers_count,
-            "entry_requirements": candidate.entry_requirements,
+            "entry_assessment": (
+                candidate.entry_assessment.model_dump(mode="json")
+                if candidate.entry_assessment
+                else None
+            ),
             "highlights": [item.model_dump(mode="json") for item in candidate.highlights],
             "stay_areas": candidate.stay_areas,
             "sources": [item.model_dump(mode="json") for item in candidate.sources],
@@ -166,16 +170,10 @@ def _fallback_reply(
             "Перед визитом всё же нужно проверить по источнику режим работы и условия посещения."
         )
     elif any(fragment in normalized for fragment in ("виза", "виз", "въезд", "въезд")):
-        entry = candidate.entry_requirements or "условия въезда не указаны в карточке"
-        visa = {
-            "none": "в demo-карточке визовое требование не отмечено",
-            "evisa": "в demo-карточке отмечена электронная виза",
-            "visa": "в demo-карточке отмечена обычная виза",
-            "unknown": "в demo-карточке визовый статус не подтверждён",
-        }.get(candidate.visa_complexity or "unknown", "визовый статус не подтверждён")
         answer = (
-            f"Для {candidate.city_or_region}: {entry}; {visa}. "
-            "Перед поездкой обязательно сверьте актуальные требования на официальном ресурсе."
+            f"Для {candidate.city_or_region} условия въезда пока не проверены для вашей поездки. "
+            "Я не использовал это направление как подтверждённо безвизовое; перед поездкой "
+            "обязательно сверьте актуальные требования на официальном ресурсе."
         )
     elif any(fragment in normalized for fragment in ("цена", "стоим", "бюджет", "дорого")):
         minimum = candidate.estimated_total_cost_rub_min

@@ -1,6 +1,6 @@
 import pytest
 
-from app.domain.models import TravelRequest
+from app.domain.models import EntryAssessment, TravelRequest
 from app.services.extraction import extract_travel_request
 from app.services.filtering import hard_filter_reasons
 from app.services.fixtures import load_demo_candidates
@@ -81,25 +81,61 @@ def test_strict_budget_hard_check_is_tristate(
 
 
 @pytest.mark.parametrize(
-    ("visa_willingness", "visa_complexity", "expected"),
+    ("visa_willingness", "assessment", "expected"),
     [
-        ("no_visa", "none", "PASS"),
-        ("no_visa", "evisa", "FAIL"),
-        ("no_visa", "unknown", "UNKNOWN"),
-        ("evisa_ok", "none", "PASS"),
-        ("evisa_ok", "evisa", "PASS"),
-        ("evisa_ok", "visa", "FAIL"),
-        ("evisa_ok", "unknown", "UNKNOWN"),
-        ("visa_ok", "visa", "PASS"),
-        ("any", "unknown", "NOT_APPLICABLE"),
+        (
+            "no_visa",
+            EntryAssessment(outcome="eligible", requirement="visa_free", confidence="verified"),
+            "PASS",
+        ),
+        (
+            "no_visa",
+            EntryAssessment(
+                outcome="requires_pretrip_action",
+                requirement="visa_required",
+                confidence="verified",
+            ),
+            "FAIL",
+        ),
+        ("no_visa", EntryAssessment(), "UNKNOWN"),
+        (
+            "evisa_ok",
+            EntryAssessment(outcome="eligible", requirement="visa_free", confidence="verified"),
+            "PASS",
+        ),
+        (
+            "evisa_ok",
+            EntryAssessment(
+                outcome="requires_pretrip_action",
+                requirement="visa_required",
+                confidence="verified",
+            ),
+            "PASS",
+        ),
+        (
+            "evisa_ok",
+            EntryAssessment(outcome="ineligible", requirement="restricted", confidence="verified"),
+            "FAIL",
+        ),
+        ("evisa_ok", EntryAssessment(), "UNKNOWN"),
+        (
+            "visa_ok",
+            EntryAssessment(
+                outcome="requires_pretrip_action",
+                requirement="visa_required",
+                confidence="verified",
+            ),
+            "PASS",
+        ),
+        ("any", EntryAssessment(), "NOT_APPLICABLE"),
     ],
 )
 def test_visa_hard_check_semantics(
-    visa_willingness: str, visa_complexity: str, expected: str
+    visa_willingness: str, assessment: EntryAssessment, expected: str
 ) -> None:
     candidate = next(
         item for item in load_demo_candidates() if item.destination_id == "antalya"
-    ).model_copy(update={"visa_complexity": visa_complexity})
+    ).model_copy(update={"entry_assessment": assessment})
 
     scored = score_candidate(
         candidate,
@@ -209,16 +245,33 @@ def test_fallback_is_labeled_and_never_claims_passed_hard_filters() -> None:
     assert all(STRICT_BUDGET_FALLBACK in item.cons for item in ranked)
 
 
-def test_unknown_visa_does_not_pass_a_no_visa_hard_requirement() -> None:
-    candidate = next(item for item in load_demo_candidates() if item.destination_id == "kohsamui")
+def test_unavailable_entry_data_does_not_confirm_or_silently_exclude_a_no_visa_request() -> None:
+    candidate = next(
+        item for item in load_demo_candidates() if item.destination_id == "kualalumpur"
+    )
 
     scored = score_candidate(
         candidate, TravelRequest(raw_query="Только без визы", visa_willingness="no_visa")
     )
 
     assert scored.hard_checks["visa"] == "UNKNOWN"
-    assert scored.state == "EXCLUDED"
+    assert scored.state == "CONDITIONAL"
     assert not scored.passed_hard_filters
+    assert "Условия въезда пока не проверены." in scored.cons
+
+
+def test_demo_fixture_never_exposes_legacy_visa_as_an_entry_fact() -> None:
+    candidates = load_demo_candidates()
+
+    assert all(candidate.visa_complexity is None for candidate in candidates)
+    assert all(candidate.entry_requirements is None for candidate in candidates)
+    assert all(candidate.entry_assessment is not None for candidate in candidates)
+    assert all(
+        candidate.entry_assessment.outcome == "unknown"  # type: ignore[union-attr]
+        and candidate.entry_assessment.confidence == "unavailable"  # type: ignore[union-attr]
+        and "ENTRY_DATA_UNAVAILABLE" in candidate.entry_assessment.warnings  # type: ignore[union-attr]
+        for candidate in candidates
+    )
 
 
 @pytest.mark.parametrize(
@@ -367,18 +420,18 @@ def test_strict_budget_only_fallback_keeps_matching_destinations_visible() -> No
     assert all(not item.passed_hard_filters for item in ranked)
 
 
-def test_fallback_never_relaxes_unknown_visa_or_other_hard_constraints() -> None:
+def test_no_visa_request_keeps_unconfirmed_asian_countries_visible_as_conditional() -> None:
     ranked = rank_demo_candidates(
         TravelRequest(
-            raw_query="Азия, только без визы, строго до 150к",
-            budget_total_rub=150_000,
-            budget_strict=True,
+            raw_query="Азия, только без визы",
             preferences=["Азия"],
             visa_willingness="no_visa",
         )
     )
 
-    assert all(item.candidate.visa_complexity == "none" for item in ranked)
+    assert ranked
+    assert all(item.hard_checks["visa"] == "UNKNOWN" for item in ranked)
+    assert any(item.candidate.country == "Малайзия" for item in ranked)
 
 
 def test_ordering_and_diversity_are_deterministic_and_bounded() -> None:
