@@ -89,7 +89,7 @@ function defaultGreeting() {
   return {
     id: id(),
     role: "assistant",
-    text: "Привет! Подберу конкретные направления, места и районы для проживания. Можно писать как другу — начните с того, куда хочется.",
+    text: "Привет! Я помогу выбрать не просто страну, а конкретный сценарий поездки: куда лететь, где жить и что там делать. Пишите как другу — можно начать с настроения, бюджета или дат.",
     createdAt: now(),
   };
 }
@@ -276,8 +276,9 @@ function renderChatList() {
   $("#chat-list").innerHTML = chats.map((chat) => `
     <div class="chat-row">
       <button class="chat-item ${chat.id === store.activeChatId ? "active" : ""}" type="button" data-chat-id="${escapeHtml(chat.id)}"${chat.id === store.activeChatId ? ' aria-current="page"' : ""}>
+        <span class="chat-icon" aria-hidden="true">${chat.recommendations?.length ? "✦" : "⌁"}</span>
         <strong>${escapeHtml(chat.title)}</strong>
-        <small>${relativeDate(chat.updatedAt)} · ${Math.max(0, chat.messages.length - 1)} сообщ.</small>
+        <small>${relativeDate(chat.updatedAt)} · ${chat.recommendations?.length ? pluralOptions(chat.recommendations.length) : `${Math.max(0, chat.messages.length - 1)} сообщ.`}</small>
       </button>
       <button class="chat-delete" type="button" data-delete-chat="${escapeHtml(chat.id)}" aria-label="Удалить чат">×</button>
     </div>
@@ -297,13 +298,15 @@ function changesMarkup(fields = []) {
 
 function renderMessages() {
   const chat = activeChat();
+  const hasStarted = chat.messages.some((message) => message.role === "user");
   messageList.innerHTML = chat.messages.map((message) => {
     if (message.role === "user") {
       return `<article class="message user"><div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p></div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
     }
     return `<article class="message assistant"><span class="avatar assistant-avatar" aria-hidden="true">✦</span><div class="message-content"><div class="message-name">Помощник</div><div class="bubble"><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p>${changesMarkup(message.changedFields)}</div><div class="message-meta">${shortTime(message.createdAt)}</div></div></article>`;
   }).join("");
-  $("#starter-zone").classList.toggle("hidden", chat.messages.some((message) => message.role === "user"));
+  $("#starter-zone").classList.toggle("hidden", hasStarted);
+  $("#chat-view").classList.toggle("starter-visible", !hasStarted);
   requestAnimationFrame(() => { messageList.scrollTop = messageList.scrollHeight; });
 }
 
@@ -344,6 +347,16 @@ function workspaceState(chat = activeChat()) {
 function renderWorkspaceState() {
   const state = workspaceState();
   document.body.dataset.workspaceState = state;
+  const chat = activeChat();
+  const hasRequest = hasUserMessage(chat);
+  const steps = {
+    request: hasRequest ? "done" : "current",
+    clarify: state === "opening" ? "current" : (state === "results" ? "done" : "pending"),
+    results: state === "results" ? "current" : "pending",
+  };
+  document.querySelectorAll("[data-journey-step]").forEach((step) => {
+    step.dataset.state = steps[step.dataset.journeyStep];
+  });
   const feedTab = document.querySelector('.mobile-tab[data-view="feed"]');
   feedTab.disabled = state === "conversation";
   feedTab.setAttribute("aria-disabled", String(feedTab.disabled));
@@ -434,11 +447,6 @@ function renderCriteria(snapshot) {
   ].join("");
 }
 
-function costRange(candidate) {
-  if (candidate.estimated_total_cost_rub_min == null) return "Нет оценки";
-  return `${formatMoney(candidate.estimated_total_cost_rub_min)} – ${formatMoney(candidate.estimated_total_cost_rub_max)}`;
-}
-
 function providerActions(candidate, snapshot, index) {
   const flightLink = (candidate.external_links || []).find((link) => link.category === "flight");
   const stayLink = (candidate.external_links || []).find((link) => link.category === "stay");
@@ -446,10 +454,10 @@ function providerActions(candidate, snapshot, index) {
   const shared = `data-destination-id="${escapeHtml(candidate.destination_id)}" data-rank="${index + 1}" data-request-id="${escapeHtml(requestId)}"`;
   const actions = [];
   if (flightLink?.url) {
-    actions.push(`<a class="travel-link aviasales-link" href="${safeUrl(flightLink.url)}" target="_blank" rel="noreferrer" ${shared} data-provider="aviasales" data-link-kind="flight"><span aria-hidden="true">✈</span> ${escapeHtml(flightLink.title || "Найти билеты")} <small>Aviasales</small></a>`);
+    actions.push(`<a class="travel-link aviasales-link" href="${safeUrl(flightLink.url)}" target="_blank" rel="noreferrer" ${shared} data-provider="aviasales" data-link-kind="flight"><span class="travel-link-icon" aria-hidden="true">✈</span><span class="travel-link-copy"><small>Перейти к поиску</small>${escapeHtml(flightLink.title || "Найти билеты")}</span><i aria-hidden="true">↗</i></a>`);
   }
   if (stayLink?.url) {
-    actions.push(`<a class="travel-link yandex-link" href="${safeUrl(stayLink.url)}" target="_blank" rel="noreferrer" ${shared} data-provider="yandex_travel" data-link-kind="stay"><span aria-hidden="true">⌂</span> Найти жильё <small>Яндекс Путешествия</small></a>`);
+    actions.push(`<a class="travel-link yandex-link" href="${safeUrl(stayLink.url)}" target="_blank" rel="noreferrer" ${shared} data-provider="yandex_travel" data-link-kind="stay"><span class="travel-link-icon" aria-hidden="true">⌂</span><span class="travel-link-copy"><small>Яндекс Путешествия</small>Найти жильё</span><i aria-hidden="true">↗</i></a>`);
   }
   if (!actions.length) return "";
   return `<div class="card-actions${actions.length === 1 ? " single" : ""}">${actions.join("")}</div>`;
@@ -459,19 +467,19 @@ function destinationDiscussionAction(candidate, chat) {
   const thread = chat.destinationThreads?.[candidate.destination_id];
   const messageCount = (thread?.messages || []).filter((message) => message.role === "user").length;
   const countLabel = messageCount ? `<span>${messageCount} сообщ.</span>` : "<span>Новый субчат</span>";
-  return `<button class="destination-discuss" type="button" data-discuss-destination="${escapeHtml(candidate.destination_id)}"><span class="destination-discuss-icon" aria-hidden="true">✦</span><strong>Обсудить ${escapeHtml(candidate.city_or_region)}</strong>${countLabel}<i aria-hidden="true">→</i></button>`;
+  return `<button class="destination-discuss" type="button" data-discuss-destination="${escapeHtml(candidate.destination_id)}"><span class="destination-discuss-icon" aria-hidden="true">✦</span><span class="destination-discuss-copy"><small>Спросить локального гида</small><strong>Обсудить ${escapeHtml(candidate.city_or_region)}</strong></span>${countLabel}<i aria-hidden="true">→</i></button>`;
 }
 
 function destinationCard(item, index, chat) {
   const candidate = item.candidate;
   const image = candidate.image;
   const imageUrl = safeUrl(image?.url);
-  const highlights = (candidate.highlights || []).map((place) => `
+  const highlights = (candidate.highlights || []).map((place, placeIndex) => `
     <a class="place" href="${safeUrl(place.url)}" target="_blank" rel="noreferrer">
-      <strong>↗ ${escapeHtml(place.name)}</strong><span>${escapeHtml(place.description)}</span>
+      <i aria-hidden="true">${String(placeIndex + 1).padStart(2, "0")}</i><span><strong>${escapeHtml(place.name)}</strong><small>${escapeHtml(place.description)}</small></span><b aria-hidden="true">↗</b>
     </a>`).join("");
   const stayAreas = (candidate.stay_areas || []).map((area) => `<span class="stay-area">${escapeHtml(area)}</span>`).join("");
-  const sources = (candidate.sources || []).map((source) => `<a href="${safeUrl(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.title)}</a>`).join("");
+  const sources = (candidate.sources || []).map((source) => `<a href="${safeUrl(source.url)}" target="_blank" rel="noreferrer"><span aria-hidden="true">↗</span>${escapeHtml(source.title)}</a>`).join("");
   const flight = candidate.flight_duration_hours ? `${candidate.flight_duration_hours} ч · ${candidate.transfers_count || 0} перес.` : "Уточнить";
   const weather = candidate.expected_temperature_c != null ? `${candidate.expected_temperature_c}° · море ${candidate.expected_sea_temperature_c ?? "—"}°` : "Уточнить";
   const actions = providerActions(candidate, chat.snapshot, index);
@@ -480,36 +488,44 @@ function destinationCard(item, index, chat) {
     CONDITIONAL: "Нужно проверить условия",
     FALLBACK: "Ближайший вариант",
   };
-  const stateLabel = stateLabels[item.state] || "Вариант";
-  const stateReason = ["CONDITIONAL", "FALLBACK"].includes(item.state)
+  const rankingState = item.state || "ELIGIBLE";
+  const stateLabel = stateLabels[rankingState];
+  const stateReason = ["CONDITIONAL", "FALLBACK"].includes(rankingState)
     ? (item.cons || [])[0] || (item.assumptions || [])[0] || "Требуется дополнительная проверка."
     : "";
+  const pros = (item.pros || []).slice(0, 3).map((pro) => `<li><span aria-hidden="true">✓</span>${escapeHtml(pro)}</li>`).join("");
   const price = item.price_card_view;
   const priceBreakdown = (price?.breakdown_rows || []).map((row) => (
     `<div class="price-breakdown-row"><span>${escapeHtml(row.label)}</span><strong>${escapeHtml(row.value)}</strong></div>`
   )).join("");
-  const priceMarkup = price ? `<section class="price-summary"><span>Оценка всей поездки</span><strong>${escapeHtml(price.headline)}</strong><p>${escapeHtml(price.subtitle)}</p>${price.floor_label ? `<small>${escapeHtml(price.floor_label)}</small>` : ""}${priceBreakdown ? `<div class="price-breakdown">${priceBreakdown}</div>` : ""}<small>${escapeHtml(price.freshness_label)}</small></section>` : "";
-  return `<article class="destination-card" style="--card-index: ${index}">
+  const priceMarkup = price ? `<section class="price-summary"><div class="price-heading"><span>Плановый бюджет</span><small>на всю поездку</small></div><strong>${escapeHtml(price.headline)}</strong><p>${escapeHtml(price.subtitle)}</p>${price.floor_label ? `<small class="price-floor">${escapeHtml(price.floor_label)}</small>` : ""}${priceBreakdown ? `<details class="price-breakdown"><summary>Что входит в расчёт <span>＋</span></summary><div>${priceBreakdown}</div></details>` : ""}<small class="price-freshness"><i aria-hidden="true"></i>${escapeHtml(price.freshness_label)}</small></section>` : "";
+  const positionLabel = index === 0 ? "Лучшее совпадение" : `Вариант ${index + 1}`;
+  return `<article class="destination-card${index === 0 ? " featured" : ""}" style="--card-index: ${index}">
     <div class="card-image">
       ${image ? `<img src="${imageUrl}" alt="${escapeHtml(image.alt)}" loading="lazy" />` : ""}
-      <div class="image-shade"></div><span class="rank-badge">#${index + 1} вариант</span><span class="demo-tag">DEMO</span><span class="ranking-state ${escapeHtml(item.state || "ELIGIBLE").toLowerCase()}">${escapeHtml(stateLabel)}</span>
-      <div class="image-caption"><div><h3>${escapeHtml(candidate.city_or_region)}</h3><p>${escapeHtml(candidate.country)} · ${escapeHtml(candidate.nearest_airport || "аэропорт уточняется")}</p></div><span class="score-pill">${Math.round(item.total_score)} / 100</span></div>
+      <div class="image-shade"></div>
+      <div class="card-topline"><span class="rank-badge">${escapeHtml(positionLabel)}</span><span class="demo-tag">Модельная оценка</span></div>
+      <span class="ranking-state ${escapeHtml(rankingState.toLowerCase())}"><i aria-hidden="true"></i>${escapeHtml(stateLabel)}</span>
+      <div class="image-caption"><div><p>${escapeHtml(candidate.country)} · ${escapeHtml(candidate.nearest_airport || "аэропорт уточняется")}</p><h3>${escapeHtml(candidate.city_or_region)}</h3></div><span class="score-pill"><strong>${Math.round(item.total_score)}%</strong><small>совпадение</small></span></div>
       ${image ? `<a class="image-credit" href="${safeUrl(image.source_url)}" target="_blank" rel="noreferrer">Фото: ${escapeHtml(image.credit)}</a>` : ""}
     </div>
     <div class="card-body">
-      ${priceMarkup}
-      <div class="quick-metrics">
-        <div class="quick-metric"><span>Ориентир бюджета</span><strong>${escapeHtml(costRange(candidate))}</strong></div>
-        <div class="quick-metric"><span>Перелёт</span><strong>${escapeHtml(flight)}</strong></div>
-        <div class="quick-metric"><span>Погода</span><strong>${escapeHtml(weather)}</strong></div>
+      <div class="card-overview${price ? "" : " no-price"}">
+        ${priceMarkup}
+        <div class="quick-metrics">
+          <div class="quick-metric"><span aria-hidden="true">↗</span><div><small>Дорога</small><strong>${escapeHtml(flight)}</strong></div></div>
+          <div class="quick-metric"><span aria-hidden="true">☼</span><div><small>Сезон</small><strong>${escapeHtml(weather)}</strong></div></div>
+          <div class="quick-metric"><span aria-hidden="true">◎</span><div><small>Въезд</small><strong>${escapeHtml(candidate.entry_requirements || "проверить")}</strong></div></div>
+        </div>
       </div>
-      ${stateReason ? `<p class="ranking-note ${escapeHtml(item.state.toLowerCase())}">${escapeHtml(stateReason)}</p>` : ""}
-      ${highlights ? `<div class="card-section"><h4>Конкретные места</h4><div class="place-list">${highlights}</div></div>` : ""}
-      ${stayAreas ? `<div class="card-section"><h4>Районы для проживания</h4><div class="stay-areas">${stayAreas}</div></div>` : ""}
+      ${stateReason ? `<p class="ranking-note ${escapeHtml(rankingState.toLowerCase())}">${escapeHtml(stateReason)}</p>` : ""}
+      ${pros ? `<section class="card-section card-pros"><h4>Почему это может быть ваше</h4><ul>${pros}</ul></section>` : ""}
+      ${highlights ? `<section class="card-section"><div class="section-heading"><h4>Что посмотреть</h4><span>Конкретные места</span></div><div class="place-list">${highlights}</div></section>` : ""}
+      ${stayAreas ? `<section class="card-section stay-section"><h4>Где остановиться</h4><div class="stay-areas">${stayAreas}</div></section>` : ""}
       ${destinationDiscussionAction(candidate, chat)}
       ${actions}
-      ${actions ? '<p class="external-note">Внешний поиск · цены и наличие не подтверждены</p>' : ""}
-      <details class="card-details"><summary>Почему подходит, риски и источники</summary><p class="detail-copy">${escapeHtml(item.explanation)} ${item.risks?.length ? `Риски: ${escapeHtml(item.risks.join("; "))}.` : ""} Въезд: ${escapeHtml(candidate.entry_requirements || "нужно проверить")}.</p><div class="source-links">${sources}</div></details>
+      ${actions ? '<p class="external-note"><span aria-hidden="true">i</span> Откроется внешний поиск — цены и наличие уточняются там</p>' : ""}
+      <details class="card-details"><summary><span>Обоснование, риски и источники</span><i aria-hidden="true">＋</i></summary><div class="card-details-content"><p class="detail-copy">${escapeHtml(item.explanation)} ${item.risks?.length ? `<strong>Риски:</strong> ${escapeHtml(item.risks.join("; "))}.` : ""}</p><div class="source-links">${sources}</div></div></details>
     </div>
   </article>`;
 }
@@ -1010,6 +1026,11 @@ function setMobileView(view) {
   });
 }
 
+function refineResults() {
+  setMobileView("chat");
+  messageInput.focus();
+}
+
 destinationComposer.addEventListener("submit", (event) => {
   event.preventDefault();
   sendDestinationMessage(destinationInput.value);
@@ -1021,6 +1042,7 @@ destinationInput.addEventListener("keydown", (event) => {
   }
 });
 $("#destination-back").addEventListener("click", closeDestinationChat);
+$("#refine-results").addEventListener("click", refineResults);
 
 composer.addEventListener("submit", (event) => {
   event.preventDefault();

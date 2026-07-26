@@ -371,13 +371,13 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
 
     assert page.status_code == 200
     assert "Тудавай" in page.text
-    assert "Опишите поездку своими словами" in page.text
+    assert "Скажите, какого отдыха хочется" in page.text
     assert "Живая подборка" in page.text
     assert 'aria-controls="chat-view" aria-selected="true"' in page.text
     assert 'aria-controls="feed-panel" aria-selected="false"' in page.text
     assert login_page.status_code == 200
-    assert "Продолжайте планировать с любого устройства" in login_page.text
-    assert "Вход как вам удобно" in login_page.text
+    assert "Продолжайте с того места" in login_page.text
+    assert "Вся поездка — в одном диалоге" in login_page.text
     assert 'id="password-form"' in login_page.text
     assert feedback.status_code == 204
     assert travel_link.status_code == 204
