@@ -16,6 +16,8 @@ flowchart LR
     GRAPH --> DOMAIN["Deterministic domain services"]
     GRAPH --> AI["ModelGateway"]
     GRAPH --> PROVIDERS["Search and travel provider ports"]
+    API -. structured request .-> PRICING["Deterministic pricing core"]
+    PRICING --> PRICEPORTS["Typed pricing provider ports"]
     GRAPH --> CP["LangGraph checkpointer"]
     API --> EVENTS["Anonymous events and feedback"]
     API --> PLACES["Places repository + destination context"]
@@ -27,6 +29,10 @@ flowchart LR
     PLACES --> PG["PostgreSQL + PostGIS + pgvector"]
     OBS -. later .-> LF["Langfuse"]
 ```
+
+Pricing — отдельный bounded context без зависимостей от LangGraph и LLM SDK. Он принимает уже
+структурированный запрос, считает цельные date scenarios и immutable snapshot. До выбора
+провайдеров этот модуль не подключён к карточкам и не создаёт модельные цены.
 
 ## Startup lifecycle
 

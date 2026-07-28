@@ -1,6 +1,6 @@
 # ADR-0017: Pause modelled pricing until sourced providers exist
 
-- Status: accepted
+- Status: superseded by ADR-0018
 - Date: 2026-07-26
 
 ## Context
