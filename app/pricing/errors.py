@@ -11,3 +11,7 @@ class PricingInvariantError(PricingError):
 
 class FxProviderError(PricingError):
     """Official FX data is unavailable or invalid."""
+
+
+class CachedFlightProviderError(PricingError):
+    """Cached flight discovery data is unavailable or invalid."""

@@ -4,6 +4,7 @@ from app.pricing.aggregation import aggregate_scenarios, calculate_scenario
 from app.pricing.models import (
     CostComponent,
     DateScenario,
+    FlightPriceSignal,
     FxRate,
     FxRateTable,
     MoneyRange,
@@ -19,6 +20,7 @@ from app.pricing.snapshot import build_pricing_snapshot
 __all__ = [
     "CostComponent",
     "DateScenario",
+    "FlightPriceSignal",
     "FxRate",
     "FxRateTable",
     "MoneyRange",

@@ -218,6 +218,37 @@ class FxRateTable(PricingModel):
             raise KeyError(f"unsupported currency: {normalized}") from error
 
 
+class FlightPriceSignal(PricingModel):
+    """Cached route/date hint; never a full-party flight component."""
+
+    signal_id: str = Field(min_length=8, max_length=128)
+    scenario_id: str = Field(min_length=8, max_length=64)
+    origin_iata: str = Field(pattern=r"^[A-Z]{3}$")
+    destination_iata: str = Field(pattern=r"^[A-Z]{3}$")
+    outbound_date: date
+    return_date: date
+    amount_rub: Decimal = Field(gt=0)
+    stops: int | None = Field(default=None, ge=0)
+    duration_minutes: int | None = Field(default=None, gt=0)
+    found_at: datetime
+    expires_at: datetime
+    source: SourceRef
+    price_basis: Literal["cached_unknown_party"] = "cached_unknown_party"
+    usable_for_total: Literal[False] = False
+
+    @model_validator(mode="after")
+    def signal_is_consistent(self) -> FlightPriceSignal:
+        if self.found_at.tzinfo is None or self.expires_at.tzinfo is None:
+            raise ValueError("flight signal timestamps must be timezone-aware")
+        if self.expires_at <= self.found_at:
+            raise ValueError("flight signal must expire after it was found")
+        if self.return_date <= self.outbound_date:
+            raise ValueError("flight signal return date must follow outbound date")
+        if self.source.source_kind != "cached":
+            raise ValueError("flight price signal must be labelled cached")
+        return self
+
+
 class CostComponent(PricingModel):
     scenario_id: str = Field(min_length=8, max_length=64)
     name: ComponentName
