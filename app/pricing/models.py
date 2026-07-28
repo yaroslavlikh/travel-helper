@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -180,6 +181,41 @@ class SourceRef(PricingModel):
         if self.valid_until is not None and self.valid_until <= self.observed_at:
             raise ValueError("valid_until must be after observed_at")
         return self
+
+
+class FxRate(PricingModel):
+    char_code: str = Field(pattern=r"^[A-Z]{3}$")
+    nominal: int = Field(ge=1)
+    value_rub: Decimal = Field(gt=0)
+
+    @property
+    def rub_per_unit(self) -> Decimal:
+        return self.value_rub / Decimal(self.nominal)
+
+
+class FxRateTable(PricingModel):
+    table_version: str
+    effective_date: date
+    fetched_at: datetime
+    rates: tuple[FxRate, ...] = Field(min_length=1)
+    source: SourceRef
+    warnings: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def rate_table_is_consistent(self) -> FxRateTable:
+        if self.fetched_at.tzinfo is None:
+            raise ValueError("fetched_at must be timezone-aware")
+        codes = [rate.char_code for rate in self.rates]
+        if len(codes) != len(set(codes)):
+            raise ValueError("FX table cannot contain duplicate currencies")
+        return self
+
+    def rate_for(self, char_code: str) -> FxRate:
+        normalized = char_code.upper()
+        try:
+            return next(rate for rate in self.rates if rate.char_code == normalized)
+        except StopIteration as error:
+            raise KeyError(f"unsupported currency: {normalized}") from error
 
 
 class CostComponent(PricingModel):

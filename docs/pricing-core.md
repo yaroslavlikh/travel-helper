@@ -16,5 +16,11 @@ observations, versioned config, `Decimal` и фиксированные прав
 - immutable snapshot, стабильные hash/ID и явные warnings;
 - AST-проверку отсутствия AI-импортов.
 
-Провайдеры, FX, хранилище snapshots и HTTP API появятся отдельными этапами. До подключения
+FX-этап ([ADR-0019](adr/0019-cbr-fx-rates.md)) добавляет официальный XML adapter Банка России,
+`Decimal`-конвертацию с учётом `Nominal`
+и process-local cache. Валидный курс кэшируется на 24 часа; при отказе источника допускается явно
+помеченный fallback не старше 72 часов. Валюта, отсутствующая в таблице ЦБ, остаётся unsupported до
+отдельного cross-rate adapter.
+
+Flight/stay providers, хранилище snapshots и HTTP API появятся отдельными этапами. До подключения
 подтверждённых flight и stay sources `total` пользователю не показывается.

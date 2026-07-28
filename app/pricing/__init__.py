@@ -4,6 +4,8 @@ from app.pricing.aggregation import aggregate_scenarios, calculate_scenario
 from app.pricing.models import (
     CostComponent,
     DateScenario,
+    FxRate,
+    FxRateTable,
     MoneyRange,
     PricingRequest,
     ScenarioBatch,
@@ -17,6 +19,8 @@ from app.pricing.snapshot import build_pricing_snapshot
 __all__ = [
     "CostComponent",
     "DateScenario",
+    "FxRate",
+    "FxRateTable",
     "MoneyRange",
     "PricingRequest",
     "ScenarioBatch",

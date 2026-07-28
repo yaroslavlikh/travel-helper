@@ -14,3 +14,15 @@ class PricingCoreConfig(BaseModel):
 
 
 PRICING_CORE_CONFIG = PricingCoreConfig()
+
+
+class FxConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: str = "cbr-fx-v1"
+    cache_ttl_seconds: int = Field(default=86_400, ge=1)
+    stale_fallback_seconds: int = Field(default=259_200, ge=1)
+    max_response_bytes: int = Field(default=1_000_000, ge=1)
+
+
+FX_CONFIG = FxConfig()
