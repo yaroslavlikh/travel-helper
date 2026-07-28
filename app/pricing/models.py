@@ -415,6 +415,37 @@ class TransitFareSet(PricingModel):
         return self
 
 
+class EntryCharge(PricingModel):
+    charge_id: str = Field(min_length=1, max_length=128)
+    charge_type: Literal["visa", "eta", "tourist_tax", "entry_fee"]
+    age_min: int | None = Field(default=None, ge=0)
+    age_max: int | None = Field(default=None, ge=0)
+    amount: Decimal = Field(ge=0)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    basis: Literal["per_person", "per_trip", "per_night", "percent_stay"]
+    required: bool
+
+    @model_validator(mode="after")
+    def charge_is_consistent(self) -> EntryCharge:
+        if self.age_min is not None and self.age_max is not None and self.age_min > self.age_max:
+            raise ValueError("entry charge age_min must not exceed age_max")
+        if self.basis == "percent_stay":
+            if self.age_min is not None or self.age_max is not None:
+                raise ValueError("percent_stay charge cannot use age bounds")
+            if self.amount > 100:
+                raise ValueError("percent_stay charge cannot exceed 100%")
+        return self
+
+
+class EntryChargeRegistry(PricingModel):
+    registry_version: str
+    citizenship_country: str = Field(pattern=r"^[A-Z]{2}$")
+    destination_country: str = Field(pattern=r"^[A-Z]{2}$")
+    review_status: Literal["confirmed", "stale", "needs_review", "unknown"]
+    charges: tuple[EntryCharge, ...] = ()
+    source: SourceRef
+
+
 class CostComponent(PricingModel):
     scenario_id: str = Field(min_length=8, max_length=64)
     name: ComponentName
