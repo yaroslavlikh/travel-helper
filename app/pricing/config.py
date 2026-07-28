@@ -1,5 +1,7 @@
 """Versioned pricing-core parameters without provider assumptions."""
 
+from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -41,3 +43,17 @@ class CachedFlightConfig(BaseModel):
 
 
 CACHED_FLIGHT_CONFIG = CachedFlightConfig()
+
+
+class FlightAggregationConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: str = "flight-aggregation-v1"
+    bait_price_ratio: Decimal = Field(default=Decimal("0.55"), gt=0, lt=1)
+    bait_median_count: int = Field(default=10, ge=1, le=50)
+    expected_offer_count: int = Field(default=3, ge=1, le=20)
+    safe_offer_count: int = Field(default=5, ge=1, le=20)
+    safe_percentile: int = Field(default=75, ge=1, le=100)
+
+
+FLIGHT_AGGREGATION_CONFIG = FlightAggregationConfig()

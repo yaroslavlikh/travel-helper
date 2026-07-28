@@ -29,3 +29,8 @@ Aviasales Data API используется только для cached date disc
 ([ADR-0020](adr/0020-aviasales-cached-date-signals.md)). Сигнал всегда помечен
 `usable_for_total=false`: endpoint не получает точный состав группы и не подтверждает live
 availability.
+
+Live flight providers должны нормализоваться в единый `FlightOffer`
+([ADR-0021](adr/0021-live-flight-normalization.md)). До расчёта компонента проверяются точные даты,
+состав группы, налоги, baggage, stops/duration, self-transfer, expiry, dedupe и bait-price. Сам
+adapter Amadeus и revalidation будут подключены после конфигурации credentials.

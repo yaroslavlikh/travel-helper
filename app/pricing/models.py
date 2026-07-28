@@ -26,6 +26,12 @@ ComponentName = Literal[
 ]
 ComponentStatus = Literal["available", "partial", "missing", "stale", "unsupported"]
 SourceKind = Literal["live", "cached", "manual", "derived"]
+BaggageStatus = Literal[
+    "included",
+    "known_extra_price",
+    "not_included_unknown_price",
+    "unknown",
+]
 
 
 class PricingModel(BaseModel):
@@ -246,6 +252,60 @@ class FlightPriceSignal(PricingModel):
             raise ValueError("flight signal return date must follow outbound date")
         if self.source.source_kind != "cached":
             raise ValueError("flight price signal must be labelled cached")
+        return self
+
+
+class FlightOffer(PricingModel):
+    provider: str = Field(min_length=1, max_length=128)
+    offer_id: str = Field(min_length=1, max_length=256)
+    scenario_id: str = Field(min_length=8, max_length=64)
+    itinerary_key: str = Field(min_length=8, max_length=512)
+    origin_iata: str = Field(pattern=r"^[A-Z]{3}$")
+    destination_iata: str = Field(pattern=r"^[A-Z]{3}$")
+    total_rub: Decimal = Field(gt=0)
+    adults: int = Field(ge=1, le=9)
+    children: int = Field(default=0, ge=0, le=8)
+    infants: int = Field(default=0, ge=0, le=6)
+    outbound_departure: datetime
+    outbound_arrival: datetime
+    return_departure: datetime
+    return_arrival: datetime
+    stops_outbound: int = Field(ge=0)
+    stops_return: int = Field(ge=0)
+    duration_minutes_total: int = Field(gt=0)
+    baggage_status: BaggageStatus
+    baggage_extra_rub: Decimal | None = Field(default=None, gt=0)
+    taxes_included: bool
+    mandatory_fees_included: bool
+    self_transfer: bool
+    revalidated: bool = False
+    expires_at: datetime | None = None
+    source: SourceRef
+
+    @model_validator(mode="after")
+    def offer_is_consistent(self) -> FlightOffer:
+        timestamps = (
+            self.outbound_departure,
+            self.outbound_arrival,
+            self.return_departure,
+            self.return_arrival,
+        )
+        if any(value.tzinfo is None for value in timestamps):
+            raise ValueError("flight timestamps must be timezone-aware")
+        if not (
+            self.outbound_departure < self.outbound_arrival
+            and self.return_departure < self.return_arrival
+            and self.outbound_arrival < self.return_departure
+        ):
+            raise ValueError("flight itinerary timestamps are inconsistent")
+        if self.expires_at is not None and self.expires_at.tzinfo is None:
+            raise ValueError("flight expiry must be timezone-aware")
+        if self.baggage_status == "known_extra_price" and self.baggage_extra_rub is None:
+            raise ValueError("known baggage extra requires its price")
+        if self.baggage_status != "known_extra_price" and self.baggage_extra_rub is not None:
+            raise ValueError("baggage extra is valid only for known_extra_price")
+        if self.source.source_kind != "live":
+            raise ValueError("live flight offer requires live source provenance")
         return self
 
 
