@@ -31,8 +31,9 @@ flowchart LR
 ```
 
 Pricing — отдельный bounded context без зависимостей от LangGraph и LLM SDK. Он принимает уже
-структурированный запрос, считает цельные date scenarios и immutable snapshot. До выбора
-провайдеров этот модуль не подключён к карточкам и не создаёт модельные цены.
+структурированный запрос, считает цельные date scenarios и immutable snapshot. Presentation adapter
+передаёт snapshot в карточку и destination subchat. Пока критические providers не подключены, тот же
+контракт явно возвращает отсутствующие flight/stay компоненты без модельной суммы.
 
 ## Startup lifecycle
 

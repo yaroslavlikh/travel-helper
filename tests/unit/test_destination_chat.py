@@ -123,6 +123,24 @@ async def test_destination_fallback_never_claims_legacy_visa_from_the_card() -> 
     assert warnings and "Локальный режим" in warnings[0]
 
 
+async def test_destination_fallback_explains_missing_pricing_evidence() -> None:
+    request = trip_request()
+    recommendation = rank_demo_candidates(request)[0]
+
+    reply, warnings = await answer_destination_question(
+        query="Сколько будет стоить поездка?",
+        trip_request=request,
+        recommendation=recommendation,
+        history=[],
+        gateway=DisabledModelGateway("not configured"),
+        demo_mode=True,
+    )
+
+    assert "live-цены перелёта и жилья" in reply.answer
+    assert "не подставляю demo-оценку" in reply.answer
+    assert warnings and "Локальный режим" in warnings[0]
+
+
 async def test_destination_fallback_adapts_quick_replies_to_the_topic() -> None:
     request = trip_request()
     recommendation = rank_demo_candidates(request)[0]

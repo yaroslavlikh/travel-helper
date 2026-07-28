@@ -59,6 +59,9 @@ async def answer_destination_question(
             "risks": recommendation.risks,
             "assumptions": recommendation.assumptions,
             "explanation": recommendation.explanation,
+            "pricing": (
+                recommendation.pricing.model_dump(mode="json") if recommendation.pricing else None
+            ),
         },
         "destination_context": (
             destination_context.model_dump(mode="json") if destination_context else None
@@ -165,12 +168,17 @@ def _fallback_reply(
             "Я не использовал это направление как подтверждённо безвизовое; перед поездкой "
             "обязательно сверьте актуальные требования на официальном ресурсе."
         )
-    elif any(fragment in normalized for fragment in ("цена", "стоим", "бюджет", "дорого")):
-        answer = (
-            "Сейчас я не показываю расчёт стоимости: этот слой временно отключён, "
-            "чтобы не выдавать модельный ориентир за актуальную цену. "
-            "Проверьте билеты и жильё по выбранным датам во внешнем поиске."
-        )
+    elif any(
+        fragment in normalized for fragment in ("цена", "стоим", "стоить", "бюджет", "дорого")
+    ):
+        if recommendation.pricing is None or recommendation.pricing.status == "unavailable":
+            answer = (
+                "Полную стоимость пока нельзя посчитать: отсутствуют подтверждённые "
+                "live-цены перелёта и жилья. Я не подставляю demo-оценку вместо фактов; "
+                "на карточке указано, какие источники нужно подключить."
+            )
+        else:
+            answer = "Расчёт стоимости указан в текущем pricing snapshot карточки."
     elif any(fragment in normalized for fragment in ("перел", "лететь", "рейс", "пересад")):
         duration = (
             f"около {candidate.flight_duration_hours:g} ч"

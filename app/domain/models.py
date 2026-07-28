@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Literal, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 DestinationScope = Literal["domestic", "international", "any"]
 DestinationCountryCode = Literal[
@@ -222,6 +222,64 @@ class DestinationCandidate(DomainModel):
     retrieved_at: datetime | None = None
 
 
+PricingComponentGroup = Literal["flight", "stay", "daily", "required"]
+
+
+class PricingComponentView(DomainModel):
+    """One user-facing component backed by deterministic pricing evidence."""
+
+    component: PricingComponentGroup
+    label: str
+    status: Literal["available", "partial", "missing", "stale", "unsupported"]
+    floor_rub: int | None = Field(default=None, ge=0)
+    expected_rub: int | None = Field(default=None, ge=0)
+    safe_rub: int | None = Field(default=None, ge=0)
+    reason: str | None = None
+
+    @model_validator(mode="after")
+    def amount_matches_status(self) -> PricingComponentView:
+        values = (self.floor_rub, self.expected_rub, self.safe_rub)
+        if self.status in {"available", "partial", "stale"}:
+            if any(value is None for value in values):
+                raise ValueError("priced component requires floor, expected and safe")
+            floor, expected, safe = values
+            assert floor is not None and expected is not None and safe is not None
+            if not floor <= expected <= safe:
+                raise ValueError("component price must satisfy floor <= expected <= safe")
+        elif any(value is not None for value in values):
+            raise ValueError("missing component cannot carry an amount")
+        return self
+
+
+class PricingCardView(DomainModel):
+    """Presentation-safe pricing state; unavailable evidence never becomes zero."""
+
+    status: Literal["available", "partial", "unavailable", "stale"]
+    headline: str
+    subtitle: str
+    pricing_snapshot_id: str | None = None
+    floor_total_rub: int | None = Field(default=None, ge=0)
+    expected_total_rub: int | None = Field(default=None, ge=0)
+    safe_total_rub: int | None = Field(default=None, ge=0)
+    components: list[PricingComponentView] = Field(default_factory=list)
+    freshness_label: str
+    warnings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def total_matches_status(self) -> PricingCardView:
+        values = (self.floor_total_rub, self.expected_total_rub, self.safe_total_rub)
+        if self.status in {"available", "partial", "stale"}:
+            if any(value is None for value in values):
+                raise ValueError("priced card requires floor, expected and safe totals")
+            floor, expected, safe = values
+            assert floor is not None and expected is not None and safe is not None
+            if not floor <= expected <= safe:
+                raise ValueError("card total must satisfy floor <= expected <= safe")
+        elif any(value is not None for value in values):
+            raise ValueError("unavailable card cannot carry totals")
+        return self
+
+
 class ScoredDestination(DomainModel):
     """Deterministic score output with transparent reasons and assumptions."""
 
@@ -245,6 +303,7 @@ class ScoredDestination(DomainModel):
     )
     rank_before_diversity: int | None = Field(default=None, ge=1)
     rank_after_diversity: int | None = Field(default=None, ge=1)
+    pricing: PricingCardView | None = None
     recommendation_snapshot_id: str | None = None
 
 

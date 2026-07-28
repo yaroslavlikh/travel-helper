@@ -492,6 +492,21 @@ function destinationCard(item, index, chat) {
   const flight = candidate.flight_duration_hours ? `${candidate.flight_duration_hours} ч · ${candidate.transfers_count || 0} перес.` : "Уточнить";
   const weather = candidate.expected_temperature_c != null ? `${candidate.expected_temperature_c}° · море ${candidate.expected_sea_temperature_c ?? "—"}°` : "Уточнить";
   const actions = providerActions(candidate, chat.snapshot, index);
+  const pricing = item.pricing;
+  const pricingRows = (pricing?.components || []).map((component) => {
+    const value = component.expected_rub != null
+      ? formatMoney(component.expected_rub)
+      : component.reason || "Нет данных";
+    return `<div class="price-breakdown-row ${escapeHtml(component.status)}"><span>${escapeHtml(component.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+  }).join("");
+  const pricingMarkup = pricing ? `<section class="price-summary ${escapeHtml(pricing.status)}">
+    <div class="price-heading"><span>Бюджет поездки</span><small>на всю группу</small></div>
+    <strong>${escapeHtml(pricing.headline)}</strong>
+    <p>${escapeHtml(pricing.subtitle)}</p>
+    ${pricing.expected_total_rub != null ? `<small class="price-range">От ${formatMoney(pricing.floor_total_rub)} · безопасно до ${formatMoney(pricing.safe_total_rub)}</small>` : ""}
+    ${pricingRows ? `<details class="price-breakdown"><summary>${pricing.status === "unavailable" ? "Почему цена недоступна" : "Что входит в расчёт"} <span>＋</span></summary><div>${pricingRows}</div></details>` : ""}
+    <small class="price-freshness"><i aria-hidden="true"></i>${escapeHtml(pricing.freshness_label)}</small>
+  </section>` : "";
   const stateLabels = {
     ELIGIBLE: "Подтверждённый вариант",
     CONDITIONAL: "Нужно проверить условия",
@@ -514,7 +529,8 @@ function destinationCard(item, index, chat) {
       ${image ? `<a class="image-credit" href="${safeUrl(image.source_url)}" target="_blank" rel="noreferrer">Фото: ${escapeHtml(image.credit)}</a>` : ""}
     </div>
     <div class="card-body">
-      <div class="card-overview no-price">
+      <div class="card-overview${pricing ? "" : " no-price"}">
+        ${pricingMarkup}
         <div class="quick-metrics">
           <div class="quick-metric"><span aria-hidden="true">↗</span><div><small>Дорога</small><strong>${escapeHtml(flight)}</strong></div></div>
           <div class="quick-metric"><span aria-hidden="true">☼</span><div><small>Сезон</small><strong>${escapeHtml(weather)}</strong></div></div>

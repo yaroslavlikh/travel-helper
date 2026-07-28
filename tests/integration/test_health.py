@@ -118,6 +118,11 @@ async def test_recommendation_clarifies_then_resumes_same_session() -> None:
     assert resumed.json()["turn_kind"] == "clarification"
     assert resumed.json()["parsed_request"]["origin_city"] == "Москва"
     assert len(resumed.json()["recommendations"]) >= 3
+    pricing = resumed.json()["recommendations"][0]["pricing"]
+    assert pricing["status"] == "unavailable"
+    assert pricing["expected_total_rub"] is None
+    assert [item["component"] for item in pricing["components"]] == ["flight", "stay"]
+    assert all(item["status"] == "missing" for item in pricing["components"])
     assert resumed.json()["next_best_question"] is not None
     assert "Хотите сузить выбор" in resumed.json()["assistant_message"]
 
@@ -345,6 +350,7 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             page = await client.get("/")
+            frontend = await client.get("/static/app.js")
             login_page = await client.get("/login")
             feedback = await client.post(
                 "/feedback",
@@ -370,11 +376,14 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
             recorded_clicks = list(app.state.resources.product_event_store.travel_link_events)
 
     assert page.status_code == 200
+    assert frontend.status_code == 200
+    assert "Почему цена недоступна" in frontend.text
     assert "Тудавай" in page.text
     assert "Скажите, какого отдыха хочется" in page.text
     assert "Живая подборка" in page.text
     assert 'aria-controls="chat-view" aria-selected="true"' in page.text
     assert 'aria-controls="feed-panel" aria-selected="false"' in page.text
+    assert "/static/app.js?v=20260728-pricing" in page.text
     assert login_page.status_code == 200
     assert "Продолжайте с того места" in login_page.text
     assert "Вся поездка — в одном диалоге" in login_page.text
