@@ -360,6 +360,61 @@ class StayOffer(PricingModel):
         return self
 
 
+class PriceTriple(PricingModel):
+    low: Decimal = Field(ge=0)
+    average: Decimal = Field(ge=0)
+    high: Decimal = Field(ge=0)
+
+    @model_validator(mode="after")
+    def prices_are_ordered(self) -> PriceTriple:
+        if not self.low <= self.average <= self.high:
+            raise ValueError("price triple must satisfy low <= average <= high")
+        return self
+
+
+class FoodPriceSet(PricingModel):
+    dataset_version: str
+    inexpensive_meal: PriceTriple
+    fast_food_combo: PriceTriple
+    water_small: PriceTriple
+    cappuccino: PriceTriple | None = None
+    grocery_daily_basket: PriceTriple
+    sources: tuple[SourceRef, ...] = Field(min_length=1)
+
+
+class ChildTransitFare(PricingModel):
+    age_min: int = Field(ge=0, le=17)
+    age_max: int = Field(ge=0, le=17)
+    single_ride_rub: Decimal = Field(ge=0)
+    day_pass_rub: Decimal | None = Field(default=None, ge=0)
+    weekly_pass_rub: Decimal | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def age_range_is_ordered(self) -> ChildTransitFare:
+        if self.age_min > self.age_max:
+            raise ValueError("child transit age_min must not exceed age_max")
+        return self
+
+
+class TransitFareSet(PricingModel):
+    dataset_version: str
+    adult_single_ride_rub: Decimal = Field(ge=0)
+    adult_day_pass_rub: Decimal | None = Field(default=None, ge=0)
+    adult_weekly_pass_rub: Decimal | None = Field(default=None, ge=0)
+    child_fares: tuple[ChildTransitFare, ...] = ()
+    sources: tuple[SourceRef, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def child_age_ranges_do_not_overlap(self) -> TransitFareSet:
+        covered: set[int] = set()
+        for fare in self.child_fares:
+            ages = set(range(fare.age_min, fare.age_max + 1))
+            if covered & ages:
+                raise ValueError("child transit age ranges cannot overlap")
+            covered.update(ages)
+        return self
+
+
 class CostComponent(PricingModel):
     scenario_id: str = Field(min_length=8, max_length=64)
     name: ComponentName

@@ -71,3 +71,21 @@ class StayAggregationConfig(BaseModel):
 
 
 STAY_AGGREGATION_CONFIG = StayAggregationConfig()
+
+
+class DailyCostConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: str = "daily-costs-v1"
+    infant_food_factor: Decimal = Decimal("0.20")
+    child_food_factors: tuple[tuple[int, int, Decimal], ...] = (
+        (3, 6, Decimal("0.45")),
+        (7, 11, Decimal("0.65")),
+        (12, 17, Decimal("0.85")),
+    )
+    economy_transit_rides_per_day: int = Field(default=2, ge=0)
+    standard_transit_rides_per_day: int = Field(default=3, ge=0)
+    comfort_transit_rides_per_day: int = Field(default=3, ge=0)
+
+
+DAILY_COST_CONFIG = DailyCostConfig()
