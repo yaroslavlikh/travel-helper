@@ -13,6 +13,8 @@ from app.pricing.models import (
     ScenarioBatch,
     ScenarioPrice,
     SourceRef,
+    StayOffer,
+    StayProfileRules,
     TripPriceEstimate,
 )
 from app.pricing.scenario_generation import generate_date_scenarios
@@ -30,6 +32,8 @@ __all__ = [
     "ScenarioBatch",
     "ScenarioPrice",
     "SourceRef",
+    "StayOffer",
+    "StayProfileRules",
     "TripPriceEstimate",
     "aggregate_scenarios",
     "build_pricing_snapshot",

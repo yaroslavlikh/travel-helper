@@ -34,3 +34,9 @@ Live flight providers должны нормализоваться в едины�
 ([ADR-0021](adr/0021-live-flight-normalization.md)). До расчёта компонента проверяются точные даты,
 состав группы, налоги, baggage, stops/duration, self-transfer, expiry, dedupe и bait-price. Сам
 adapter Amadeus и revalidation будут подключены после конфигурации credentials.
+
+Жильё следует тому же принципу: `StayOffer` обязан содержать full-party/full-stay total, exact
+dates, occupancy, rooms и подтверждение полноты mandatory charges. Исключённые из provider total
+обязательные сборы добавляются один раз. Профильные правила передаются типизированно, а не
+зашиваются одной «средней ценой» на город
+([ADR-0022](adr/0022-live-stay-normalization.md)).

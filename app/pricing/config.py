@@ -57,3 +57,17 @@ class FlightAggregationConfig(BaseModel):
 
 
 FLIGHT_AGGREGATION_CONFIG = FlightAggregationConfig()
+
+
+class StayAggregationConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: str = "stay-aggregation-v1"
+    outlier_ratio: Decimal = Field(default=Decimal("0.60"), gt=0, lt=1)
+    outlier_median_count: int = Field(default=10, ge=1, le=50)
+    expected_offer_count: int = Field(default=5, ge=1, le=20)
+    safe_offer_count: int = Field(default=10, ge=1, le=30)
+    safe_percentile: int = Field(default=75, ge=1, le=100)
+
+
+STAY_AGGREGATION_CONFIG = StayAggregationConfig()

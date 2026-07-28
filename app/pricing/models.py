@@ -66,6 +66,7 @@ class PricingRequest(PricingModel):
     max_stops: int | None = Field(default=None, ge=0)
     max_flight_minutes: int | None = Field(default=None, gt=0)
     allow_self_transfer: bool = False
+    allow_dorm: bool = False
 
     @field_validator("origin_iata", "destination_iata")
     @classmethod
@@ -306,6 +307,56 @@ class FlightOffer(PricingModel):
             raise ValueError("baggage extra is valid only for known_extra_price")
         if self.source.source_kind != "live":
             raise ValueError("live flight offer requires live source provenance")
+        return self
+
+
+class StayProfileRules(PricingModel):
+    rules_version: str
+    profile: Literal["economy", "standard", "comfort"]
+    minimum_rating: Decimal = Field(ge=0, le=10)
+    minimum_review_count: int = Field(ge=0)
+    maximum_distance_km: Decimal = Field(gt=0)
+    require_private_room: bool
+    allow_shared_bathroom: bool
+    require_flexible_cancellation: bool
+    require_preferred_area: bool = False
+
+
+class StayOffer(PricingModel):
+    provider: str = Field(min_length=1, max_length=128)
+    offer_id: str = Field(min_length=1, max_length=256)
+    property_id: str = Field(min_length=1, max_length=256)
+    product_id: str = Field(min_length=1, max_length=256)
+    scenario_id: str = Field(min_length=8, max_length=64)
+    checkin: date
+    checkout: date
+    adults: int = Field(ge=1, le=9)
+    children: int = Field(default=0, ge=0, le=8)
+    rooms: int = Field(ge=1, le=5)
+    total_rub: Decimal = Field(gt=0)
+    mandatory_excluded_rub: Decimal = Field(default=Decimal(0), ge=0)
+    extra_local_transport_rub: Decimal = Field(default=Decimal(0), ge=0)
+    covers_full_stay: bool
+    covers_full_party: bool
+    mandatory_charges_complete: bool
+    private_room: bool
+    dorm: bool
+    shared_bathroom: bool
+    in_preferred_area: bool | None = None
+    rating: Decimal | None = Field(default=None, ge=0, le=10)
+    review_count: int | None = Field(default=None, ge=0)
+    distance_center_km: Decimal = Field(ge=0)
+    cancellation: Literal["flexible", "nonrefundable", "unknown"]
+    source: SourceRef
+
+    @model_validator(mode="after")
+    def stay_offer_is_consistent(self) -> StayOffer:
+        if self.checkout <= self.checkin:
+            raise ValueError("stay checkout must follow checkin")
+        if self.dorm and self.private_room:
+            raise ValueError("dorm cannot be a private room")
+        if self.source.source_kind != "live":
+            raise ValueError("live stay offer requires live source provenance")
         return self
 
 
