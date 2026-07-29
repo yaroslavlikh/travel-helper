@@ -24,9 +24,17 @@ class CachedFlightDiscovery(Protocol):
     ) -> tuple[FlightPriceSignal, ...]: ...
 
 
-class LiveFlightProvider(Protocol):
+class FlightPriceProvider(Protocol):
+    """Provider-neutral complete-flight search for one coherent scenario."""
+
+    provider_name: str
+
     async def search(
         self,
         request: PricingRequest,
         scenario: DateScenario,
     ) -> tuple[FlightOffer, ...]: ...
+
+
+# Compatibility name for adapters introduced before fixture/unavailable modes existed.
+LiveFlightProvider = FlightPriceProvider

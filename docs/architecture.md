@@ -35,6 +35,10 @@ Pricing — отдельный bounded context без зависимостей �
 передаёт snapshot в карточку и destination subchat. Пока критические providers не подключены, тот же
 контракт явно возвращает отсутствующие flight/stay компоненты без модельной суммы.
 
+Provider registry создаётся в application lifespan и сообщает safe status (`disabled`,
+`missing_credentials`, `not_implemented` или `ready`) через readiness endpoints. Он не делает
+сетевых вызовов при старте и не превращает fixture/cached signals в live price.
+
 ## Startup lifecycle
 
 FastAPI lifespan создаёт и закрывает long-lived resources в определённом порядке:

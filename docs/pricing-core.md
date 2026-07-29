@@ -25,6 +25,10 @@ FX-этап ([ADR-0019](adr/0019-cbr-fx-rates.md)) добавляет офици
 Flight/stay providers, хранилище snapshots и HTTP API появятся отдельными этапами. До подключения
 подтверждённых flight и stay sources `total` пользователю не показывается.
 
+Runtime registry ([ADR-0026](adr/0026-pricing-provider-registry.md)) уже выбирает neutral
+fixture/unavailable adapters и отдаёт readiness без secrets. Он пока не включает live provider и не
+вызывает pricing core из `POST /recommend`.
+
 Aviasales Data API используется только для cached date discovery
 ([ADR-0020](adr/0020-aviasales-cached-date-signals.md)). Сигнал всегда помечен
 `usable_for_total=false`: endpoint не получает точный состав группы и не подтверждает live

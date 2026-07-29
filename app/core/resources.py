@@ -12,6 +12,7 @@ from app.accounts.store import AccountStore
 from app.core.config import Settings
 from app.observability.port import ObservabilityPort
 from app.places.repository import PlacesRepository
+from app.pricing.registry import PricingProviderRegistry
 from app.services.events import ProductEventStore
 from app.services.feedback import FeedbackStore
 from app.services.model_gateway import ModelGateway
@@ -33,3 +34,4 @@ class AppResources:
     places_repository: PlacesRepository
     account_store: AccountStore
     auth_service: AuthService
+    pricing_providers: PricingProviderRegistry

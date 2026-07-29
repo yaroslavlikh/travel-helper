@@ -14,6 +14,18 @@ def test_production_password_login_requires_a_session_secret() -> None:
         Settings(app_env="production", demo_mode=False, _env_file=None)
 
 
+def test_production_rejects_public_fixture_pricing() -> None:
+    with pytest.raises(ValidationError, match="Fixture pricing"):
+        Settings(
+            app_env="production",
+            demo_mode=False,
+            auth_session_secret="a" * 32,
+            pricing_public_display_enabled=True,
+            flight_provider_mode="fixture",
+            _env_file=None,
+        )
+
+
 def test_model_configuration_requires_every_value() -> None:
     assert (
         Settings(llm_provider="openai", llm_model="model", _env_file=None).model_is_configured

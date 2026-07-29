@@ -21,7 +21,7 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    app_env: Literal["development", "test", "production"] = "development"
+    app_env: Literal["development", "test", "staging", "production"] = "development"
     app_name: str = "Travel Choice Assistant"
     app_version: str = "0.1.0"
     log_level: str = "INFO"
@@ -31,6 +31,18 @@ class Settings(BaseSettings):
     places_database_url: str | None = None
     places_embedding_version: str = "hash-v1"
     aviasales_marker: str | None = None
+
+    flight_provider_mode: Literal["disabled", "fixture", "cached", "live"] = "disabled"
+    stay_provider_mode: Literal["disabled", "fixture", "cached", "live"] = "disabled"
+    pricing_live_enabled: bool = False
+    pricing_cached_enabled: bool = False
+    pricing_fixture_enabled: bool = False
+    pricing_public_display_enabled: bool = False
+    pricing_debug_breakdown_enabled: bool = False
+    amadeus_client_id: SecretStr | None = None
+    amadeus_client_secret: SecretStr | None = None
+    booking_api_key: SecretStr | None = None
+    booking_affiliate_id: SecretStr | None = None
 
     llm_provider: str | None = None
     llm_model: str | None = None
@@ -67,6 +79,14 @@ class Settings(BaseSettings):
         """Whether provider selection and credentials are all present."""
 
         return bool(self.llm_provider and self.llm_model and self.llm_api_key)
+
+    @property
+    def amadeus_is_configured(self) -> bool:
+        return bool(self.amadeus_client_id and self.amadeus_client_secret)
+
+    @property
+    def booking_is_configured(self) -> bool:
+        return bool(self.booking_api_key and self.booking_affiliate_id)
 
     @property
     def langfuse_is_configured(self) -> bool:
@@ -121,6 +141,12 @@ class Settings(BaseSettings):
 
         if self.app_env == "production" and self.demo_mode:
             raise ValueError("DEMO_MODE must be false in production")
+        if (
+            self.app_env == "production"
+            and self.pricing_public_display_enabled
+            and (self.flight_provider_mode == "fixture" or self.stay_provider_mode == "fixture")
+        ):
+            raise ValueError("Fixture pricing cannot be displayed publicly in production")
         if self.app_env == "production" and (self.auth_is_configured or self.password_auth_enabled):
             if not self.auth_cookie_secure:
                 raise ValueError("Secure account cookies are required in production")

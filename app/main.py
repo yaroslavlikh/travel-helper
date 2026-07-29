@@ -26,6 +26,7 @@ from app.core.resources import AppResources
 from app.observability.langfuse import create_observability
 from app.observability.port import ObservabilityPort
 from app.places.repository import create_places_repository
+from app.pricing.registry import PricingProviderStatus, create_pricing_provider_registry
 from app.services.events import ProductEventStore
 from app.services.feedback import FeedbackStore
 from app.services.model_gateway import create_model_gateway
@@ -36,14 +37,29 @@ class ProviderHealth(BaseModel):
     """Public-safe provider status; never includes credentials or internal endpoints."""
 
     name: str
-    status: Literal["configured", "disabled", "deferred"]
+    status: Literal[
+        "configured",
+        "disabled",
+        "deferred",
+        "fixture",
+        "missing_credentials",
+        "not_implemented",
+        "ready",
+    ]
+
+
+class ReadyResponse(BaseModel):
+    """Safe readiness status for staging and provider verification."""
+
+    status: Literal["ready", "degraded"]
+    components: dict[str, str]
 
 
 class HealthResponse(BaseModel):
     """Readiness response for humans, deployment checks, and the future UI."""
 
     status: Literal["ok", "degraded"]
-    environment: Literal["development", "test", "production"]
+    environment: Literal["development", "test", "staging", "production"]
     mode: Literal["demo", "configured"]
     version: str
     providers: list[ProviderHealth]
@@ -105,6 +121,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     store=account_store,
                     http_client=http_client,
                 ),
+                pricing_providers=create_pricing_provider_registry(resolved_settings),
             )
             try:
                 yield
@@ -155,8 +172,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 ProviderHealth(
                     name=resources.observability.backend_name, status=observability_status
                 ),
+                *[
+                    ProviderHealth(name=item.name, status=item.status)
+                    for item in resources.pricing_providers.public_statuses()
+                ],
             ],
         )
+
+    @app.get("/health/live", tags=["system"])
+    async def live() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/health/ready", response_model=ReadyResponse, tags=["system"])
+    async def ready(request: Request) -> ReadyResponse:
+        resources = cast(AppResources, request.app.state.resources)
+        pricing = resources.pricing_providers.public_statuses()
+        components: dict[str, str] = {
+            "checkpointer": "ready",
+            "llm": "ready" if resources.settings.model_is_configured else "disabled",
+            **{item.name: item.status for item in pricing},
+        }
+        return ReadyResponse(
+            status="ready" if resources.pricing_providers.is_ready else "degraded",
+            components=components,
+        )
+
+    @app.get("/internal/provider-status", tags=["internal"], include_in_schema=False)
+    async def provider_status(request: Request) -> list[PricingProviderStatus]:
+        resources = cast(AppResources, request.app.state.resources)
+        if resources.settings.app_env == "production":
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=404, detail="Not found")
+        return list(resources.pricing_providers.public_statuses())
 
     return app
 

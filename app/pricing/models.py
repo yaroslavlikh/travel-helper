@@ -25,7 +25,7 @@ ComponentName = Literal[
     "recommended",
 ]
 ComponentStatus = Literal["available", "partial", "missing", "stale", "unsupported"]
-SourceKind = Literal["live", "cached", "manual", "derived"]
+SourceKind = Literal["live", "cached", "fixture", "manual", "derived"]
 BaggageStatus = Literal[
     "included",
     "known_extra_price",
@@ -305,8 +305,8 @@ class FlightOffer(PricingModel):
             raise ValueError("known baggage extra requires its price")
         if self.baggage_status != "known_extra_price" and self.baggage_extra_rub is not None:
             raise ValueError("baggage extra is valid only for known_extra_price")
-        if self.source.source_kind != "live":
-            raise ValueError("live flight offer requires live source provenance")
+        if self.source.source_kind not in {"live", "fixture"}:
+            raise ValueError("flight offer requires live or fixture source provenance")
         return self
 
 
@@ -355,8 +355,8 @@ class StayOffer(PricingModel):
             raise ValueError("stay checkout must follow checkin")
         if self.dorm and self.private_room:
             raise ValueError("dorm cannot be a private room")
-        if self.source.source_kind != "live":
-            raise ValueError("live stay offer requires live source provenance")
+        if self.source.source_kind not in {"live", "fixture"}:
+            raise ValueError("stay offer requires live or fixture source provenance")
         return self
 
 

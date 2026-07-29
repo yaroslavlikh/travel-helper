@@ -70,8 +70,37 @@ async def test_health_exposes_safe_demo_status() -> None:
         "providers": [
             {"name": "llm", "status": "disabled"},
             {"name": "noop", "status": "deferred"},
+            {"name": "flight_pricing", "status": "disabled"},
+            {"name": "stay_pricing", "status": "disabled"},
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_readiness_reports_missing_live_pricing_credentials_without_secrets() -> None:
+    app = create_app(
+        Settings(
+            app_env="test",
+            demo_mode=True,
+            flight_provider_mode="live",
+            stay_provider_mode="live",
+            langfuse_enabled=False,
+            _env_file=None,
+        )
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            live = await client.get("/health/live")
+            ready = await client.get("/health/ready")
+            providers = await client.get("/internal/provider-status")
+
+    assert live.json() == {"status": "ok"}
+    assert ready.json()["status"] == "degraded"
+    assert ready.json()["components"]["flight_pricing"] == "missing_credentials"
+    assert ready.json()["components"]["stay_pricing"] == "missing_credentials"
+    assert all(item["status"] == "missing_credentials" for item in providers.json())
 
 
 @pytest.mark.asyncio
