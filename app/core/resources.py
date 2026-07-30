@@ -10,6 +10,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from app.accounts.auth import AuthService
 from app.accounts.store import AccountStore
 from app.core.config import Settings
+from app.core.http_security import SlidingWindowRateLimiter
 from app.observability.port import ObservabilityPort
 from app.places.repository import PlacesRepository
 from app.pricing.registry import PricingProviderRegistry
@@ -35,3 +36,4 @@ class AppResources:
     account_store: AccountStore
     auth_service: AuthService
     pricing_providers: PricingProviderRegistry
+    rate_limiter: SlidingWindowRateLimiter

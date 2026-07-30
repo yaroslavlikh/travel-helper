@@ -9,7 +9,9 @@ from typing import Literal, cast
 
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
@@ -21,6 +23,7 @@ from app.accounts.routes import router as account_router
 from app.accounts.store import AccountStore
 from app.api.routes import router as recommendation_router
 from app.core.config import Settings, get_settings
+from app.core.http_security import SlidingWindowRateLimiter, security_headers
 from app.core.logging import configure_logging
 from app.core.resources import AppResources
 from app.observability.langfuse import create_observability
@@ -122,6 +125,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     http_client=http_client,
                 ),
                 pricing_providers=create_pricing_provider_registry(resolved_settings),
+                rate_limiter=SlidingWindowRateLimiter(
+                    max_requests=resolved_settings.rate_limit_requests,
+                    window_seconds=resolved_settings.rate_limit_window_seconds,
+                ),
             )
             try:
                 yield
@@ -136,6 +143,50 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=resolved_settings.app_version,
         lifespan=lifespan,
     )
+    app.add_middleware(
+        TrustedHostMiddleware, allowed_hosts=list(resolved_settings.trusted_host_list)
+    )
+    if resolved_settings.cors_allowed_origin_list:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(resolved_settings.cors_allowed_origin_list),
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+            allow_headers=["Content-Type", "X-CSRF-Token"],
+        )
+
+    expensive_paths = {
+        "/recommend",
+        "/destination-chat",
+        "/auth/password/register",
+        "/auth/password/login",
+    }
+
+    @app.middleware("http")
+    async def apply_public_http_guards(request: Request, call_next):  # type: ignore[no-untyped-def]
+        response_headers = security_headers(production=resolved_settings.app_env == "production")
+        resources = getattr(request.app.state, "resources", None)
+        if (
+            isinstance(resources, AppResources)
+            and resources.settings.rate_limit_enabled
+            and request.method == "POST"
+            and request.url.path in expensive_paths
+        ):
+            client_ip = request.client.host if request.client else "unknown"
+            retry_after = resources.rate_limiter.retry_after_seconds(
+                f"{request.url.path}:{client_ip}"
+            )
+            if retry_after is not None:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Too many requests. Please try again shortly."},
+                    headers={**response_headers, "Retry-After": str(retry_after)},
+                )
+        response = await call_next(request)
+        for header, value in response_headers.items():
+            response.headers.setdefault(header, value)
+        return response
+
     static_directory = Path(__file__).resolve().parent / "static"
     app.mount("/static", StaticFiles(directory=static_directory), name="static")
     app.include_router(recommendation_router)

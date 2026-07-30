@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     log_level: str = "INFO"
     demo_mode: bool = True
+    trusted_hosts: str = "localhost,127.0.0.1,testserver,test"
+    cors_allowed_origins: str = ""
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = Field(default=30, ge=1, le=1_000)
+    rate_limit_window_seconds: int = Field(default=60, ge=1, le=3_600)
     checkpoint_db_path: str = ".data/travel-helper.sqlite3"
     account_db_path: str = ".data/travel-accounts.sqlite3"
     places_database_url: str | None = None
@@ -128,6 +133,14 @@ class Settings(BaseSettings):
         return self.app_env == "production"
 
     @property
+    def trusted_host_list(self) -> tuple[str, ...]:
+        return tuple(item.strip() for item in self.trusted_hosts.split(",") if item.strip())
+
+    @property
+    def cors_allowed_origin_list(self) -> tuple[str, ...]:
+        return tuple(item.strip() for item in self.cors_allowed_origins.split(",") if item.strip())
+
+    @property
     def oidc_client_secret_value(self) -> str:
         return self.oidc_client_secret.get_secret_value() if self.oidc_client_secret else ""
 
@@ -152,6 +165,13 @@ class Settings(BaseSettings):
                 raise ValueError("Secure account cookies are required in production")
             if len(self.auth_session_secret_value) < 32:
                 raise ValueError("AUTH_SESSION_SECRET must contain at least 32 characters")
+        if self.app_env == "production":
+            if not self.trusted_host_list or "*" in self.trusted_host_list:
+                raise ValueError("TRUSTED_HOSTS must contain explicit production hostnames")
+            if set(self.trusted_host_list) <= {"localhost", "127.0.0.1", "testserver", "test"}:
+                raise ValueError("TRUSTED_HOSTS must include a non-local production hostname")
+            if any(not origin.startswith("https://") for origin in self.cors_allowed_origin_list):
+                raise ValueError("CORS_ALLOWED_ORIGINS must use HTTPS in production")
         return self
 
 

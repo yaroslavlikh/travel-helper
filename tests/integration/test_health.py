@@ -77,6 +77,36 @@ async def test_health_exposes_safe_demo_status() -> None:
 
 
 @pytest.mark.asyncio
+async def test_public_http_guards_reject_unknown_hosts_and_limit_expensive_requests() -> None:
+    app = create_app(
+        Settings(
+            app_env="test",
+            demo_mode=True,
+            trusted_hosts="allowed.test",
+            rate_limit_requests=1,
+            rate_limit_window_seconds=60,
+            langfuse_enabled=False,
+            _env_file=None,
+        )
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://blocked.test") as client:
+            blocked = await client.get("/")
+        async with httpx.AsyncClient(transport=transport, base_url="http://allowed.test") as client:
+            first = await client.post("/recommend", json={"query": "Хочу в отпуск"})
+            limited = await client.post("/recommend", json={"query": "Хочу в отпуск"})
+
+    assert blocked.status_code == 400
+    assert first.status_code == 200
+    assert first.headers["x-content-type-options"] == "nosniff"
+    assert limited.status_code == 429
+    assert limited.headers["retry-after"] == "60"
+    assert limited.headers["x-content-type-options"] == "nosniff"
+
+
+@pytest.mark.asyncio
 async def test_readiness_reports_missing_live_pricing_credentials_without_secrets() -> None:
     app = create_app(
         Settings(

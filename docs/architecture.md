@@ -188,6 +188,9 @@ API schema не должен раскрывать внутренние LangGraph
 - Текст POI хранится и векторизуется только при явно записанном разрешении source; в prompt попадает
   clipped excerpt top-POI, а не raw document или весь каталог.
 - Feedback comments ограничиваются по длине и очищаются для отображения.
+- Closed beta applies an explicit host allowlist, same-origin-by-default CORS policy, browser
+  security headers and a process-local limiter for expensive endpoints. The limiter is not a
+  multi-instance public-production control; see [ADR-0028](adr/0028-closed-beta-http-hardening.md).
 
 ## Deployment target
 

@@ -26,6 +26,28 @@ def test_production_rejects_public_fixture_pricing() -> None:
         )
 
 
+def test_production_requires_explicit_non_local_trusted_host() -> None:
+    with pytest.raises(ValidationError, match="TRUSTED_HOSTS"):
+        Settings(
+            app_env="production",
+            demo_mode=False,
+            auth_session_secret="a" * 32,
+            _env_file=None,
+        )
+
+
+def test_production_rejects_non_https_cors_origin() -> None:
+    with pytest.raises(ValidationError, match="CORS_ALLOWED_ORIGINS"):
+        Settings(
+            app_env="production",
+            demo_mode=False,
+            auth_session_secret="a" * 32,
+            trusted_hosts="travel.example",
+            cors_allowed_origins="http://app.example",
+            _env_file=None,
+        )
+
+
 def test_model_configuration_requires_every_value() -> None:
     assert (
         Settings(llm_provider="openai", llm_model="model", _env_file=None).model_is_configured
