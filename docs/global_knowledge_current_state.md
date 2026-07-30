@@ -267,3 +267,12 @@ following decision must be recorded in a new ADR before it:
 > repurposed during the first migration.
 
 This preserves the working Istanbul vertical slice while making the global model possible.
+
+## Bootstrap status
+
+The first implementation batch provides `app/data/countries.seed.json`: 60 sovereign-country
+identities from the approved roadmap, with ISO codes and Russian/English/common aliases. The
+operator command `make places-bootstrap-catalog` writes them as `draft` canonical entities and no
+`destination_domain_support` rows. Therefore the bootstrap improves entity recognition only after
+the database migration; it does not make a country a recommendation candidate or claim entry,
+pricing, weather or POI coverage.

@@ -6,7 +6,7 @@ APP ?= app.main:app
 HOST ?= 127.0.0.1
 PORT ?= 8000
 
-.PHONY: help bootstrap run dev places-up places-down places-migrate places-import-istanbul places-import-all places-import-descriptions places-eval-istanbul format format-check lint typecheck test test-unit test-integration docs-check check clean
+.PHONY: help bootstrap run dev places-up places-down places-migrate places-bootstrap-catalog places-import-istanbul places-import-all places-import-descriptions places-eval-istanbul format format-check lint typecheck test test-unit test-integration docs-check check clean
 
 help: ## Show available development commands
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -28,6 +28,9 @@ places-down: ## Stop the local places database
 
 places-migrate: ## Apply the places PostgreSQL migrations
 	$(UV) run python scripts/migrate_places.py
+
+places-bootstrap-catalog: ## Seed the draft 60-country canonical identity catalog
+	$(UV) run python scripts/bootstrap_global_catalog.py
 
 places-import-istanbul: ## Fetch and import the bounded Istanbul OSM places scope
 	$(UV) run python scripts/import_istanbul_places.py --fetch
