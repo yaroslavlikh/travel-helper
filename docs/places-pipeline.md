@@ -59,6 +59,7 @@ subchat в prompt попадает только короткий excerpt уже 
 ```bash
 make places-up
 make places-migrate
+make places-check
 make places-import-istanbul
 make places-import-all
 make places-import-descriptions DESCRIPTIONS_INPUT=path/to/reviewed-manifest.json
@@ -68,3 +69,29 @@ make places-eval-istanbul
 Перед фактическим импортом нужны Docker daemon и сетевой доступ к Overpass. Если база не
 сконфигурирована, endpoint возвращает 503. Это намеренно: UI/API не должны выдавать фиктивные
 live-места.
+
+## Staging migration and verification
+
+`scripts/migrate_places.py` runs all pending files from `migrations/places/` in one PostgreSQL
+transaction and records their filenames in `schema_migrations` only after the SQL succeeds. A
+transaction-scoped advisory lock serializes concurrent deploys. The files are additive; the runner
+does not drop a database, schema, table or catalog data.
+
+After migration, run `make places-check`. It performs only reads and reports connection availability,
+the `postgis`, `vector` and `pgcrypto` extensions, applied migrations, key tables, country/destination/
+place counts, and FK integrity (including orphan rows, unvalidated constraints and disabled FK triggers).
+
+For a new staging database the safe sequence is:
+
+```bash
+make places-migrate
+make places-bootstrap-catalog
+make places-check
+```
+
+Bootstrap creates only the 60 draft canonical country identities; it does not import POI. The next,
+separate, bounded import is Istanbul only:
+
+```bash
+make places-import-istanbul
+```
