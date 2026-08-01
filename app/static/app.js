@@ -191,6 +191,34 @@ function accountHeaders({ json = true, csrf = false } = {}) {
   return headers;
 }
 
+async function refreshAccountState() {
+  const response = await fetch("/account/me");
+  if (!response.ok) throw new Error("Не удалось обновить сессию аккаунта");
+  const status = await response.json();
+  accountState = {
+    authEnabled: status.auth_enabled,
+    authenticated: status.authenticated,
+    account: status.account,
+    csrfToken: status.csrf_token,
+  };
+  renderAccountPanel();
+  return status;
+}
+
+async function accountFetch(url, options) {
+  const response = await fetch(url, options);
+  if (!accountState.authenticated || response.status !== 403) return response;
+
+  const payload = await response.clone().json().catch(() => null);
+  if (payload?.detail !== "Invalid CSRF token") return response;
+
+  const status = await refreshAccountState();
+  if (!status.authenticated || !accountState.csrfToken) return response;
+  const headers = new Headers(options.headers);
+  headers.set("X-CSRF-Token", accountState.csrfToken);
+  return fetch(url, { ...options, headers });
+}
+
 function serverRecordToChat(record) {
   const chat = { ...record.payload, id: record.id, title: record.title };
   chat.createdAt = chat.createdAt || record.created_at;
@@ -225,7 +253,7 @@ async function saveAccountChat(chat, { keepalive = false } = {}) {
   if (!accountState.authenticated) return;
   setSyncState("saving");
   const body = JSON.stringify({ title: chat.title, payload: chat });
-  const response = await fetch(`/account/chats/${encodeURIComponent(chat.id)}`, {
+  const response = await accountFetch(`/account/chats/${encodeURIComponent(chat.id)}`, {
     method: "PUT",
     headers: accountHeaders({ csrf: true }),
     body,
@@ -378,13 +406,16 @@ async function requestRecommendation(query) {
   const openingStartedAt = Date.now();
   setBusy(true);
   try {
-    const response = await fetch("/recommend", {
+    const request = {
       method: "POST",
       headers: accountState.authenticated
         ? accountHeaders({ csrf: true })
         : { "Content-Type": "application/json" },
       body: JSON.stringify({ query, session_id: chat.id }),
-    });
+    };
+    const response = accountState.authenticated
+      ? await accountFetch("/recommend", request)
+      : await fetch("/recommend", request);
     const rawPayload = await response.text();
     let payload;
     try {
@@ -736,13 +767,16 @@ async function sendDestinationMessage(text) {
   destinationBusy = true;
   renderDestinationChat();
   try {
-    const response = await fetch("/destination-chat", {
+    const request = {
       method: "POST",
       headers: accountState.authenticated
         ? accountHeaders({ csrf: true })
         : { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: chatId, destination_id: destinationId, query }),
-    });
+    };
+    const response = accountState.authenticated
+      ? await accountFetch("/destination-chat", request)
+      : await fetch("/destination-chat", request);
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.detail || "Не удалось получить ответ");
     const targetChat = store.chats.find((item) => item.id === chatId);
@@ -835,7 +869,7 @@ async function openNewChat() {
   activeDestinationId = null;
   let chat = createChat();
   if (accountState.authenticated) {
-    const response = await fetch("/account/chats", {
+    const response = await accountFetch("/account/chats", {
       method: "POST",
       headers: accountHeaders({ csrf: true }),
       body: JSON.stringify({ title: chat.title, payload: chat }),
@@ -857,7 +891,7 @@ async function openNewChat() {
 async function deleteChat(chatId) {
   if (!accountReady || busy || destinationBusy || !window.confirm("Удалить этот чат и его рекомендации?")) return;
   if (accountState.authenticated) {
-    const response = await fetch(`/account/chats/${encodeURIComponent(chatId)}`, {
+    const response = await accountFetch(`/account/chats/${encodeURIComponent(chatId)}`, {
       method: "DELETE",
       headers: accountHeaders({ json: false, csrf: true }),
     });
@@ -899,7 +933,7 @@ function beginLogin() {
 
 async function logoutAccount() {
   if (!accountState.authenticated) return;
-  const response = await fetch("/auth/logout", {
+  const response = await accountFetch("/auth/logout", {
     method: "POST",
     headers: accountHeaders({ json: false, csrf: true }),
   });
@@ -919,7 +953,7 @@ async function deleteAccountData() {
   if (!accountState.authenticated) return;
   const warning = "Удалить аккаунт, все переписки и сохранённые рекомендации без возможности восстановления?";
   if (!window.confirm(warning)) return;
-  const response = await fetch("/account", {
+  const response = await accountFetch("/account", {
     method: "DELETE",
     headers: accountHeaders({ csrf: true }),
     body: JSON.stringify({ confirmation: "DELETE" }),
@@ -953,7 +987,7 @@ function meaningfulGuestChats(guestStore, accountId) {
 async function importGuestChats(chats) {
   const importedIds = [];
   for (const chat of chats) {
-    const response = await fetch("/account/chats/import", {
+    const response = await accountFetch("/account/chats/import", {
       method: "POST",
       headers: accountHeaders({ csrf: true }),
       body: JSON.stringify({
@@ -976,7 +1010,7 @@ async function loadAccountChats() {
   let chats = (await response.json()).map(serverRecordToChat);
   if (!chats.length) {
     const fresh = createChat();
-    const created = await fetch("/account/chats", {
+    const created = await accountFetch("/account/chats", {
       method: "POST",
       headers: accountHeaders({ csrf: true }),
       body: JSON.stringify({ title: fresh.title, payload: fresh }),

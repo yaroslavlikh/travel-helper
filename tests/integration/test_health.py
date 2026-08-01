@@ -437,6 +437,8 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
     assert page.status_code == 200
     assert frontend.status_code == 200
     assert "Почему цена недоступна" in frontend.text
+    assert "async function accountFetch" in frontend.text
+    assert "await refreshAccountState()" in frontend.text
     assert "Тудавай" in page.text
     assert "Скажите, какого отдыха хочется" in page.text
     assert "Живая подборка" in page.text

@@ -47,6 +47,8 @@ the external OIDC identity remains managed by its provider.
 ## Security and privacy
 
 - Mutating authenticated requests require a session-bound CSRF token.
+- If a long-lived workspace receives an `Invalid CSRF token` response after a server restart,
+  the browser refreshes `/account/me` and retries that request once with the refreshed token.
 - Redirect targets are restricted to local absolute paths.
 - OIDC state and PKCE verifier are integrity-protected, short-lived, and never stored in URLs after the
   callback.
