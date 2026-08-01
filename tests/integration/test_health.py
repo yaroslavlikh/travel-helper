@@ -50,6 +50,14 @@ class RecordingObservability:
         return None
 
 
+class UnavailablePostgresPool:
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        pass
+
+    async def open(self, **_kwargs: object) -> None:
+        raise OSError("database is unavailable")
+
+
 @pytest.mark.asyncio
 async def test_health_exposes_safe_demo_status() -> None:
     app = create_app(
@@ -74,6 +82,26 @@ async def test_health_exposes_safe_demo_status() -> None:
             {"name": "stay_pricing", "status": "disabled"},
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_staging_fails_startup_when_postgres_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.main.AsyncConnectionPool", UnavailablePostgresPool)
+    app = create_app(
+        Settings(
+            app_env="staging",
+            demo_mode=True,
+            database_url="postgresql://unavailable.invalid/app",
+            langfuse_enabled=False,
+            _env_file=None,
+        )
+    )
+
+    with pytest.raises(OSError, match="database is unavailable"):
+        async with app.router.lifespan_context(app):
+            pass
 
 
 @pytest.mark.asyncio

@@ -6,7 +6,7 @@ APP ?= app.main:app
 HOST ?= 127.0.0.1
 PORT ?= 8000
 
-.PHONY: help bootstrap run dev places-up places-down places-migrate places-check places-bootstrap-catalog places-import-istanbul places-import-all places-import-descriptions places-eval-istanbul format format-check lint typecheck test test-unit test-integration docs-check check clean
+.PHONY: help bootstrap run dev app-migrate app-db-check langgraph-setup places-up places-down places-migrate places-check places-bootstrap-catalog places-import-istanbul places-import-all places-import-descriptions places-eval-istanbul format format-check lint typecheck test test-unit test-integration docs-check check clean
 
 help: ## Show available development commands
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -19,6 +19,15 @@ run: ## Run the application without autoreload
 
 dev: ## Run the application with autoreload
 	$(UV) run uvicorn $(APP) --host $(HOST) --port $(PORT) --reload
+
+app-migrate: ## Apply additive PostgreSQL migrations for application state
+	$(UV) run python scripts/migrate_app.py
+
+app-db-check: ## Verify application tables and LangGraph checkpoint readiness
+	$(UV) run python scripts/check_app_database.py
+
+langgraph-setup: ## Create or upgrade LangGraph PostgreSQL checkpoint tables
+	$(UV) run python scripts/setup_langgraph_postgres.py
 
 places-up: ## Start local PostgreSQL with PostGIS and pgvector
 	docker compose up --build -d places-db

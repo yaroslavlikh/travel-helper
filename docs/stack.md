@@ -60,7 +60,8 @@ LangChain `init_chat_model` может быть внутренним механ�
 - Anonymous `session_id` маппится на LangGraph `thread_id`, но наружу не выдаются checkpoint IDs.
 - Authenticated chat snapshots имеют server-side owner index; хранится только salted `scrypt` verifier
   локального пароля, а внешний OIDC token не хранится.
-- Product events/feedback могут жить в той же PostgreSQL инсталляции, но в собственных таблицах.
+- Product events/feedback в staging/production живут в той же PostgreSQL инсталляции, но в собственном
+  `app` schema; local development оставляет их изолированными в памяти процесса.
 - LangGraph не хранит long-term semantic memory. Bounded POI documents, chunks и их embeddings
   живут только в отдельном canonical places PostgreSQL с provenance, лицензией и freshness.
 

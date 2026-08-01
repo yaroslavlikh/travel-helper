@@ -23,16 +23,16 @@ def configured_settings() -> Settings:
     )
 
 
-def login(resources: object, client: httpx.AsyncClient, subject: str) -> tuple[str, str]:
+async def login(resources: object, client: httpx.AsyncClient, subject: str) -> tuple[str, str]:
     store = resources.account_store  # type: ignore[attr-defined]
     auth = resources.auth_service  # type: ignore[attr-defined]
-    account = store.upsert_account(
+    account = await store.upsert_account(
         issuer="https://identity.example",
         subject=subject,
         email=f"{subject}@example.com",
         display_name=subject,
     )
-    token, _expires = auth.issue_session(account)
+    token, _expires = await auth.issue_session(account)
     client.cookies.set(SESSION_COOKIE, token)
     return account.id, auth.csrf_token(token)
 
@@ -96,7 +96,7 @@ async def test_account_chat_import_sync_and_delete_are_owner_scoped() -> None:
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as first:
-            _first_id, first_csrf = login(app.state.resources, first, "first")
+            _first_id, first_csrf = await login(app.state.resources, first, "first")
             forbidden = await first.post(
                 "/account/chats",
                 json={"title": "Без CSRF", "payload": {}},
@@ -122,7 +122,7 @@ async def test_account_chat_import_sync_and_delete_are_owner_scoped() -> None:
             chat_id = imported.json()["id"]
 
             async with httpx.AsyncClient(transport=transport, base_url="http://test") as second:
-                _second_id, second_csrf = login(app.state.resources, second, "second")
+                _second_id, second_csrf = await login(app.state.resources, second, "second")
                 чужой = await second.delete(
                     f"/account/chats/{chat_id}",
                     headers={"X-CSRF-Token": second_csrf},
@@ -156,7 +156,7 @@ async def test_full_chat_presentation_snapshot_round_trips_through_account_stora
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            _account_id, csrf = login(app.state.resources, client, "snapshot-owner")
+            _account_id, csrf = await login(app.state.resources, client, "snapshot-owner")
             created = await client.post(
                 "/account/chats",
                 headers={"X-CSRF-Token": csrf},
@@ -178,7 +178,7 @@ async def test_authenticated_recommendation_rejects_another_users_chat() -> None
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as first:
-            _first_id, first_csrf = login(app.state.resources, first, "first")
+            _first_id, first_csrf = await login(app.state.resources, first, "first")
             created = await first.post(
                 "/account/chats",
                 headers={"X-CSRF-Token": first_csrf},
@@ -187,7 +187,7 @@ async def test_authenticated_recommendation_rejects_another_users_chat() -> None
             chat_id = created.json()["id"]
 
             async with httpx.AsyncClient(transport=transport, base_url="http://test") as second:
-                _second_id, second_csrf = login(app.state.resources, second, "second")
+                _second_id, second_csrf = await login(app.state.resources, second, "second")
                 response = await second.post(
                     "/recommend",
                     headers={"X-CSRF-Token": second_csrf},
@@ -203,7 +203,7 @@ async def test_guest_cannot_access_an_account_owned_planning_session() -> None:
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as owner:
-            _account_id, csrf = login(app.state.resources, owner, "owner")
+            _account_id, csrf = await login(app.state.resources, owner, "owner")
             created = await owner.post(
                 "/account/chats",
                 headers={"X-CSRF-Token": csrf},
@@ -243,7 +243,7 @@ async def test_imported_chat_snapshot_can_be_refined_under_new_owned_id() -> Non
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            _account_id, csrf = login(app.state.resources, client, "traveler")
+            _account_id, csrf = await login(app.state.resources, client, "traveler")
             imported = await client.post(
                 "/account/chats/import",
                 headers={"X-CSRF-Token": csrf},
@@ -294,20 +294,20 @@ async def test_logout_keeps_server_history_for_next_login() -> None:
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            account_id, csrf = login(app.state.resources, client, "returning")
+            account_id, csrf = await login(app.state.resources, client, "returning")
             created = await client.post(
                 "/account/chats",
                 headers={"X-CSRF-Token": csrf},
                 json={"title": "Сохранённая поездка", "payload": {}},
             )
             logged_out = await client.post("/auth/logout", headers={"X-CSRF-Token": csrf})
-            account = app.state.resources.account_store.upsert_account(
+            account = await app.state.resources.account_store.upsert_account(
                 issuer="https://identity.example",
                 subject="returning",
                 email="returning@example.com",
                 display_name="returning",
             )
-            token, _expires = app.state.resources.auth_service.issue_session(account)
+            token, _expires = await app.state.resources.auth_service.issue_session(account)
             client.cookies.set(SESSION_COOKIE, token)
             history = await client.get("/account/chats")
 
@@ -323,7 +323,7 @@ async def test_delete_account_removes_all_owned_data_and_session() -> None:
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            _account_id, csrf = login(app.state.resources, client, "delete-me")
+            _account_id, csrf = await login(app.state.resources, client, "delete-me")
             created = await client.post(
                 "/account/chats",
                 headers={"X-CSRF-Token": csrf},
@@ -340,3 +340,34 @@ async def test_delete_account_removes_all_owned_data_and_session() -> None:
     assert created.status_code == 201
     assert deleted.status_code == 204
     assert status_response.json()["authenticated"] is False
+
+
+@pytest.mark.asyncio
+async def test_deleting_chat_deletes_its_langgraph_checkpoint() -> None:
+    app = create_app(configured_settings())
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            _account_id, csrf = await login(app.state.resources, client, "checkpoint-owner")
+            created = await client.post(
+                "/account/chats",
+                headers={"X-CSRF-Token": csrf},
+                json={"title": "С памятью", "payload": {}},
+            )
+            chat_id = created.json()["id"]
+            initialized = await client.post(
+                "/recommend",
+                headers={"X-CSRF-Token": csrf},
+                json={"session_id": chat_id, "query": "Из Москвы на море в августе"},
+            )
+            deleted = await client.delete(
+                f"/account/chats/{chat_id}", headers={"X-CSRF-Token": csrf}
+            )
+            state = await app.state.resources.checkpointer.aget_tuple(
+                {"configurable": {"thread_id": chat_id}}
+            )
+
+    assert created.status_code == 201
+    assert initialized.status_code == 200
+    assert deleted.status_code == 204
+    assert state is None

@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     rate_limit_window_seconds: int = Field(default=60, ge=1, le=3_600)
     checkpoint_db_path: str = ".data/travel-helper.sqlite3"
     account_db_path: str = ".data/travel-accounts.sqlite3"
+    database_url: SecretStr | None = None
     places_database_url: str | None = None
     places_embedding_version: str = "hash-v1"
     aviasales_marker: str | None = None
@@ -153,6 +154,10 @@ class Settings(BaseSettings):
     def auth_session_secret_value(self) -> str:
         return self.auth_session_secret.get_secret_value() if self.auth_session_secret else ""
 
+    @property
+    def database_url_value(self) -> str:
+        return self.database_url.get_secret_value() if self.database_url else ""
+
     @model_validator(mode="after")
     def validate_production_mode(self) -> Settings:
         """Production must never silently serve fixture-only recommendations."""
@@ -177,6 +182,8 @@ class Settings(BaseSettings):
                 raise ValueError("TRUSTED_HOSTS must include a non-local production hostname")
             if any(not origin.startswith("https://") for origin in self.cors_allowed_origin_list):
                 raise ValueError("CORS_ALLOWED_ORIGINS must use HTTPS in production")
+        if self.app_env in {"staging", "production"} and not self.database_url:
+            raise ValueError("DATABASE_URL is required outside local development")
         return self
 
 

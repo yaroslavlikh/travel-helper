@@ -6,9 +6,8 @@ recommendations, unavailable pricing or unknown entry rules into production fact
 ## Required platform resources
 
 - One HTTPS web service with a stable hostname.
-- A persistent volume for the current SQLite checkpoint and account files. Multiple web replicas
-  are unsupported until these stores move to managed PostgreSQL.
-- Managed PostgreSQL/PostGIS/pgvector for the places catalog when POI search is enabled.
+- Managed PostgreSQL/PostGIS/pgvector for the places catalog and application state. Configure
+  `DATABASE_URL` with Render's internal database URL; it is required for staging and production.
 - A secret manager for all credentials; do not put secrets in images, repository files or logs.
 
 ## Configuration
@@ -24,14 +23,16 @@ Rotate any credential that was ever shared outside the secret manager before the
 
 1. Run `make check` from the commit being deployed.
 2. Build the image: `docker build -t tudavai:<sha> .`.
-3. Run PostgreSQL migrations with the same image and production `PLACES_DATABASE_URL`:
-   `python scripts/migrate_places.py`.
-4. Seed identity only once migrations are successful: `python scripts/bootstrap_global_catalog.py`.
+3. Run application migrations and set up the LangGraph checkpointer with the same image:
+   `python scripts/migrate_app.py`, `python scripts/setup_langgraph_postgres.py`, then
+   `python scripts/check_app_database.py`.
+4. Run catalog migrations with `PLACES_DATABASE_URL`: `python scripts/migrate_places.py`.
+5. Seed identity only once catalog migrations are successful: `python scripts/bootstrap_global_catalog.py`.
    This writes 60 countries as `draft`; it does not publish recommendation candidates.
-5. Deploy one application replica with persistent paths mounted for `.data/`.
-6. Check `/health/live` for process liveness. `/health/ready` may remain `degraded` until live
+6. Deploy the application. Local SQLite paths are development-only and do not need a production volume.
+7. Check `/health/live` for process liveness. `/health/ready` may remain `degraded` until live
    pricing providers are configured; do not treat that as a successful public-pricing launch.
-7. Smoke-test a guest recommendation, login/logout (if enabled), and an unavailable-POI response.
+8. Smoke-test a guest recommendation, login/logout (if enabled), and an unavailable-POI response.
 
 ## Rollback
 
@@ -41,7 +42,6 @@ feature flag and return an explicit partial result instead.
 
 ## Before public beta
 
-- Move chat/account persistence to managed PostgreSQL and remove the single-instance constraint.
 - Replace process-local rate limiting with edge or shared-store limiting.
 - Define retention/deletion policy and Langfuse sampling/content capture policy.
 - Import and evaluate at least Istanbul plus Phuket or Kuala Lumpur through the generic POI path.

@@ -9,6 +9,18 @@ def test_production_cannot_enable_demo_mode() -> None:
         Settings(app_env="production", demo_mode=True, _env_file=None)
 
 
+@pytest.mark.parametrize("app_env", ["staging", "production"])
+def test_hosted_environments_require_database_url(app_env: str) -> None:
+    with pytest.raises(ValidationError, match="DATABASE_URL"):
+        Settings(
+            app_env=app_env,
+            demo_mode=False,
+            auth_session_secret="a" * 32,
+            trusted_hosts="travel.example",
+            _env_file=None,
+        )
+
+
 def test_production_password_login_requires_a_session_secret() -> None:
     with pytest.raises(ValidationError, match="AUTH_SESSION_SECRET"):
         Settings(app_env="production", demo_mode=False, _env_file=None)

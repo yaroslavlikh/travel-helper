@@ -195,7 +195,7 @@ API schema не должен раскрывать внутренние LangGraph
 ## Deployment target
 
 Один containerized web service + managed PostgreSQL. Static frontend отдаётся тем же приложением.
-Local/dev thread state хранится в SQLite; канонический каталог мест всегда использует отдельный
-PostgreSQL/PostGIS/pgvector store. Это
-достаточно для первой сотни пользователей. Отдельный worker появляется только если измеренный
-search latency потребует asynchronous jobs, которые переживают HTTP request.
+Local/dev thread state хранится в SQLite, а staging/production — в PostgreSQL через отдельную
+`app` schema и PostgreSQL LangGraph checkpointer. Канонический каталог мест использует существующие
+таблицы PostgreSQL/PostGIS/pgvector и не меняется application-мigrations. Отдельный worker появляется
+только если измеренный search latency потребует asynchronous jobs, которые переживают HTTP request.

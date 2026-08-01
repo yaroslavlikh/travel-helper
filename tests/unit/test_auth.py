@@ -55,7 +55,7 @@ async def test_oidc_pkce_flow_creates_local_session() -> None:
     assert token
     assert requests[0].url.path == "/token"
     assert requests[1].headers["Authorization"] == "Bearer provider-token"
-    store.close()
+    await store.aclose()
 
 
 @pytest.mark.asyncio
@@ -68,4 +68,4 @@ async def test_login_rejects_external_return_url() -> None:
 
     assert url.startswith("https://identity.example/authorize?")
     assert flow_cookie
-    store.close()
+    await store.aclose()

@@ -179,7 +179,7 @@ async def password_register(
     payload: PasswordCredentials, request: Request, response: Response
 ) -> AccountStatus:
     resources = _resources(request)
-    token, _expires_at, account = resources.auth_service.register_password(
+    token, _expires_at, account = await resources.auth_service.register_password(
         email=payload.email, password=payload.password
     )
     _set_session_cookie(response, resources, token)
@@ -191,7 +191,7 @@ async def password_login(
     payload: PasswordCredentials, request: Request, response: Response
 ) -> AccountStatus:
     resources = _resources(request)
-    token, _expires_at, account = resources.auth_service.login_password(
+    token, _expires_at, account = await resources.auth_service.login_password(
         email=payload.email, password=payload.password
     )
     _set_session_cookie(response, resources, token)
@@ -201,7 +201,7 @@ async def password_login(
 @router.get("/account/me", response_model=AccountStatus, tags=["account"])
 async def account_status(request: Request) -> AccountStatus:
     resources = _resources(request)
-    session = resources.auth_service.current_session(request)
+    session = await resources.auth_service.current_session(request)
     if session is None:
         return AccountStatus(
             auth_enabled=resources.auth_service.enabled,
@@ -215,8 +215,8 @@ async def account_status(request: Request) -> AccountStatus:
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT, tags=["account"])
 async def logout(request: Request) -> Response:
     resources = _resources(request)
-    session = resources.auth_service.require_session(request, csrf=True)
-    resources.auth_service.logout(session.token)
+    session = await resources.auth_service.require_session(request, csrf=True)
+    await resources.auth_service.logout(session.token)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(SESSION_COOKIE, path="/")
     return response
@@ -225,8 +225,10 @@ async def logout(request: Request) -> Response:
 @router.get("/account/chats", response_model=list[ChatOutput], tags=["account"])
 async def list_chats(request: Request) -> list[ChatOutput]:
     resources = _resources(request)
-    session = resources.auth_service.require_session(request)
-    return [_chat_output(chat) for chat in resources.account_store.list_chats(session.account.id)]
+    session = await resources.auth_service.require_session(request)
+    return [
+        _chat_output(chat) for chat in await resources.account_store.list_chats(session.account.id)
+    ]
 
 
 @router.post(
@@ -237,10 +239,10 @@ async def list_chats(request: Request) -> list[ChatOutput]:
 )
 async def create_chat(payload: ChatInput, request: Request) -> ChatOutput:
     resources = _resources(request)
-    session = resources.auth_service.require_session(request, csrf=True)
+    session = await resources.auth_service.require_session(request, csrf=True)
     _validate_payload(payload.payload)
     return _chat_output(
-        resources.account_store.create_chat(
+        await resources.account_store.create_chat(
             owner_id=session.account.id,
             title=payload.title,
             payload=payload.payload,
@@ -256,10 +258,10 @@ async def create_chat(payload: ChatInput, request: Request) -> ChatOutput:
 )
 async def import_chat(payload: ChatImportInput, request: Request) -> ChatOutput:
     resources = _resources(request)
-    session = resources.auth_service.require_session(request, csrf=True)
+    session = await resources.auth_service.require_session(request, csrf=True)
     _validate_payload(payload.payload)
     return _chat_output(
-        resources.account_store.create_chat(
+        await resources.account_store.create_chat(
             owner_id=session.account.id,
             title=payload.title,
             payload=payload.payload,
@@ -271,9 +273,9 @@ async def import_chat(payload: ChatImportInput, request: Request) -> ChatOutput:
 @router.put("/account/chats/{chat_id}", response_model=ChatOutput, tags=["account"])
 async def update_chat(chat_id: str, payload: ChatInput, request: Request) -> ChatOutput:
     resources = _resources(request)
-    session = resources.auth_service.require_session(request, csrf=True)
+    session = await resources.auth_service.require_session(request, csrf=True)
     _validate_payload(payload.payload)
-    chat = resources.account_store.update_chat(
+    chat = await resources.account_store.update_chat(
         owner_id=session.account.id,
         chat_id=chat_id,
         title=payload.title,
@@ -287,8 +289,8 @@ async def update_chat(chat_id: str, payload: ChatInput, request: Request) -> Cha
 @router.delete("/account/chats/{chat_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["account"])
 async def delete_chat(chat_id: str, request: Request) -> Response:
     resources = _resources(request)
-    session = resources.auth_service.require_session(request, csrf=True)
-    if not resources.account_store.delete_chat(owner_id=session.account.id, chat_id=chat_id):
+    session = await resources.auth_service.require_session(request, csrf=True)
+    if not await resources.account_store.delete_chat(owner_id=session.account.id, chat_id=chat_id):
         raise HTTPException(status_code=404, detail="Chat not found")
     await resources.checkpointer.adelete_thread(chat_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -297,8 +299,8 @@ async def delete_chat(chat_id: str, request: Request) -> Response:
 @router.delete("/account", status_code=status.HTTP_204_NO_CONTENT, tags=["account"])
 async def delete_account(payload: DeleteAccountInput, request: Request) -> Response:
     resources = _resources(request)
-    session = resources.auth_service.require_session(request, csrf=True)
-    chat_ids = resources.account_store.delete_account(session.account.id)
+    session = await resources.auth_service.require_session(request, csrf=True)
+    chat_ids = await resources.account_store.delete_account(session.account.id)
     for chat_id in chat_ids:
         await resources.checkpointer.adelete_thread(chat_id)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import HTTPException, Request, status
 
-from app.accounts.store import Account, AccountStore
+from app.accounts.store import Account, AccountRepository
 from app.core.config import Settings
 
 SESSION_COOKIE = "travel_account_session"
@@ -58,7 +58,7 @@ class AuthService:
         self,
         *,
         settings: Settings,
-        store: AccountStore,
+        store: AccountRepository,
         http_client: httpx.AsyncClient,
     ) -> None:
         self.settings = settings
@@ -144,62 +144,62 @@ class AuthService:
             raise HTTPException(status_code=502, detail="Identity provider returned no subject")
         email = identity.get("email") if isinstance(identity.get("email"), str) else None
         name = identity.get("name") if isinstance(identity.get("name"), str) else None
-        account = self.store.upsert_account(
+        account = await self.store.upsert_account(
             issuer=str(self.settings.oidc_issuer),
             subject=subject,
             email=email,
             display_name=name,
         )
-        token, expires_at = self.issue_session(account)
+        token, expires_at = await self.issue_session(account)
         return token, flow.return_to, expires_at
 
-    def register_password(self, *, email: str, password: str) -> tuple[str, str, Account]:
+    async def register_password(self, *, email: str, password: str) -> tuple[str, str, Account]:
         if not self.password_enabled:
             raise HTTPException(status_code=503, detail="Password login is not configured")
         normalized_email = self._normalize_email(email)
         self._validate_password(password)
-        account = self.store.create_password_account(
+        account = await self.store.create_password_account(
             email=normalized_email,
             password_hash=self._hash_password(password),
         )
         if account is None:
             raise HTTPException(status_code=409, detail="Account already exists")
-        token, expires_at = self.issue_session(account)
+        token, expires_at = await self.issue_session(account)
         return token, expires_at, account
 
-    def login_password(self, *, email: str, password: str) -> tuple[str, str, Account]:
+    async def login_password(self, *, email: str, password: str) -> tuple[str, str, Account]:
         if not self.password_enabled:
             raise HTTPException(status_code=503, detail="Password login is not configured")
         normalized_email = self._normalize_email(email)
-        account_and_hash = self.store.password_account(normalized_email)
+        account_and_hash = await self.store.password_account(normalized_email)
         if account_and_hash is None or not self._verify_password(password, account_and_hash[1]):
             raise HTTPException(status_code=401, detail="Invalid email or password")
-        token, expires_at = self.issue_session(account_and_hash[0])
+        token, expires_at = await self.issue_session(account_and_hash[0])
         return token, expires_at, account_and_hash[0]
 
-    def issue_session(self, account: Account) -> tuple[str, str]:
+    async def issue_session(self, account: Account) -> tuple[str, str]:
         """Create an opaque application session after identity verification."""
 
         token = secrets.token_urlsafe(32)
         expires = datetime.now(UTC) + timedelta(days=SESSION_DAYS)
-        self.store.create_session(
+        await self.store.create_session(
             account_id=account.id,
             token_hash=_token_hash(token),
             expires_at=expires.isoformat(),
         )
         return token, expires.isoformat()
 
-    def current_session(self, request: Request) -> AccountSession | None:
+    async def current_session(self, request: Request) -> AccountSession | None:
         token = request.cookies.get(SESSION_COOKIE)
         if not token:
             return None
-        account = self.store.account_for_session(
+        account = await self.store.account_for_session(
             token_hash=_token_hash(token), now=datetime.now(UTC).isoformat()
         )
         return AccountSession(account, token) if account else None
 
-    def require_session(self, request: Request, *, csrf: bool = False) -> AccountSession:
-        session = self.current_session(request)
+    async def require_session(self, request: Request, *, csrf: bool = False) -> AccountSession:
+        session = await self.current_session(request)
         if session is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Login required")
         if csrf:
@@ -214,8 +214,8 @@ class AuthService:
             hmac.new(self._secret(), f"csrf:{session_token}".encode(), hashlib.sha256).digest()
         )
 
-    def logout(self, session_token: str) -> None:
-        self.store.delete_session(_token_hash(session_token))
+    async def logout(self, session_token: str) -> None:
+        await self.store.delete_session(_token_hash(session_token))
 
     def _secret(self) -> bytes:
         return self._session_secret.encode("utf-8")

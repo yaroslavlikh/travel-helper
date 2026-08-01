@@ -43,18 +43,18 @@ from app.services.scoring import STRICT_BUDGET_FALLBACK, rank_demo_candidates
 router = APIRouter(tags=["recommendations"])
 
 
-def _require_planning_session_access(
+async def _require_planning_session_access(
     *, resources: AppResources, request: Request, session_id: str, csrf: bool
 ) -> None:
     """Keep account-owned thread IDs private without restricting guest threads."""
 
-    account_session = resources.auth_service.current_session(request)
+    account_session = await resources.auth_service.current_session(request)
     if account_session is None:
-        if resources.account_store.is_account_chat(session_id):
+        if await resources.account_store.is_account_chat(session_id):
             raise HTTPException(status_code=404, detail="Unknown planning session")
         return
-    resources.auth_service.require_session(request, csrf=csrf)
-    if not resources.account_store.owns_chat(
+    await resources.auth_service.require_session(request, csrf=csrf)
+    if not await resources.account_store.owns_chat(
         owner_id=account_session.account.id, chat_id=session_id
     ):
         raise HTTPException(status_code=404, detail="Unknown planning session")
@@ -490,7 +490,7 @@ async def submit_feedback(payload: FeedbackInput, request: Request) -> Response:
     resources = request.app.state.resources
     if not isinstance(resources, AppResources):
         raise RuntimeError("Application resources are unavailable")
-    resources.feedback_store.record(
+    await resources.feedback_store.record(
         session_id=payload.session_id,
         request_id=payload.request_id,
         destination_id=payload.destination_id,
@@ -507,7 +507,7 @@ async def record_travel_link_opened(payload: TravelLinkOpenedInput, request: Req
     resources = request.app.state.resources
     if not isinstance(resources, AppResources):
         raise RuntimeError("Application resources are unavailable")
-    resources.product_event_store.record_travel_link_opened(
+    await resources.product_event_store.record_travel_link_opened(
         session_id=payload.session_id,
         request_id=payload.request_id,
         destination_id=payload.destination_id,
@@ -527,7 +527,7 @@ async def destination_chat(
     resources = request.app.state.resources
     if not isinstance(resources, AppResources):
         raise RuntimeError("Application resources are unavailable")
-    _require_planning_session_access(
+    await _require_planning_session_access(
         resources=resources, request=request, session_id=payload.session_id, csrf=True
     )
     config: RunnableConfig = {"configurable": {"thread_id": payload.session_id}}
@@ -651,32 +651,32 @@ async def recommend(payload: RecommendInput, request: Request) -> Recommendation
     if not isinstance(resources, AppResources):
         raise RuntimeError("Application resources are unavailable")
 
-    account_session = resources.auth_service.current_session(request)
+    account_session = await resources.auth_service.current_session(request)
     if account_session is not None:
         if payload.session_id is None:
-            resources.auth_service.require_session(request, csrf=True)
-            account_chat = resources.account_store.create_chat(
+            await resources.auth_service.require_session(request, csrf=True)
+            account_chat = await resources.account_store.create_chat(
                 owner_id=account_session.account.id,
                 title="Новая поездка",
                 payload={},
             )
             session_id = account_chat.id
         else:
-            _require_planning_session_access(
+            await _require_planning_session_access(
                 resources=resources, request=request, session_id=payload.session_id, csrf=True
             )
             session_id = payload.session_id
     else:
         session_id = payload.session_id or str(uuid4())
         if payload.session_id is not None:
-            _require_planning_session_access(
+            await _require_planning_session_access(
                 resources=resources, request=request, session_id=session_id, csrf=False
             )
     config: RunnableConfig = {"configurable": {"thread_id": session_id}}
     snapshot = await resources.planner_graph.aget_state(config)
     existing_state = cast(PlannerState, snapshot.values) if snapshot.values else None
     if existing_state is None and account_session is not None:
-        restored_chat = resources.account_store.get_chat(
+        restored_chat = await resources.account_store.get_chat(
             owner_id=account_session.account.id, chat_id=session_id
         )
         stored_payload = restored_chat.payload if restored_chat else {}
