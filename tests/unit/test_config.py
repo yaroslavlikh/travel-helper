@@ -48,6 +48,16 @@ def test_production_rejects_non_https_cors_origin() -> None:
         )
 
 
+def test_development_keeps_local_hosts_when_hosted_domains_are_configured() -> None:
+    settings = Settings(
+        app_env="development",
+        trusted_hosts="todayway.ru,www.todayway.ru",
+        _env_file=None,
+    )
+
+    assert {"localhost", "127.0.0.1"}.issubset(settings.trusted_host_list)
+
+
 def test_model_configuration_requires_every_value() -> None:
     assert (
         Settings(llm_provider="openai", llm_model="model", _env_file=None).model_is_configured

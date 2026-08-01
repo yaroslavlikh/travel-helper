@@ -134,7 +134,12 @@ class Settings(BaseSettings):
 
     @property
     def trusted_host_list(self) -> tuple[str, ...]:
-        return tuple(item.strip() for item in self.trusted_hosts.split(",") if item.strip())
+        configured = tuple(item.strip() for item in self.trusted_hosts.split(",") if item.strip())
+        if self.app_env in {"development", "test"}:
+            return tuple(
+                dict.fromkeys((*configured, "localhost", "127.0.0.1", "testserver", "test"))
+            )
+        return configured
 
     @property
     def cors_allowed_origin_list(self) -> tuple[str, ...]:
