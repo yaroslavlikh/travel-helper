@@ -444,7 +444,7 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
     assert "Живая подборка" in page.text
     assert 'aria-controls="chat-view" aria-selected="true"' in page.text
     assert 'aria-controls="feed-panel" aria-selected="false"' in page.text
-    assert "/static/app.js?v=20260728-pricing" in page.text
+    assert "/static/app.js?v=20260801-csrf-refresh" in page.text
     assert login_page.status_code == 200
     assert "Продолжайте с того места" in login_page.text
     assert "Вся поездка — в одном диалоге" in login_page.text
