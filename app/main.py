@@ -238,6 +238,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     headers={**response_headers, "Retry-After": str(retry_after)},
                 )
         response = await call_next(request)
+        # Render serves the app behind Cloudflare. Its edge cache has previously retained
+        # incomplete streamed static responses, leaving the browser with a blank shell.
+        # Keep small application assets origin-served until static hosting is separated.
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-store, max-age=0"
         for header, value in response_headers.items():
             response.headers.setdefault(header, value)
         return response

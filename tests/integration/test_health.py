@@ -204,10 +204,12 @@ async def test_frontend_exposes_an_accessible_sidebar_collapse_control() -> None
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.get("/")
+            asset = await client.get("/static/app.js")
 
     assert response.status_code == 200
     assert 'id="sidebar-toggle"' in response.text
     assert 'aria-controls="chat-history"' in response.text
+    assert asset.headers["cache-control"] == "no-store, max-age=0"
 
 
 @pytest.mark.asyncio
@@ -505,7 +507,7 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
     assert "Живая подборка" in page.text
     assert 'aria-controls="chat-view" aria-selected="true"' in page.text
     assert 'aria-controls="feed-panel" aria-selected="false"' in page.text
-    assert "/static/app.js?v=20260801-csrf-refresh" in page.text
+    assert "/static/app.js?v=20260803-origin-static" in page.text
     assert login_page.status_code == 200
     assert "Продолжайте с того места" in login_page.text
     assert "Вся поездка — в одном диалоге" in login_page.text
