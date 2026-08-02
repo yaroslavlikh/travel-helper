@@ -531,11 +531,11 @@ function destinationCard(item, index, chat) {
     return `<div class="price-breakdown-row ${escapeHtml(component.status)}"><span>${escapeHtml(component.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
   }).join("");
   const pricingMarkup = pricing ? `<section class="price-summary ${escapeHtml(pricing.status)}">
-    <div class="price-heading"><span>Бюджет поездки</span><small>на всю группу</small></div>
+    <div class="price-heading"><span>${pricing.status === "partial" ? "Цена перелёта" : "Бюджет поездки"}</span><small>${pricing.status === "partial" ? "кэш Aviasales" : "на всю группу"}</small></div>
     <strong>${escapeHtml(pricing.headline)}</strong>
     <p>${escapeHtml(pricing.subtitle)}</p>
     ${pricing.expected_total_rub != null ? `<small class="price-range">От ${formatMoney(pricing.floor_total_rub)} · безопасно до ${formatMoney(pricing.safe_total_rub)}</small>` : ""}
-    ${pricingRows ? `<details class="price-breakdown"><summary>${pricing.status === "unavailable" ? "Почему цена недоступна" : "Что входит в расчёт"} <span>＋</span></summary><div>${pricingRows}</div></details>` : ""}
+    ${pricingRows ? `<details class="price-breakdown"><summary>${pricing.status === "unavailable" ? "Почему цена недоступна" : pricing.status === "partial" ? "Что известно о цене" : "Что входит в расчёт"} <span>＋</span></summary><div>${pricingRows}</div></details>` : ""}
     <small class="price-freshness"><i aria-hidden="true"></i>${escapeHtml(pricing.freshness_label)}</small>
   </section>` : "";
   const stateLabels = {

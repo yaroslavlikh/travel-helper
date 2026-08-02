@@ -332,12 +332,12 @@ def _diversify(items: list[ScoredDestination], limit: int) -> list[ScoredDestina
     ]
 
 
-def rank_demo_candidates(request: TravelRequest, limit: int = 5) -> list[ScoredDestination]:
-    """Rank fixture candidates, exposing marked fallback only when normal results are absent."""
+def rank_candidates(
+    request: TravelRequest, candidates: list[DestinationCandidate], limit: int = 5
+) -> list[ScoredDestination]:
+    """Rank supplied candidates, exposing marked fallback only when normal results are absent."""
 
-    from app.services.fixtures import load_demo_candidates
-
-    scored = [score_candidate(candidate, request) for candidate in load_demo_candidates()]
+    scored = [score_candidate(candidate, request) for candidate in candidates]
     eligible = [item for item in scored if item.state in {"ELIGIBLE", "CONDITIONAL"}]
     pool = eligible
     if not pool:
@@ -365,3 +365,11 @@ def rank_demo_candidates(request: TravelRequest, limit: int = 5) -> list[ScoredD
         for index, item in enumerate(sorted(pool, key=_sort_key))
     ]
     return _diversify(ordered, limit)
+
+
+def rank_demo_candidates(request: TravelRequest, limit: int = 5) -> list[ScoredDestination]:
+    """Load and rank explicitly marked local-only candidates."""
+
+    from app.services.fixtures import load_demo_candidates
+
+    return rank_candidates(request, load_demo_candidates(), limit)

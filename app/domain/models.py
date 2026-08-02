@@ -268,13 +268,16 @@ class PricingCardView(DomainModel):
     @model_validator(mode="after")
     def total_matches_status(self) -> PricingCardView:
         values = (self.floor_total_rub, self.expected_total_rub, self.safe_total_rub)
-        if self.status in {"available", "partial", "stale"}:
+        if self.status in {"available", "stale"}:
             if any(value is None for value in values):
                 raise ValueError("priced card requires floor, expected and safe totals")
             floor, expected, safe = values
             assert floor is not None and expected is not None and safe is not None
             if not floor <= expected <= safe:
                 raise ValueError("card total must satisfy floor <= expected <= safe")
+        elif self.status == "partial":
+            if any(value is not None for value in values):
+                raise ValueError("partial card cannot carry a full-trip total")
         elif any(value is not None for value in values):
             raise ValueError("unavailable card cannot carry totals")
         return self
@@ -341,5 +344,6 @@ class PlannerState(TypedDict, total=False):
     planning_confidence: dict[str, Any]
     next_best_question: dict[str, Any] | None
     recommendations: list[dict[str, Any]]
+    cached_flight_signals: dict[str, list[dict[str, Any]]]
     status: Literal["received", "needs_clarification", "ready_for_search"]
     warnings: list[str]

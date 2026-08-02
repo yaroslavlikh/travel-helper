@@ -32,7 +32,10 @@ fixture/unavailable adapters и отдаёт readiness без secrets. Он по
 Aviasales Data API используется только для cached date discovery
 ([ADR-0020](adr/0020-aviasales-cached-date-signals.md)). Сигнал всегда помечен
 `usable_for_total=false`: endpoint не получает точный состав группы и не подтверждает live
-availability.
+availability. При включённом `FLIGHT_PROVIDER_MODE=cached` источник вызывается после построения
+date scenarios и добавляет на карточку только явно помеченную cached-цену перелёта: «цена найдена
+ранее и проверяется при переходе». Она может помочь выбрать сценарий и уточнить логистику, но не
+попадает в total, strict budget или утверждение о доступности.
 
 Live flight providers должны нормализоваться в единый `FlightOffer`
 ([ADR-0021](adr/0021-live-flight-normalization.md)). До расчёта компонента проверяются точные даты,

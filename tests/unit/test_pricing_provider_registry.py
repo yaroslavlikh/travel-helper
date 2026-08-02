@@ -1,10 +1,19 @@
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
+import httpx
 import pytest
+from pydantic import SecretStr
 
 from app.core.config import Settings
-from app.pricing.models import DateScenario, FlightOffer, PricingRequest, SourceRef, StayOffer
+from app.pricing.models import (
+    DateScenario,
+    FlightOffer,
+    PricingRequest,
+    ScenarioBatch,
+    SourceRef,
+    StayOffer,
+)
 from app.pricing.providers.fixture import FixtureFlightPriceProvider, FixtureStayPriceProvider
 from app.pricing.registry import create_pricing_provider_registry
 
@@ -109,7 +118,38 @@ async def test_live_mode_without_credentials_returns_typed_unavailable_providers
 
     assert [item.status for item in registry.public_statuses()] == [
         "missing_credentials",
+        "disabled",
         "missing_credentials",
     ]
     assert await registry.flight.search(REQUEST, SCENARIO) == ()
     assert await registry.stay.search(REQUEST, SCENARIO) == ()
+
+
+@pytest.mark.asyncio
+async def test_cached_mode_requires_token_and_uses_separate_discovery_port() -> None:
+    missing = create_pricing_provider_registry(
+        Settings(
+            app_env="test",
+            flight_provider_mode="cached",
+            pricing_cached_enabled=True,
+            _env_file=None,
+        )
+    )
+    assert missing.cached_flight_status.status == "missing_credentials"
+    batch = ScenarioBatch(generated_count=1, scenarios=(SCENARIO,))
+    assert await missing.cached_flight.search(REQUEST, batch, now=NOW) == ()
+
+    async with httpx.AsyncClient() as client:
+        configured = create_pricing_provider_registry(
+            Settings(
+                app_env="test",
+                flight_provider_mode="cached",
+                pricing_cached_enabled=True,
+                travelpayouts_api_token=SecretStr("test-token"),
+                _env_file=None,
+            ),
+            client,
+        )
+    assert configured.cached_flight_status.mode == "cached"
+    assert configured.cached_flight_status.status == "ready"
+    assert configured.flight_status.status == "not_implemented"

@@ -177,7 +177,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     store=account_store,
                     http_client=http_client,
                 ),
-                pricing_providers=create_pricing_provider_registry(resolved_settings),
+                pricing_providers=create_pricing_provider_registry(resolved_settings, http_client),
                 rate_limiter=SlidingWindowRateLimiter(
                     max_requests=resolved_settings.rate_limit_requests,
                     window_seconds=resolved_settings.rate_limit_window_seconds,

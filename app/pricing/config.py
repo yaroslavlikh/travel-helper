@@ -40,6 +40,13 @@ class CachedFlightConfig(BaseModel):
     scenarios_per_month_third: int = Field(default=2, ge=1, le=10)
     max_route_pairs: int = Field(default=8, ge=1, le=64)
     page_limit: int = Field(default=30, ge=1, le=100)
+    timeout_seconds: float = Field(default=8.0, gt=0, le=30)
+    max_retries: int = Field(default=2, ge=0, le=4)
+    retry_backoff_seconds: float = Field(default=0.25, ge=0, le=5)
+    cache_ttl_seconds: int = Field(default=900, ge=1, le=86_400)
+    min_request_interval_seconds: float = Field(default=0.25, ge=0, le=10)
+    fresh_confidence_hours: int = Field(default=12, ge=1, le=72)
+    recent_confidence_hours: int = Field(default=48, ge=1, le=168)
 
 
 CACHED_FLIGHT_CONFIG = CachedFlightConfig()

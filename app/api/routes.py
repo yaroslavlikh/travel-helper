@@ -34,11 +34,17 @@ from app.places.context import destination_context
 from app.places.models import PlaceEventInput, PlaceSearchQuery, PlaceSearchResponse
 from app.places.repository import PlacesUnavailableError
 from app.services.aviasales import add_aviasales_links
+from app.services.cached_flight_pricing import (
+    apply_cached_flight_logistics,
+    discover_cached_flights,
+    preferred_cached_signal,
+)
 from app.services.destination_chat import answer_destination_question
 from app.services.destination_pois import search_destination_pois
 from app.services.extraction import extract_answers_for_questions
-from app.services.pricing_presentation import pricing_card
-from app.services.scoring import STRICT_BUDGET_FALLBACK, rank_demo_candidates
+from app.services.fixtures import load_demo_candidates
+from app.services.pricing_presentation import cached_flight_card, pricing_card
+from app.services.scoring import STRICT_BUDGET_FALLBACK, rank_candidates
 
 router = APIRouter(tags=["recommendations"])
 
@@ -310,20 +316,48 @@ async def _build_recommendation_response(
             request_id=typed_state["request_id"],
             pipeline_stage="scoring",
         ) as scoring_observation:
+            # Cached signals are limited to a deterministic candidate pool. They refine
+            # date/logistics evidence only and never become a trip total or strict budget pass.
+            initial_candidates = load_demo_candidates()
+            discovery_pool = rank_candidates(parsed_request, initial_candidates, limit=12)
+            cached_flights = await discover_cached_flights(
+                request=parsed_request,
+                candidates=[item.candidate for item in discovery_pool],
+                provider=resources.pricing_providers.cached_flight,
+            )
             recommendations = add_aviasales_links(
-                rank_demo_candidates(parsed_request),
+                rank_candidates(
+                    parsed_request,
+                    apply_cached_flight_logistics(initial_candidates, cached_flights),
+                ),
                 parsed_request,
                 marker=resources.settings.aviasales_marker,
             )
             recommendations = [
                 item.model_copy(
-                    update={"pricing": pricing_card(request=parsed_request, snapshot=None)}
+                    update={
+                        "pricing": (
+                            cached_flight_card(signal)
+                            if (
+                                signal := preferred_cached_signal(
+                                    cached_flights.get(item.candidate.destination_id, ())
+                                )
+                            )
+                            else pricing_card(request=parsed_request, snapshot=None)
+                        )
+                    }
                 )
                 for item in recommendations
             ]
             await resources.planner_graph.aupdate_state(
                 config,
-                {"recommendations": [item.model_dump(mode="json") for item in recommendations]},
+                {
+                    "recommendations": [item.model_dump(mode="json") for item in recommendations],
+                    "cached_flight_signals": {
+                        destination_id: [signal.model_dump(mode="json") for signal in signals]
+                        for destination_id, signals in cached_flights.items()
+                    },
+                },
             )
             unavailable_entry_count = sum(
                 "ENTRY_DATA_UNAVAILABLE"
@@ -338,6 +372,9 @@ async def _build_recommendation_response(
                 output={
                     "recommendation_count": len(recommendations),
                     "entry_data_unavailable_count": unavailable_entry_count,
+                    "cached_flight_signal_count": sum(
+                        len(items) for items in cached_flights.values()
+                    ),
                 },
                 metadata={
                     "outcome": "success",

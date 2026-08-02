@@ -10,7 +10,7 @@ from app.domain.models import (
     PricingComponentView,
     TravelRequest,
 )
-from app.pricing.models import ComponentName, CostComponent, TripPriceEstimate
+from app.pricing.models import ComponentName, CostComponent, FlightPriceSignal, TripPriceEstimate
 
 COMPONENTS: dict[ComponentName, tuple[PricingComponentGroup, str]] = {
     "flight": ("flight", "Перелёт"),
@@ -92,6 +92,49 @@ def unavailable_pricing(request: TravelRequest) -> PricingCardView:
         ],
         freshness_label="Demo-оценка не подставляется",
         warnings=["Без live перелёта и жилья полный бюджет не рассчитывается."],
+    )
+
+
+def cached_flight_card(signal: FlightPriceSignal) -> PricingCardView:
+    """Present a cached route/date observation without calling it a live or total price."""
+
+    amount = int(signal.amount_rub)
+    route = f"{signal.origin_iata} → {signal.destination_iata}"
+    airline = f" · {signal.airline}" if signal.airline else ""
+    return PricingCardView(
+        status="partial",
+        headline=f"Перелёт: ≈ {amount:,} ₽".replace(",", " "),
+        subtitle=(
+            f"{route}{airline} · цена найдена ранее и проверяется при переходе. "
+            "Это не live-цена и не полный бюджет поездки."
+        ),
+        components=[
+            PricingComponentView(
+                component="flight",
+                label="Перелёт · кэш Aviasales",
+                status="partial",
+                floor_rub=amount,
+                expected_rub=amount,
+                safe_rub=amount,
+                reason=(
+                    "Найдено по поискам Aviasales; доступность и итоговая цена "
+                    "проверяются при переходе."
+                ),
+            ),
+            PricingComponentView(
+                component="stay",
+                label="Жильё",
+                status="missing",
+                reason="Источник цен жилья пока не подключён.",
+            ),
+        ],
+        freshness_label=(
+            f"Найдено {signal.age_hours} ч назад · источник: cached · "
+            f"уверенность {round(signal.confidence * 100)}%"
+        ),
+        warnings=[
+            "Кэшированный перелёт не подтверждает наличие, состав пассажиров или полный бюджет.",
+        ],
     )
 
 

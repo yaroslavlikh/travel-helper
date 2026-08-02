@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -235,20 +235,33 @@ class FlightPriceSignal(PricingModel):
     outbound_date: date
     return_date: date
     amount_rub: Decimal = Field(gt=0)
+    currency: Literal["RUB"] = "RUB"
+    airline: str | None = Field(default=None, min_length=2, max_length=8)
     stops: int | None = Field(default=None, ge=0)
+    return_stops: int | None = Field(default=None, ge=0)
     duration_minutes: int | None = Field(default=None, gt=0)
     found_at: datetime
     expires_at: datetime
+    fetched_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    age_hours: int = Field(default=0, ge=0)
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    provider_url: str | None = Field(default=None, max_length=2_048)
     source: SourceRef
     price_basis: Literal["cached_unknown_party"] = "cached_unknown_party"
     usable_for_total: Literal[False] = False
 
     @model_validator(mode="after")
     def signal_is_consistent(self) -> FlightPriceSignal:
-        if self.found_at.tzinfo is None or self.expires_at.tzinfo is None:
+        if (
+            self.found_at.tzinfo is None
+            or self.expires_at.tzinfo is None
+            or self.fetched_at.tzinfo is None
+        ):
             raise ValueError("flight signal timestamps must be timezone-aware")
         if self.expires_at <= self.found_at:
             raise ValueError("flight signal must expire after it was found")
+        if self.fetched_at < self.found_at:
+            raise ValueError("flight signal cannot be fetched before it was found")
         if self.return_date <= self.outbound_date:
             raise ValueError("flight signal return date must follow outbound date")
         if self.source.source_kind != "cached":

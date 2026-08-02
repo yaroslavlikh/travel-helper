@@ -10,9 +10,10 @@ carry the exact trip party, and cached observations do not confirm current avail
 
 ## Decision
 
-Use `prices_for_dates` only to produce `FlightPriceSignal` records and shortlist exact date
-scenarios for later live pricing. Every signal is labelled `cached_unknown_party`,
-`usable_for_total=false`, has an explicit `expires_at`, and is matched to a generated date scenario.
+Use `prices_for_dates` only to produce `FlightPriceSignal` records, shortlist exact date
+scenarios and show a clearly marked cached flight observation in a destination card. Every signal
+is labelled `cached_unknown_party`, `usable_for_total=false`, carries source timestamps, age,
+confidence and provider route link, and is matched to a generated date scenario.
 
 The API token is sent in `X-Access-Token`, never logged or stored in snapshots. Expired, malformed,
 zero, negative or date-mismatched observations are discarded. For month discovery, select up to
@@ -20,6 +21,8 @@ twelve scenarios using six cheapest signals plus deterministic early/middle/late
 
 ## Consequences
 
-- Cached prices cannot become a flight component or full-trip total.
+- Cached prices cannot become a confirmed flight component, full-trip total or a strict-budget pass.
+- A card may show one cached flight observation only with the Russian disclosure «цена найдена ранее
+  и проверяется при переходе» and with the missing accommodation component visible.
 - No public pricing endpoint is enabled by this slice.
 - Live flight pricing with exact passenger composition remains required before cards show totals.

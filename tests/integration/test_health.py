@@ -79,6 +79,7 @@ async def test_health_exposes_safe_demo_status() -> None:
             {"name": "llm", "status": "disabled"},
             {"name": "noop", "status": "deferred"},
             {"name": "flight_pricing", "status": "disabled"},
+            {"name": "flight_cached_discovery", "status": "disabled"},
             {"name": "stay_pricing", "status": "disabled"},
         ],
     }
@@ -157,8 +158,40 @@ async def test_readiness_reports_missing_live_pricing_credentials_without_secret
     assert live.json() == {"status": "ok"}
     assert ready.json()["status"] == "degraded"
     assert ready.json()["components"]["flight_pricing"] == "missing_credentials"
+    assert ready.json()["components"]["flight_cached_discovery"] == "disabled"
     assert ready.json()["components"]["stay_pricing"] == "missing_credentials"
-    assert all(item["status"] == "missing_credentials" for item in providers.json())
+    assert {item["name"]: item["status"] for item in providers.json()} == {
+        "flight_pricing": "missing_credentials",
+        "flight_cached_discovery": "disabled",
+        "stay_pricing": "missing_credentials",
+    }
+
+
+@pytest.mark.asyncio
+async def test_readiness_exposes_configured_cached_flight_discovery_without_a_live_claim() -> None:
+    app = create_app(
+        Settings(
+            app_env="test",
+            demo_mode=True,
+            flight_provider_mode="cached",
+            pricing_cached_enabled=True,
+            travelpayouts_api_token="test-token",
+            langfuse_enabled=False,
+            _env_file=None,
+        )
+    )
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            ready = await client.get("/health/ready")
+            providers = await client.get("/internal/provider-status")
+
+    assert ready.json()["status"] == "degraded"
+    assert ready.json()["components"]["flight_cached_discovery"] == "ready"
+    assert {item["name"]: item["mode"] for item in providers.json()}[
+        "flight_cached_discovery"
+    ] == "cached"
 
 
 @pytest.mark.asyncio

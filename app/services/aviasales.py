@@ -41,7 +41,7 @@ CITY_IATA = {
 }
 
 
-def _origin_iata(origin_city: str | None) -> str | None:
+def origin_iata(origin_city: str | None) -> str | None:
     if origin_city is None:
         return None
     normalized = origin_city.strip()
@@ -64,7 +64,7 @@ def build_aviasales_url(
 ) -> str | None:
     """Build an exact search only for an explicit round trip or one-way date."""
 
-    origin = _origin_iata(request.origin_city)
+    origin = origin_iata(request.origin_city)
     if origin is None or not destination_iata:
         return None
     destination = destination_iata.upper()

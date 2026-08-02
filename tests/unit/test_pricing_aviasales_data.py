@@ -7,6 +7,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
+from app.pricing.config import CachedFlightConfig
 from app.pricing.errors import CachedFlightProviderError
 from app.pricing.models import (
     FlightPriceSignal,
@@ -57,6 +58,8 @@ def _item(
         "return_at": return_date,
         "price": price,
         "transfers": 1,
+        "return_transfers": 2,
+        "airline": "TK",
         "duration": 300,
         "found_at": "2026-07-28T10:00:00Z",
         "expires_at": expires_at,
@@ -154,6 +157,9 @@ async def test_aviasales_adapter_uses_header_and_filters_hard_flight_limits() ->
     assert "token" not in requests[0].url.params
     assert requests[0].url.params["departure_at"] == "2026-09-12"
     assert requests[0].url.params["return_at"] == "2026-09-19"
+    assert requests[0].url.params["market"] == "ru"
+    assert requests[0].url.params["currency"] == "rub"
+    assert requests[0].url.params["one_way"] == "false"
 
     blocked = request.model_copy(update={"max_stops": 0})
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -243,3 +249,85 @@ def test_month_selection_keeps_cheap_and_early_middle_late_coverage() -> None:
     assert {2, 5}.issubset(selected_days)
     assert {25, 28}.issubset(selected_days)
     assert len(selected) <= 12
+
+
+def test_cached_signal_keeps_provider_metadata_and_derived_confidence() -> None:
+    signals = normalize_aviasales_signals(
+        [_item()],
+        batch=generate_date_scenarios(_request()),
+        request=_request(),
+        now=NOW,
+        source_url=AVIASALES_PRICES_URL,
+    )
+
+    signal = signals[0]
+    assert signal.currency == "RUB"
+    assert signal.airline == "TK"
+    assert signal.return_stops == 2
+    assert signal.provider_url == "https://www.aviasales.ru/MOW1209IST1909"
+    assert signal.fetched_at == NOW
+    assert signal.age_hours == 2
+    assert signal.confidence == 0.65
+
+
+@pytest.mark.asyncio
+async def test_aviasales_adapter_caches_empty_and_retries_only_server_errors() -> None:
+    calls = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(503, json={"success": False}, request=request)
+        return httpx.Response(
+            200, json={"success": True, "currency": "rub", "data": []}, request=request
+        )
+
+    request = _request(
+        date_mode="exact",
+        month=None,
+        outbound_date=date(2026, 9, 12),
+        return_date=date(2026, 9, 19),
+    )
+    config = CachedFlightConfig(
+        max_retries=1,
+        retry_backoff_seconds=0,
+        min_request_interval_seconds=0,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AviasalesDataProvider(client, SecretStr("token-value"), config=config)
+        batch = generate_date_scenarios(request)
+        assert await provider.search(request, batch, now=NOW) == ()
+        assert await provider.search(request, batch, now=NOW + timedelta(minutes=5)) == ()
+
+    assert calls == 2
+
+
+@pytest.mark.asyncio
+async def test_aviasales_adapter_does_not_retry_client_errors_or_log_token(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    calls = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(401, json={"success": False}, request=request)
+
+    request = _request(
+        date_mode="exact",
+        month=None,
+        outbound_date=date(2026, 9, 12),
+        return_date=date(2026, 9, 19),
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AviasalesDataProvider(
+            client,
+            SecretStr("private-token-value"),
+            config=CachedFlightConfig(max_retries=2, min_request_interval_seconds=0),
+        )
+        with pytest.raises(CachedFlightProviderError):
+            await provider.search(request, generate_date_scenarios(request), now=NOW)
+
+    assert calls == 1
+    assert "private-token-value" not in caplog.text

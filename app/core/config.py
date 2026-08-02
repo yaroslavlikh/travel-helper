@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     places_database_url: str | None = None
     places_embedding_version: str = "hash-v1"
     aviasales_marker: str | None = None
+    travelpayouts_api_token: SecretStr | None = None
+    travelpayouts_partner_id: str | None = None
 
     flight_provider_mode: Literal["disabled", "fixture", "cached", "live"] = "disabled"
     stay_provider_mode: Literal["disabled", "fixture", "cached", "live"] = "disabled"
@@ -89,6 +91,10 @@ class Settings(BaseSettings):
     @property
     def amadeus_is_configured(self) -> bool:
         return bool(self.amadeus_client_id and self.amadeus_client_secret)
+
+    @property
+    def travelpayouts_is_configured(self) -> bool:
+        return bool(self.travelpayouts_api_token)
 
     @property
     def booking_is_configured(self) -> bool:
