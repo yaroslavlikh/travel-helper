@@ -210,6 +210,7 @@ async def test_frontend_exposes_an_accessible_sidebar_collapse_control() -> None
     assert 'id="sidebar-toggle"' in response.text
     assert 'aria-controls="chat-history"' in response.text
     assert asset.headers["cache-control"] == "no-store, max-age=0"
+    assert asset.headers["content-length"] == str(len(asset.content))
 
 
 @pytest.mark.asyncio

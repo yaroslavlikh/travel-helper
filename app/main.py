@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
+from mimetypes import guess_type
 from pathlib import Path
 from typing import Any, Literal, cast
 
 import httpx
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse, Response
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -248,9 +248,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     static_directory = Path(__file__).resolve().parent / "static"
-    app.mount("/static", StaticFiles(directory=static_directory), name="static")
     app.include_router(recommendation_router)
     app.include_router(account_router)
+
+    @app.get("/static/{asset_path:path}", include_in_schema=False)
+    async def static_asset(asset_path: str) -> Response:
+        """Serve the small frontend bundle as a complete response behind Render's proxy."""
+
+        resolved = (static_directory / asset_path).resolve()
+        if not resolved.is_relative_to(static_directory) or not resolved.is_file():
+            raise HTTPException(status_code=404, detail="Not found")
+        media_type = guess_type(resolved.name)[0] or "application/octet-stream"
+        return Response(
+            content=resolved.read_bytes(),
+            media_type=media_type,
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:
