@@ -21,9 +21,9 @@ Rotate any credential that was ever shared outside the secret manager before the
 
 ## Browser integrations
 
-The partner loader in the main page is deliberately attached only after the browser `load` event.
-It must remain outside the critical rendering and chat-initialisation path: if it fails or stalls,
-the local UI, guest history and recommendation requests must still be usable.
+Do not inject partner or tracking scripts into the planning page. They can intercept DOM APIs and
+break chat initialisation, guest history and recommendation requests. Affiliate routing belongs in
+the server-owned outbound links and event endpoint, where it is observable and can fail safely.
 
 ## Release sequence
 

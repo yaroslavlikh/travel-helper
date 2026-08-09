@@ -209,8 +209,7 @@ async def test_frontend_exposes_an_accessible_sidebar_collapse_control() -> None
     assert response.status_code == 200
     assert 'id="sidebar-toggle"' in response.text
     assert 'aria-controls="chat-history"' in response.text
-    assert "emrldtp.com/NTU3MzU1.js?t=557355" in response.text
-    assert 'window.addEventListener("load", () => {' in response.text
+    assert "emrldtp.com" not in response.text
     assert response.headers["cache-control"] == "no-store, max-age=0"
     assert asset.headers["cache-control"] == "no-store, max-age=0"
     assert asset.headers["content-length"] == str(len(asset.content))
