@@ -248,14 +248,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     static_directory = Path(__file__).resolve().parent / "static"
-    chat_page = (static_directory / "index.html").read_text(encoding="utf-8")
-    chat_page = chat_page.replace(
-        '<link rel="stylesheet" href="/static/styles.css?v=20260803-origin-static" />',
-        f"<style>{(static_directory / 'styles.css').read_text(encoding='utf-8')}</style>",
-    ).replace(
-        '<script src="/static/app.js?v=20260803-origin-static" defer></script>',
-        f"<script>{(static_directory / 'app.js').read_text(encoding='utf-8')}</script>",
-    )
     app.include_router(recommendation_router)
     app.include_router(account_router)
 
@@ -274,10 +266,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     @app.get("/", include_in_schema=False)
-    async def index() -> Response:
-        return Response(
-            content=chat_page,
-            media_type="text/html",
+    async def index() -> FileResponse:
+        return FileResponse(
+            static_directory / "index.html",
             headers={"Cache-Control": "no-store, max-age=0"},
         )
 
