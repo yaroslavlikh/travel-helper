@@ -214,8 +214,8 @@ async def test_frontend_exposes_an_accessible_sidebar_collapse_control() -> None
     assert "/static/app.js" in response.text
     assert 'media="print" onload="this.media=\'all\'"' in response.text
     assert '<script src="/static/app.js?v=20260809-chat-init"></script>' in response.text
-    assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert asset.headers["cache-control"] == "no-store, max-age=0"
+    assert response.headers["cache-control"] == "no-store, no-transform, max-age=0"
+    assert asset.headers["cache-control"] == "no-store, no-transform, max-age=0"
     assert asset.headers["content-length"] == str(len(asset.content))
 
 

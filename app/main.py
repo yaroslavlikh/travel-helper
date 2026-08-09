@@ -242,7 +242,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # incomplete streamed static responses, leaving the browser with a blank shell.
         # Keep small application assets origin-served until static hosting is separated.
         if request.url.path.startswith("/static/"):
-            response.headers["Cache-Control"] = "no-store, max-age=0"
+            response.headers["Cache-Control"] = "no-store, no-transform, max-age=0"
         for header, value in response_headers.items():
             response.headers.setdefault(header, value)
         return response
@@ -262,14 +262,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return Response(
             content=resolved.read_bytes(),
             media_type=media_type,
-            headers={"Cache-Control": "no-store, max-age=0"},
+            headers={"Cache-Control": "no-store, no-transform, max-age=0"},
         )
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:
         return FileResponse(
             static_directory / "index.html",
-            headers={"Cache-Control": "no-store, max-age=0"},
+            headers={"Cache-Control": "no-store, no-transform, max-age=0"},
         )
 
     @app.get("/login", include_in_schema=False)
