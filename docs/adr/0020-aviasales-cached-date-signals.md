@@ -18,10 +18,12 @@ search timestamps, `age_hours` and expiry remain `unknown`; the source observati
 fetch time and confidence is reduced. An absent `actual` field is not treated as `false`.
 
 The API token is sent in `X-Access-Token`, never logged or stored in snapshots. Explicitly expired,
-malformed, zero, negative or date-mismatched observations are discarded. For month discovery,
-request at most five evenly distributed representative scenarios. If the traveller has supplied a
-month but not a trip length, use a visibly disclosed seven-night planning default. The card presents
-the minimum and maximum of returned cached observations, never a generated estimate.
+malformed, zero, negative or date-mismatched observations are discarded. For an exact trip, a cached
+observation must have the same outbound and return dates. For a month or departure window, the API is
+queried at month granularity and any returned date pair inside the requested period and duration is
+accepted; internal scenario sampling must not discard a valid provider observation. If the traveller
+has supplied a month but not a trip length, use a visibly disclosed seven-night planning default. The
+card presents the minimum and maximum of returned cached observations, never a generated estimate.
 
 ## Consequences
 

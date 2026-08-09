@@ -208,7 +208,14 @@ def normalize_aviasales_signals(
         try:
             outbound = _as_date(item.get("departure_at"))
             return_date = _as_date(item.get("return_at"))
-            scenario = scenarios[(outbound, return_date)]
+            scenario = scenarios.get((outbound, return_date))
+            scenario_id = (
+                scenario.scenario_id
+                if scenario
+                else _flexible_scenario_id(request, outbound, return_date)
+            )
+            if scenario_id is None:
+                continue
             origin = _iata(item.get("origin"))
             destination = _iata(item.get("destination"))
             if origin not in request.origin_iata or destination not in request.destination_iata:
@@ -252,11 +259,11 @@ def normalize_aviasales_signals(
                 observed_at=found_at or now,
                 valid_until=expires_at,
                 source_url=source_url,
-                raw_reference_id=str(item.get("link") or "") or None,
+                raw_reference_id=str(item.get("link") or "")[:256] or None,
             )
             signal = FlightPriceSignal(
                 signal_id=f"fps_{sha256(signal_key.encode()).hexdigest()[:20]}",
-                scenario_id=scenario.scenario_id,
+                scenario_id=scenario_id,
                 origin_iata=origin,
                 destination_iata=destination,
                 outbound_date=outbound,
@@ -315,6 +322,22 @@ def _query_periods(request: PricingRequest, batch: ScenarioBatch) -> tuple[tuple
             }
         )
     )
+
+
+def _flexible_scenario_id(request: PricingRequest, outbound: date, return_date: date) -> str | None:
+    if request.date_mode == "exact":
+        return None
+    if not request.nights_min <= (return_date - outbound).days <= request.nights_max:
+        return None
+    if request.date_mode == "month":
+        if outbound.strftime("%Y-%m") != request.month:
+            return None
+    else:
+        assert request.departure_from is not None and request.departure_to is not None
+        if not request.departure_from <= outbound <= request.departure_to:
+            return None
+    key = f"{outbound.isoformat()}|{return_date.isoformat()}"
+    return f"ds_{sha256(key.encode()).hexdigest()[:20]}"
 
 
 def _as_date(value: object) -> date:

@@ -10,8 +10,10 @@ from pydantic import SecretStr
 from app.pricing.config import CachedFlightConfig
 from app.pricing.errors import CachedFlightProviderError
 from app.pricing.models import (
+    DateScenario,
     FlightPriceSignal,
     PricingRequest,
+    ScenarioBatch,
     SourceRef,
 )
 from app.pricing.providers.aviasales_data import (
@@ -161,6 +163,48 @@ def test_cached_signal_deduplicates_same_route_and_dates_by_price() -> None:
     )
 
     assert [signal.amount_rub for signal in signals] == [Decimal("29000")]
+
+
+def test_cached_month_signal_is_not_limited_to_internal_date_samples() -> None:
+    request = _request()
+    batch = ScenarioBatch(
+        generated_count=30,
+        scenarios=(
+            DateScenario(
+                scenario_id="sampled-date",
+                outbound_date=date(2026, 9, 1),
+                return_date=date(2026, 9, 8),
+                nights=7,
+            ),
+        ),
+        sampling_applied=True,
+    )
+
+    signals = normalize_aviasales_signals(
+        [_item(outbound="2026-09-27", return_date="2026-10-04")],
+        batch=batch,
+        request=request,
+        now=NOW,
+        source_url=AVIASALES_PRICES_URL,
+    )
+
+    assert len(signals) == 1
+    assert signals[0].outbound_date == date(2026, 9, 27)
+    assert signals[0].scenario_id != "sampled-date"
+
+
+def test_cached_signal_keeps_a_long_provider_link_without_rejecting_the_price() -> None:
+    signals = normalize_aviasales_signals(
+        [{**_item(), "link": "/" + "x" * 400}],
+        batch=generate_date_scenarios(_request()),
+        request=_request(),
+        now=NOW,
+        source_url=AVIASALES_PRICES_URL,
+    )
+
+    assert len(signals) == 1
+    assert signals[0].provider_url is not None
+    assert len(signals[0].source.raw_reference_id or "") == 256
 
 
 @pytest.mark.asyncio
