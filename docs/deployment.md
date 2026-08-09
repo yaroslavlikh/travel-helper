@@ -25,6 +25,10 @@ Do not inject partner or tracking scripts into the planning page. They can inter
 break chat initialisation, guest history and recommendation requests. Affiliate routing belongs in
 the server-owned outbound links and event endpoint, where it is observable and can fail safely.
 
+The main chat page embeds its version-coupled CSS and JavaScript in the same origin response. This
+avoids proxy stalls that leave the shell visible while its static assets never finish loading. Keep
+the payload small; move it to dedicated static hosting once that service is introduced and tested.
+
 ## Release sequence
 
 1. Run `make check` from the commit being deployed.

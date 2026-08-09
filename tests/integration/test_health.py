@@ -210,6 +210,9 @@ async def test_frontend_exposes_an_accessible_sidebar_collapse_control() -> None
     assert 'id="sidebar-toggle"' in response.text
     assert 'aria-controls="chat-history"' in response.text
     assert "emrldtp.com" not in response.text
+    assert "/static/styles.css" not in response.text
+    assert "/static/app.js" not in response.text
+    assert "async function accountFetch" in response.text
     assert response.headers["cache-control"] == "no-store, max-age=0"
     assert asset.headers["cache-control"] == "no-store, max-age=0"
     assert asset.headers["content-length"] == str(len(asset.content))
@@ -510,7 +513,7 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
     assert "Живая подборка" in page.text
     assert 'aria-controls="chat-view" aria-selected="true"' in page.text
     assert 'aria-controls="feed-panel" aria-selected="false"' in page.text
-    assert "/static/app.js?v=20260803-origin-static" in page.text
+    assert "/static/app.js?v=20260803-origin-static" not in page.text
     assert login_page.status_code == 200
     assert "Продолжайте с того места" in login_page.text
     assert "Вся поездка — в одном диалоге" in login_page.text
