@@ -12,12 +12,15 @@ carry the exact trip party, and cached observations do not confirm current avail
 
 Use `prices_for_dates` only to produce `FlightPriceSignal` records, shortlist exact date
 scenarios and show a clearly marked cached flight observation in a destination card. Every signal
-is labelled `cached_unknown_party`, `usable_for_total=false`, carries source timestamps, age,
-confidence and provider route link, and is matched to a generated date scenario.
+is labelled `cached_unknown_party`, `usable_for_total=false`, carries fetch time, confidence and
+provider route link, and is matched to a generated date scenario. If the endpoint omits original
+search timestamps, `age_hours` and expiry remain `unknown`; the source observation is the API
+fetch time and confidence is reduced. An absent `actual` field is not treated as `false`.
 
-The API token is sent in `X-Access-Token`, never logged or stored in snapshots. Expired, malformed,
-zero, negative or date-mismatched observations are discarded. For month discovery, select up to
-twelve scenarios using six cheapest signals plus deterministic early/middle/late coverage.
+The API token is sent in `X-Access-Token`, never logged or stored in snapshots. Explicitly expired,
+malformed, zero, negative or date-mismatched observations are discarded. For month discovery,
+select up to twelve scenarios using six cheapest signals plus deterministic early/middle/late
+coverage.
 
 ## Consequences
 

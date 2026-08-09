@@ -214,9 +214,14 @@ def normalize_aviasales_signals(
             if origin not in request.origin_iata or destination not in request.destination_iata:
                 continue
             amount = Decimal(str(item.get("price")))
-            found_at = _as_datetime(item.get("found_at"))
-            expires_at = _as_datetime(item.get("expires_at"))
-            if expires_at <= now or found_at > now or amount <= 0 or item.get("actual") is not True:
+            found_at = _optional_datetime(item.get("found_at"))
+            expires_at = _optional_datetime(item.get("expires_at"))
+            if (
+                (expires_at is not None and expires_at <= now)
+                or (found_at is not None and found_at > now)
+                or amount <= 0
+                or item.get("actual") is False
+            ):
                 continue
             stops_raw = item.get("transfers")
             stops = int(stops_raw) if stops_raw is not None else None
@@ -231,13 +236,20 @@ def normalize_aviasales_signals(
             if return_stops is not None and return_stops < 0:
                 continue
             airline = _airline(item.get("airline"))
-            age_hours = max(0, int((now - found_at).total_seconds() // 3600))
-            signal_key = f"{origin}|{destination}|{outbound}|{return_date}|{amount}|{found_at}"
+            age_hours = (
+                max(0, int((now - found_at).total_seconds() // 3600))
+                if found_at is not None
+                else None
+            )
+            signal_key = (
+                f"{origin}|{destination}|{outbound}|{return_date}|{amount}|"
+                f"{found_at or item.get('link') or 'unknown'}"
+            )
             source = SourceRef(
                 source_id=f"aviasales-cache-{sha256(signal_key.encode()).hexdigest()[:20]}",
                 provider="aviasales-data",
                 source_kind="cached",
-                observed_at=found_at,
+                observed_at=found_at or now,
                 valid_until=expires_at,
                 source_url=source_url,
                 raw_reference_id=str(item.get("link") or "") or None,
@@ -311,7 +323,9 @@ def _as_date(value: object) -> date:
     return date.fromisoformat(value[:10])
 
 
-def _as_datetime(value: object) -> datetime:
+def _optional_datetime(value: object) -> datetime | None:
+    if value is None:
+        return None
     if not isinstance(value, str):
         raise ValueError("timestamp is missing")
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -337,7 +351,9 @@ def _provider_url(value: object) -> str | None:
     return urljoin(AVIASALES_WEB_URL, value)
 
 
-def _confidence_for_age(age_hours: int) -> float:
+def _confidence_for_age(age_hours: int | None) -> float:
+    if age_hours is None:
+        return 0.35
     if age_hours <= 12:
         return 0.65
     if age_hours <= 48:

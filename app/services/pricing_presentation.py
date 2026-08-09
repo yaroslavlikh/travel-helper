@@ -129,8 +129,12 @@ def cached_flight_card(signal: FlightPriceSignal) -> PricingCardView:
             ),
         ],
         freshness_label=(
-            f"Найдено {signal.age_hours} ч назад · источник: cached · "
-            f"уверенность {round(signal.confidence * 100)}%"
+            (
+                f"Найдено {signal.age_hours} ч назад"
+                if signal.age_hours is not None
+                else "Время исходного поиска API не передаёт"
+            )
+            + f" · источник: cached · уверенность {round(signal.confidence * 100)}%"
         ),
         warnings=[
             "Кэшированный перелёт не подтверждает наличие, состав пассажиров или полный бюджет.",

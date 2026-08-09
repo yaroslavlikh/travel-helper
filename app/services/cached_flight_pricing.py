@@ -120,7 +120,7 @@ def preferred_cached_signal(signals: tuple[FlightPriceSignal, ...]) -> FlightPri
         signals,
         key=lambda signal: (
             signal.amount_rub,
-            signal.age_hours,
+            signal.age_hours if signal.age_hours is not None else 10_000,
             signal.outbound_date,
             signal.return_date,
             signal.signal_id,

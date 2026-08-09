@@ -4,12 +4,13 @@ from app.domain.models import TravelRequest
 from app.pricing.models import (
     CostComponent,
     DateScenario,
+    FlightPriceSignal,
     MoneyRange,
     ScenarioPrice,
     SourceRef,
     TripPriceEstimate,
 )
-from app.services.pricing_presentation import pricing_card, unavailable_pricing
+from app.services.pricing_presentation import cached_flight_card, pricing_card, unavailable_pricing
 
 
 def test_unavailable_pricing_names_missing_critical_evidence() -> None:
@@ -82,3 +83,27 @@ def test_complete_snapshot_becomes_numeric_price_card() -> None:
     assert view.expected_total_rub == 50_000
     assert view.headline == "≈ 50 000 ₽"
     assert view.components[0].expected_rub == 50_000
+
+
+def test_cached_card_discloses_when_api_omits_source_age() -> None:
+    now = datetime(2026, 7, 28, 12, tzinfo=UTC)
+    signal = FlightPriceSignal(
+        signal_id="cached-signal-1",
+        scenario_id="scenario-1",
+        origin_iata="MOW",
+        destination_iata="IST",
+        outbound_date=date(2026, 8, 10),
+        return_date=date(2026, 8, 17),
+        amount_rub=40_000,
+        source=SourceRef(
+            source_id="cached-flight",
+            provider="aviasales-data",
+            source_kind="cached",
+            observed_at=now,
+        ),
+    )
+
+    view = cached_flight_card(signal)
+
+    assert view.status == "partial"
+    assert "Время исходного поиска API не передаёт" in view.freshness_label

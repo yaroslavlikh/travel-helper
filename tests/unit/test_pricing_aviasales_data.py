@@ -86,6 +86,43 @@ def test_cached_flight_signal_is_never_usable_as_trip_total() -> None:
     assert signals[0].usable_for_total is False
 
 
+def test_cached_signal_accepts_documented_response_without_source_timestamps() -> None:
+    request = _request(
+        date_mode="exact",
+        month=None,
+        outbound_date=date(2026, 9, 12),
+        return_date=date(2026, 9, 19),
+    )
+    item = {
+        "origin": "MOW",
+        "destination": "IST",
+        "departure_at": "2026-09-12T09:40:00+03:00",
+        "return_at": "2026-09-19T17:15:00+03:00",
+        "price": 30_000,
+        "transfers": 1,
+        "return_transfers": 2,
+        "airline": "TK",
+        "duration": 300,
+        "link": "/MOW1209IST1909",
+    }
+
+    signals = normalize_aviasales_signals(
+        [item],
+        batch=generate_date_scenarios(request),
+        request=request,
+        now=NOW,
+        source_url=AVIASALES_PRICES_URL,
+    )
+
+    assert len(signals) == 1
+    assert signals[0].found_at is None
+    assert signals[0].expires_at is None
+    assert signals[0].age_hours is None
+    assert signals[0].confidence == 0.35
+    assert signals[0].source.observed_at == NOW
+    assert signals[0].source.valid_until is None
+
+
 @pytest.mark.parametrize(
     "item",
     [
@@ -94,7 +131,6 @@ def test_cached_flight_signal_is_never_usable_as_trip_total() -> None:
         _item(price=-1),
         _item(expires_at="2026-07-28T11:59:00Z"),
         _item(actual=False),
-        {**_item(), "expires_at": None},
         {**_item(), "origin": "MOSCOW"},
         {**_item(), "origin": "LED"},
     ],
