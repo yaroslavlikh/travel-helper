@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from app.domain.models import DestinationCandidate, TravelRequest
 from app.pricing.errors import CachedFlightProviderError
-from app.pricing.models import FlightPriceSignal, PricingRequest
+from app.pricing.models import FlightPriceSignal, PricingRequest, ScenarioBatch
 from app.pricing.ports.flights import CachedFlightDiscovery
 from app.pricing.scenario_generation import generate_date_scenarios
 from app.services.aviasales import origin_iata
 
 LOGGER = logging.getLogger(__name__)
+DISCOVERY_SCENARIO_LIMIT = 5
 
 
 async def discover_cached_flights(
@@ -32,7 +33,7 @@ async def discover_cached_flights(
             continue
         try:
             signals = await provider.search(
-                pricing_request, generate_date_scenarios(pricing_request), now=observed_at
+                pricing_request, _discovery_scenarios(pricing_request), now=observed_at
             )
         except CachedFlightProviderError as error:
             LOGGER.warning(
@@ -55,13 +56,13 @@ def pricing_request_for_candidate(
 
     origin = origin_iata(request.origin_city)
     destination = candidate.nearest_airport
-    if origin is None or destination is None or request.flight_one_way or request.date_from is None:
+    if origin is None or destination is None or request.flight_one_way:
         return None
     assert request.origin_city is not None
     origin_city_id = request.origin_city.casefold()
     adults = request.adults or 1
     children = request.children or 0
-    if request.date_to is not None:
+    if request.date_from is not None and request.date_to is not None:
         nights = (request.date_to - request.date_from).days
         if nights < 1:
             return None
@@ -86,19 +87,14 @@ def pricing_request_for_candidate(
                 else None
             ),
         )
-    if request.departure_window_from is None or request.departure_window_to is None:
-        return None
-    nights_min = request.duration_nights_min or 1
+    nights_min = request.duration_nights_min or 7
     nights_max = request.duration_nights_max or nights_min
-    return PricingRequest(
+    common = dict(
         request_id=f"cached-{candidate.destination_id}",
         origin_city_id=origin_city_id,
         origin_iata=(origin,),
         destination_id=candidate.destination_id,
         destination_iata=(destination,),
-        date_mode="window",
-        departure_from=request.departure_window_from,
-        departure_to=request.departure_window_to,
         nights_min=nights_min,
         nights_max=nights_max,
         adults=adults,
@@ -110,6 +106,37 @@ def pricing_request_for_candidate(
             if request.max_flight_duration_hours is not None
             else None
         ),
+    )
+    if request.departure_window_from is not None and request.departure_window_to is not None:
+        return PricingRequest.model_validate(
+            {
+                **common,
+                "date_mode": "window",
+                "departure_from": request.departure_window_from,
+                "departure_to": request.departure_window_to,
+            }
+        )
+    if request.month is None:
+        return None
+    today = date.today()
+    year = today.year + int(request.month < today.month)
+    return PricingRequest.model_validate(
+        {**common, "date_mode": "month", "month": f"{year}-{request.month:02}"}
+    )
+
+
+def _discovery_scenarios(request: PricingRequest) -> ScenarioBatch:
+    batch = generate_date_scenarios(request)
+    if len(batch.scenarios) <= DISCOVERY_SCENARIO_LIMIT:
+        return batch
+    indexes = {
+        round(index * (len(batch.scenarios) - 1) / (DISCOVERY_SCENARIO_LIMIT - 1))
+        for index in range(DISCOVERY_SCENARIO_LIMIT)
+    }
+    return ScenarioBatch(
+        generated_count=batch.generated_count,
+        scenarios=tuple(batch.scenarios[index] for index in sorted(indexes)),
+        sampling_applied=True,
     )
 
 

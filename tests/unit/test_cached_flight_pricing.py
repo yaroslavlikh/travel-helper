@@ -6,6 +6,7 @@ import pytest
 from app.domain.models import DestinationCandidate, TravelRequest
 from app.pricing.models import FlightPriceSignal, PricingRequest, ScenarioBatch, SourceRef
 from app.services.cached_flight_pricing import (
+    _discovery_scenarios,
     discover_cached_flights,
     pricing_request_for_candidate,
 )
@@ -88,7 +89,7 @@ async def test_cached_signal_is_attached_without_a_trip_total_or_budget_pass() -
     )
 
     signal = results["istanbul"][0]
-    view = cached_flight_card(signal)
+    view = cached_flight_card((signal,))
     assert signal.usable_for_total is False
     assert view.status == "partial"
     assert view.expected_total_rub is None
@@ -96,3 +97,14 @@ async def test_cached_signal_is_attached_without_a_trip_total_or_budget_pass() -
     assert "live-цена" in view.subtitle
     assert view.components[0].expected_rub == 25_000
     assert view.components[1].status == "missing"
+
+
+def test_month_uses_seven_night_default_and_at_most_five_scenarios() -> None:
+    request = _request().model_copy(update={"date_from": None, "date_to": None, "month": 9})
+    pricing_request = pricing_request_for_candidate(request, _candidate())
+
+    assert pricing_request is not None
+    assert pricing_request.date_mode == "month"
+    assert pricing_request.month == "2026-09"
+    assert pricing_request.nights_min == pricing_request.nights_max == 7
+    assert len(_discovery_scenarios(pricing_request).scenarios) == 5

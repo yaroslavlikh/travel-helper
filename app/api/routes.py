@@ -337,11 +337,11 @@ async def _build_recommendation_response(
                 item.model_copy(
                     update={
                         "pricing": (
-                            cached_flight_card(signal)
-                            if (
-                                signal := preferred_cached_signal(
-                                    cached_flights.get(item.candidate.destination_id, ())
-                                )
+                            cached_flight_card(
+                                cached_flights.get(item.candidate.destination_id, ())
+                            )
+                            if preferred_cached_signal(
+                                cached_flights.get(item.candidate.destination_id, ())
                             )
                             else pricing_card(request=parsed_request, snapshot=None)
                         )

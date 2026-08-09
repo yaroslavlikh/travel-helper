@@ -95,15 +95,24 @@ def unavailable_pricing(request: TravelRequest) -> PricingCardView:
     )
 
 
-def cached_flight_card(signal: FlightPriceSignal) -> PricingCardView:
+def cached_flight_card(
+    signal: FlightPriceSignal | tuple[FlightPriceSignal, ...],
+) -> PricingCardView:
     """Present a cached route/date observation without calling it a live or total price."""
 
-    amount = int(signal.amount_rub)
-    route = f"{signal.origin_iata} → {signal.destination_iata}"
-    airline = f" · {signal.airline}" if signal.airline else ""
+    signals = signal if isinstance(signal, tuple) else (signal,)
+    best = min(signals, key=lambda item: item.amount_rub)
+    amount = int(best.amount_rub)
+    maximum = int(max(item.amount_rub for item in signals))
+    route = f"{best.origin_iata} → {best.destination_iata}"
+    airline = f" · {best.airline}" if best.airline else ""
     return PricingCardView(
         status="partial",
-        headline=f"Перелёт: ≈ {amount:,} ₽".replace(",", " "),
+        headline=(
+            f"Перелёт: от {amount:,} до {maximum:,} ₽"
+            if len(signals) > 1
+            else f"Перелёт: ≈ {amount:,} ₽"
+        ).replace(",", " "),
         subtitle=(
             f"{route}{airline} · цена найдена ранее и проверяется при переходе. "
             "Это не live-цена и не полный бюджет поездки."
@@ -115,7 +124,7 @@ def cached_flight_card(signal: FlightPriceSignal) -> PricingCardView:
                 status="partial",
                 floor_rub=amount,
                 expected_rub=amount,
-                safe_rub=amount,
+                safe_rub=maximum,
                 reason=(
                     "Найдено по поискам Aviasales; доступность и итоговая цена "
                     "проверяются при переходе."
@@ -130,11 +139,14 @@ def cached_flight_card(signal: FlightPriceSignal) -> PricingCardView:
         ],
         freshness_label=(
             (
-                f"Найдено {signal.age_hours} ч назад"
-                if signal.age_hours is not None
+                f"Найдено {best.age_hours} ч назад"
+                if best.age_hours is not None
                 else "Время исходного поиска API не передаёт"
             )
-            + f" · источник: cached · уверенность {round(signal.confidence * 100)}%"
+            + (
+                f" · источник: cached · {len(signals)} сценариев"
+                f" · уверенность {round(best.confidence * 100)}%"
+            )
         ),
         warnings=[
             "Кэшированный перелёт не подтверждает наличие, состав пассажиров или полный бюджет.",

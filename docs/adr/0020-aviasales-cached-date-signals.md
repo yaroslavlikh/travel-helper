@@ -19,8 +19,9 @@ fetch time and confidence is reduced. An absent `actual` field is not treated as
 
 The API token is sent in `X-Access-Token`, never logged or stored in snapshots. Explicitly expired,
 malformed, zero, negative or date-mismatched observations are discarded. For month discovery,
-select up to twelve scenarios using six cheapest signals plus deterministic early/middle/late
-coverage.
+request at most five evenly distributed representative scenarios. If the traveller has supplied a
+month but not a trip length, use a visibly disclosed seven-night planning default. The card presents
+the minimum and maximum of returned cached observations, never a generated estimate.
 
 ## Consequences
 
