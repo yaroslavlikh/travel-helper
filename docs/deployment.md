@@ -27,6 +27,8 @@ the server-owned outbound links and event endpoint, where it is observable and c
 
 The chat stylesheet must not block the JavaScript bundle: a stalled stylesheet must degrade visual
 presentation, not prevent chat history and recommendation requests from starting.
+The bundle itself loads after the page markup without `defer`, so the browser cannot expose a
+non-interactive shell while a deferred script is pending.
 
 ## Release sequence
 

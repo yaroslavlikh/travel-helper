@@ -213,6 +213,7 @@ async def test_frontend_exposes_an_accessible_sidebar_collapse_control() -> None
     assert "/static/styles.css" in response.text
     assert "/static/app.js" in response.text
     assert 'media="print" onload="this.media=\'all\'"' in response.text
+    assert '<script src="/static/app.js?v=20260809-chat-init"></script>' in response.text
     assert response.headers["cache-control"] == "no-store, max-age=0"
     assert asset.headers["cache-control"] == "no-store, max-age=0"
     assert asset.headers["content-length"] == str(len(asset.content))
@@ -513,7 +514,7 @@ async def test_root_page_and_feedback_endpoint_work() -> None:
     assert "Живая подборка" in page.text
     assert 'aria-controls="chat-view" aria-selected="true"' in page.text
     assert 'aria-controls="feed-panel" aria-selected="false"' in page.text
-    assert "/static/app.js?v=20260803-origin-static" in page.text
+    assert "/static/app.js?v=20260809-chat-init" in page.text
     assert login_page.status_code == 200
     assert "Продолжайте с того места" in login_page.text
     assert "Вся поездка — в одном диалоге" in login_page.text
