@@ -19,6 +19,12 @@ characters. Keep `CORS_ALLOWED_ORIGINS` empty when the static UI is served by th
 
 Rotate any credential that was ever shared outside the secret manager before the first deployment.
 
+## Browser integrations
+
+The partner loader in the main page is deliberately attached only after the browser `load` event.
+It must remain outside the critical rendering and chat-initialisation path: if it fails or stalls,
+the local UI, guest history and recommendation requests must still be usable.
+
 ## Release sequence
 
 1. Run `make check` from the commit being deployed.

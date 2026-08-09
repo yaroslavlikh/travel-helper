@@ -267,7 +267,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:
-        return FileResponse(static_directory / "index.html")
+        return FileResponse(
+            static_directory / "index.html",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
 
     @app.get("/login", include_in_schema=False)
     async def login_page() -> FileResponse:
