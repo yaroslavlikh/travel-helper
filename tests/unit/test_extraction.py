@@ -74,6 +74,48 @@ class AvoidedFeatureGateway:
         return None
 
 
+class OptionalSeaGateway:
+    provider_name = "fake"
+    model_name = "fake-model"
+
+    async def generate_structured(
+        self,
+        *,
+        operation: str,
+        prompt: str,
+        schema: type[BaseModel],
+        metadata: dict[str, Any],
+    ) -> BaseModel:
+        del operation, prompt, schema, metadata
+        return TravelRequestPatch(origin_city="Москва", sea_required=True, avoided_features=["sea"])
+
+    async def aclose(self) -> None:
+        return None
+
+
+class InferredDatesGateway:
+    provider_name = "fake"
+    model_name = "fake-model"
+
+    async def generate_structured(
+        self,
+        *,
+        operation: str,
+        prompt: str,
+        schema: type[BaseModel],
+        metadata: dict[str, Any],
+    ) -> BaseModel:
+        del operation, prompt, schema, metadata
+        return TravelRequestPatch(
+            origin_city="Москва",
+            date_from=date(2026, 8, 25),
+            date_to=date(2026, 9, 1),
+        )
+
+    async def aclose(self) -> None:
+        return None
+
+
 def test_extracts_user_supplied_travel_constraints() -> None:
     request = extract_travel_request(
         "Живу в Москве, хочу улететь на море в августе на 7–10 дней, "
@@ -214,6 +256,38 @@ def test_colloquial_not_really_want_sea_is_not_a_requirement() -> None:
 
     assert request.sea_required is False
     assert "море" in request.avoid
+
+
+def test_optional_sea_is_not_treated_as_a_requirement() -> None:
+    request = extract_travel_request("Хочу городскую жизнь, море не обязательно")
+
+    assert request.sea_required is False
+    assert "море" not in request.avoid
+
+
+@pytest.mark.asyncio
+async def test_optional_sea_overrides_model_requirement_and_dislike() -> None:
+    request = await extract_travel_request_with_model(
+        "Из Москвы в Азию, море не обязательно",
+        None,
+        OptionalSeaGateway(),  # type: ignore[arg-type]
+    )
+
+    assert request.sea_required is False
+    assert "sea" not in request.avoided_features
+
+
+@pytest.mark.asyncio
+async def test_month_wording_does_not_accept_model_invented_exact_dates() -> None:
+    request = await extract_travel_request_with_model(
+        "Из Москвы в Азию в конце августа на неделю",
+        None,
+        InferredDatesGateway(),  # type: ignore[arg-type]
+    )
+
+    assert request.month == 8
+    assert request.date_from is None
+    assert request.date_to is None
 
 
 def test_infrastructure_and_activities_become_preference_hints() -> None:

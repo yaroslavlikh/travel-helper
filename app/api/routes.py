@@ -43,7 +43,10 @@ from app.services.destination_chat import answer_destination_question
 from app.services.destination_pois import search_destination_pois
 from app.services.extraction import extract_answers_for_questions
 from app.services.fixtures import load_demo_candidates
-from app.services.pricing_presentation import cached_flight_card, pricing_card
+from app.services.pricing_presentation import (
+    cached_flight_card,
+    cached_flight_unavailable_card,
+)
 from app.services.scoring import STRICT_BUDGET_FALLBACK, rank_candidates
 
 router = APIRouter(tags=["recommendations"])
@@ -343,7 +346,7 @@ async def _build_recommendation_response(
                             if preferred_cached_signal(
                                 cached_flights.get(item.candidate.destination_id, ())
                             )
-                            else pricing_card(request=parsed_request, snapshot=None)
+                            else cached_flight_unavailable_card(parsed_request)
                         )
                     }
                 )

@@ -28,5 +28,7 @@ the minimum and maximum of returned cached observations, never a generated estim
 - Cached prices cannot become a confirmed flight component, full-trip total or a strict-budget pass.
 - A card may show one cached flight observation only with the Russian disclosure «цена найдена ранее
   и проверяется при переходе» and with the missing accommodation component visible.
+- An empty API response means that the cache has no suitable observation, not that the flight provider
+  is disconnected. The card must show this distinction and must not fabricate a price.
 - No public pricing endpoint is enabled by this slice.
 - Live flight pricing with exact passenger composition remains required before cards show totals.

@@ -10,7 +10,7 @@ from app.services.cached_flight_pricing import (
     discover_cached_flights,
     pricing_request_for_candidate,
 )
-from app.services.pricing_presentation import cached_flight_card
+from app.services.pricing_presentation import cached_flight_card, cached_flight_unavailable_card
 
 NOW = datetime(2026, 8, 3, 12, tzinfo=UTC)
 
@@ -108,3 +108,9 @@ def test_month_uses_seven_night_default_and_at_most_five_scenarios() -> None:
     assert pricing_request.month == "2026-09"
     assert pricing_request.nights_min == pricing_request.nights_max == 7
     assert len(_discovery_scenarios(pricing_request).scenarios) == 5
+
+
+def test_empty_cached_search_is_not_reported_as_missing_live_provider() -> None:
+    view = cached_flight_unavailable_card(_request())
+    assert view.headline == "В кэше Aviasales цен нет"
+    assert "live provider" not in view.components[0].reason

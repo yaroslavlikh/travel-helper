@@ -95,6 +95,31 @@ def unavailable_pricing(request: TravelRequest) -> PricingCardView:
     )
 
 
+def cached_flight_unavailable_card(request: TravelRequest) -> PricingCardView:
+    timing = "на выбранные даты" if request.date_from and request.date_to else "в выбранном периоде"
+    return PricingCardView(
+        status="unavailable",
+        headline="В кэше Aviasales цен нет",
+        subtitle=f"Aviasales не нашёл сохранённых цен {timing}; это не ошибка подключения.",
+        components=[
+            PricingComponentView(
+                component="flight",
+                label="Перелёт · кэш Aviasales",
+                status="missing",
+                reason="В кэше поисков Aviasales нет подходящих наблюдений.",
+            ),
+            PricingComponentView(
+                component="stay",
+                label="Жильё",
+                status="missing",
+                reason="Источник цен жилья пока не подключён.",
+            ),
+        ],
+        freshness_label="Повторите поиск позже или измените даты",
+        warnings=["Кэшированный источник не гарантирует наличие цены по каждому маршруту."],
+    )
+
+
 def cached_flight_card(
     signal: FlightPriceSignal | tuple[FlightPriceSignal, ...],
 ) -> PricingCardView:
